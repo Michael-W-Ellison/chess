@@ -32,8 +32,7 @@ data/
 *.sqlite
 *.sqlite3
 
-# LLM Models (large files)
-models/
+# LLM Models (large files) - only ignore model files, not the Python models package
 *.gguf
 *.bin
 
