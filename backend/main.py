@@ -14,6 +14,7 @@ import logging
 from utils.config import settings
 from utils.logging_config import setup_logging
 from database.database import init_db, close_db
+from services.llm_service import llm_service
 
 # Import routes (will be created later)
 # from routes import conversation, personality, profile, parent
@@ -36,10 +37,15 @@ async def lifespan(app: FastAPI):
     init_db()
     logger.info("Database initialized")
 
-    # TODO: Load LLM model
-    # logger.info(f"Loading LLM model from {settings.MODEL_PATH}")
-    # llm_service.load_model()
-    # logger.info("LLM model loaded successfully")
+    # Load LLM model
+    logger.info(f"Loading LLM model from {settings.MODEL_PATH}")
+    model_loaded = llm_service.load_model()
+
+    if model_loaded:
+        logger.info("✓ LLM model loaded successfully")
+    else:
+        logger.warning("⚠ LLM model not loaded - chatbot functionality will be limited")
+        logger.warning("  Download a model with: ./scripts/download_model.sh")
 
     logger.info(f"Backend ready at http://{settings.HOST}:{settings.PORT}")
 
@@ -48,8 +54,8 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down Tamagotchi Chatbot Backend...")
 
-    # TODO: Unload LLM model
-    # llm_service.unload_model()
+    # Unload LLM model
+    llm_service.unload_model()
 
     close_db()
     logger.info("Shutdown complete")
@@ -113,8 +119,8 @@ async def health_check():
     return {
         "status": "healthy",
         "database": "connected",
-        # TODO: Add LLM status
-        # "llm": "loaded" if llm_service.is_loaded() else "not loaded",
+        "llm": "loaded" if llm_service.is_loaded else "not loaded",
+        "model_info": llm_service.get_model_info(),
     }
 
 
