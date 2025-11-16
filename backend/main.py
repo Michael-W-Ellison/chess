@@ -16,8 +16,8 @@ from utils.logging_config import setup_logging
 from database.database import init_db, close_db
 from services.llm_service import llm_service
 
-# Import routes (will be created later)
-# from routes import conversation, personality, profile, parent
+# Import routes
+from routes import conversation, personality, profile
 
 # Setup logging
 logger = setup_logging()
@@ -124,11 +124,11 @@ async def health_check():
     }
 
 
-# Include routers (will uncomment as they are created)
-# app.include_router(conversation.router, prefix="/api", tags=["conversation"])
-# app.include_router(personality.router, prefix="/api", tags=["personality"])
-# app.include_router(profile.router, prefix="/api", tags=["profile"])
-# app.include_router(parent.router, prefix="/api", tags=["parent"])
+# Include routers
+app.include_router(conversation.router, prefix="/api", tags=["conversation"])
+app.include_router(personality.router, prefix="/api", tags=["personality"])
+app.include_router(profile.router, prefix="/api", tags=["profile"])
+# app.include_router(parent.router, prefix="/api", tags=["parent"])  # TODO: Create parent routes
 
 
 # Development server runner
