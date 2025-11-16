@@ -38,7 +38,7 @@ export const ChatWindow: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-b from-blue-50 to-white">
+    <div className="flex flex-col h-screen bg-gradient-to-b from-blue-50 to-white pb-16">
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 shadow-sm">
         <div className="flex items-center gap-3">
