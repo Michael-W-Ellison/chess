@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import ChatWindow from './components/ChatWindow';
+import ProfilePanel from './components/ProfilePanel';
+import SettingsPanel from './components/SettingsPanel';
 
 /**
  * Main application component
@@ -8,99 +11,93 @@ function App() {
   const [currentView, setCurrentView] = useState<'chat' | 'profile' | 'settings' | 'parent'>('chat');
 
   return (
-    <div className="app min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">Chatbot Friend</h1>
-
-            {/* Navigation */}
-            <nav className="flex space-x-4">
-              <button
-                onClick={() => setCurrentView('chat')}
-                className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                  currentView === 'chat'
-                    ? 'bg-primary-500 text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                Chat
-              </button>
-              <button
-                onClick={() => setCurrentView('profile')}
-                className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                  currentView === 'profile'
-                    ? 'bg-primary-500 text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                Profile
-              </button>
-              <button
-                onClick={() => setCurrentView('settings')}
-                className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                  currentView === 'settings'
-                    ? 'bg-primary-500 text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                Settings
-              </button>
-              <button
-                onClick={() => setCurrentView('parent')}
-                className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                  currentView === 'parent'
-                    ? 'bg-primary-500 text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                Parent
-              </button>
-            </nav>
+    <div className="app h-screen flex flex-col bg-gray-50">
+      {/* Render appropriate view */}
+      {currentView === 'chat' && <ChatWindow />}
+      {currentView === 'profile' && <ProfilePanel />}
+      {currentView === 'settings' && <SettingsPanel />}
+      {currentView === 'parent' && (
+        <div className="h-full flex flex-col">
+          <div className="bg-white border-b border-gray-200 px-6 py-4">
+            <h2 className="text-2xl font-bold text-gray-800">Parent Dashboard</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Monitor your child's chatbot interactions
+            </p>
+          </div>
+          <div className="flex-1 flex items-center justify-center p-6">
+            <div className="text-center max-w-md">
+              <div className="text-6xl mb-4">👨‍👩‍👧‍👦</div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                Parent Dashboard Coming Soon
+              </h3>
+              <p className="text-gray-600 mb-4">
+                The parent dashboard will provide insights into your child's conversations,
+                safety alerts, and activity monitoring.
+              </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
+                <h4 className="font-medium text-blue-800 mb-2">Planned Features:</h4>
+                <ul className="text-sm text-blue-700 space-y-1">
+                  <li>• Conversation summaries</li>
+                  <li>• Safety event notifications</li>
+                  <li>• Activity trends and analytics</li>
+                  <li>• Time usage reports</li>
+                  <li>• Password-protected access</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
-      </header>
+      )}
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        {currentView === 'chat' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Chat View</h2>
-            <p className="text-gray-600">Chat component will be added here</p>
-          </div>
-        )}
-
-        {currentView === 'profile' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Profile View</h2>
-            <p className="text-gray-600">Profile component will be added here</p>
-          </div>
-        )}
-
-        {currentView === 'settings' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Settings View</h2>
-            <p className="text-gray-600">Settings component will be added here</p>
-          </div>
-        )}
-
-        {currentView === 'parent' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Parent Dashboard</h2>
-            <p className="text-gray-600">Parent dashboard will be added here</p>
-          </div>
-        )}
-      </main>
-
-      {/* Footer */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-2">
-        <div className="max-w-7xl mx-auto px-4">
-          <p className="text-sm text-gray-500 text-center">
-            Chatbot Friend v0.1.0 - All data stored locally
-          </p>
-        </div>
-      </footer>
+      {/* Global navigation overlay (bottom) */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
+        <nav className="flex items-center justify-around max-w-2xl mx-auto px-4 py-3">
+          <button
+            onClick={() => setCurrentView('chat')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+              currentView === 'chat'
+                ? 'text-blue-600 bg-blue-50'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+            }`}
+          >
+            <span className="text-2xl">💬</span>
+            <span className="text-xs font-medium">Chat</span>
+          </button>
+          <button
+            onClick={() => setCurrentView('profile')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+              currentView === 'profile'
+                ? 'text-blue-600 bg-blue-50'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+            }`}
+          >
+            <span className="text-2xl">🤖</span>
+            <span className="text-xs font-medium">Profile</span>
+          </button>
+          <button
+            onClick={() => setCurrentView('settings')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+              currentView === 'settings'
+                ? 'text-blue-600 bg-blue-50'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+            }`}
+          >
+            <span className="text-2xl">⚙️</span>
+            <span className="text-xs font-medium">Settings</span>
+          </button>
+          <button
+            onClick={() => setCurrentView('parent')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+              currentView === 'parent'
+                ? 'text-blue-600 bg-blue-50'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+            }`}
+          >
+            <span className="text-2xl">👨‍👩‍👧</span>
+            <span className="text-xs font-medium">Parent</span>
+          </button>
+        </nav>
+      </div>
     </div>
   );
 }

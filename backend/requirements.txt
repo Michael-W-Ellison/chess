@@ -1,0 +1,46 @@
+# FastAPI and Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Database and ORM
+sqlalchemy==2.0.25
+alembic==1.13.1
+
+# LLM Integration
+llama-cpp-python==0.2.32
+
+# Vector Store (optional for semantic memory)
+chromadb==0.4.22
+
+# HTTP Requests
+httpx==0.26.0
+requests==2.31.0
+
+# Data Validation
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Environment Configuration
+python-dotenv==1.0.0
+
+# Utilities
+python-dateutil==2.8.2
+typing-extensions==4.9.0
+
+# Email for Parent Notifications
+aiosmtplib==3.0.1
+email-validator==2.1.0
+
+# Safety and Content Filtering
+better-profanity==0.7.0
+
+# Development Dependencies
+pytest==7.4.4
+pytest-asyncio==0.23.3
+black==23.12.1
+flake8==7.0.0
+mypy==1.8.0
+
+# Logging
+loguru==0.7.2
