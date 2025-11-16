@@ -1,0 +1,3381 @@
+# Tamagotchi Chatbot Friend - Technical Design Document
+
+## Project Overview
+
+### Vision
+A safe, engaging desktop chatbot companion for preteens (ages 9-13) that develops a unique personality over time through simulated growth mechanics. The system provides emotional support, good advice, and companionship while maintaining strict safety controls.
+
+### Core Principles
+- **Safety First**: All content is filtered and age-appropriate
+- **Privacy Focused**: All data stored locally, no cloud sync required
+- **Simulated Learning**: Personality growth through memory accumulation, not neural network training
+- **Ethical Design**: Promotes healthy behaviors and real-world relationships
+- **Parent Transparency**: Optional monitoring without invading child privacy
+
+---
+
+## System Architecture
+
+### Technology Stack
+
+#### Frontend (Desktop Application)
+- **Framework**: Electron (cross-platform: Windows, macOS, Linux)
+- **UI Library**: React with TypeScript
+- **Styling**: Tailwind CSS or styled-components
+- **State Management**: React Context API or Zustand
+- **Local Storage**: electron-store for settings, SQLite for conversations
+
+#### Backend (Local Server)
+- **Runtime**: Python 3.10+
+- **API Framework**: FastAPI
+- **LLM**: Llama 3.2 3B or Phi-3 Mini (GGUF format via llama-cpp-python)
+- **Database**: SQLite with SQLAlchemy ORM
+- **Vector Store**: ChromaDB for semantic memory search (optional enhancement)
+
+#### Communication
+- **IPC**: Electron IPC for frontend-backend communication
+- **REST API**: FastAPI endpoints for chat, memory, and personality management
+- **WebSocket**: Optional for real-time streaming responses
+
+### System Components Diagram
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Electron Frontend                     │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐              │
+│  │Chat UI   │  │Profile   │  │Settings  │              │
+│  │Component │  │Manager   │  │Panel     │              │
+│  └──────────┘  └──────────┘  └──────────┘              │
+│         │              │              │                  │
+│         └──────────────┴──────────────┘                  │
+│                        │                                 │
+│                   Electron IPC                          │
+└────────────────────────┼────────────────────────────────┘
+                         │
+┌────────────────────────┼────────────────────────────────┐
+│                 Python Backend (FastAPI)                │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │            Core Engine                           │  │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐       │  │
+│  │  │Safety    │  │Context   │  │Response  │       │  │
+│  │  │Filter    │  │Builder   │  │Generator │       │  │
+│  │  └──────────┘  └──────────┘  └──────────┘       │  │
+│  └──────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │         Personality System                       │  │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐       │  │
+│  │  │Traits    │  │Mood      │  │Growth    │       │  │
+│  │  │Manager   │  │System    │  │Engine    │       │  │
+│  │  └──────────┘  └──────────┘  └──────────┘       │  │
+│  └──────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │         Memory System                            │  │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐       │  │
+│  │  │Short-term│  │Long-term │  │Extractor │       │  │
+│  │  │Memory    │  │Memory    │  │          │       │  │
+│  │  └──────────┘  └──────────┘  └──────────┘       │  │
+│  └──────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │              LLM Interface                       │  │
+│  │         (llama-cpp-python)                       │  │
+│  └──────────────────────────────────────────────────┘  │
+│                         │                               │
+│                    SQLite DB                            │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Data Models
+
+### Database Schema
+
+#### users table
+```sql
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    age INTEGER,
+    grade INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_active TIMESTAMP,
+    parent_email TEXT
+);
+```
+
+#### bot_personality table
+```sql
+CREATE TABLE bot_personality (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    humor REAL DEFAULT 0.5,           -- 0.0 to 1.0
+    energy REAL DEFAULT 0.6,          -- 0.0 to 1.0
+    curiosity REAL DEFAULT 0.5,       -- 0.0 to 1.0
+    formality REAL DEFAULT 0.3,       -- 0.0 to 1.0
+    friendship_level INTEGER DEFAULT 1,  -- 1 to 10
+    total_conversations INTEGER DEFAULT 0,
+    mood TEXT DEFAULT 'happy',        -- happy, excited, calm, concerned, playful
+    quirks TEXT,                      -- JSON array of quirk codes
+    interests TEXT,                   -- JSON array of interest categories
+    catchphrase TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+```
+
+#### conversations table
+```sql
+CREATE TABLE conversations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    conversation_summary TEXT,        -- Generated summary after conversation ends
+    mood_detected TEXT,               -- User's mood during conversation
+    topics TEXT,                      -- JSON array of topics discussed
+    duration_seconds INTEGER,
+    message_count INTEGER,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+```
+
+#### messages table
+```sql
+CREATE TABLE messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id INTEGER NOT NULL,
+    role TEXT NOT NULL,               -- 'user' or 'assistant'
+    content TEXT NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    flagged BOOLEAN DEFAULT 0,        -- Safety flag
+    metadata TEXT,                    -- JSON for additional context
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id)
+);
+```
+
+#### user_profile table
+```sql
+CREATE TABLE user_profile (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    category TEXT NOT NULL,           -- 'favorite', 'dislike', 'goal', 'person', 'achievement'
+    key TEXT NOT NULL,                -- e.g., 'favorite_color', 'friend_name'
+    value TEXT NOT NULL,
+    confidence REAL DEFAULT 1.0,      -- How certain we are (0.0-1.0)
+    first_mentioned TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_mentioned TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    mention_count INTEGER DEFAULT 1,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+```
+
+#### advice_templates table
+```sql
+CREATE TABLE advice_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL,           -- 'school_stress', 'friend_conflict', 'anxiety', etc.
+    keywords TEXT NOT NULL,           -- JSON array of trigger keywords
+    template TEXT NOT NULL,           -- Advice template with placeholders
+    min_friendship_level INTEGER DEFAULT 1,
+    expert_reviewed BOOLEAN DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### safety_flags table
+```sql
+CREATE TABLE safety_flags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    message_id INTEGER,
+    flag_type TEXT NOT NULL,          -- 'profanity', 'crisis', 'bullying', 'inappropriate'
+    severity TEXT NOT NULL,           -- 'low', 'medium', 'high', 'critical'
+    content_snippet TEXT,
+    action_taken TEXT,                -- What the system did
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    parent_notified BOOLEAN DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (message_id) REFERENCES messages(id)
+);
+```
+
+### Data Transfer Objects (DTOs)
+
+#### Personality State
+```typescript
+interface PersonalityState {
+  name: string;
+  traits: {
+    humor: number;        // 0.0-1.0
+    energy: number;       // 0.0-1.0
+    curiosity: number;    // 0.0-1.0
+    formality: number;    // 0.0-1.0
+  };
+  friendshipLevel: number;  // 1-10
+  mood: 'happy' | 'excited' | 'calm' | 'concerned' | 'playful' | 'thoughtful';
+  interests: string[];      // ['sports', 'music', 'science', etc.]
+  quirks: string[];         // ['uses_emojis', 'tells_puns', 'shares_facts', etc.]
+  catchphrase?: string;
+  stats: {
+    totalConversations: number;
+    daysSinceMet: number;
+    currentStreak: number;
+  };
+}
+```
+
+#### User Profile
+```typescript
+interface UserProfile {
+  name: string;
+  age?: number;
+  grade?: number;
+  favorites: Record<string, string>;  // color, food, subject, hobby, animal, etc.
+  dislikes: Record<string, string>;
+  importantPeople: Array<{
+    name: string;
+    relationship: string;  // 'friend', 'sibling', 'pet', 'teacher', etc.
+    notes?: string;
+  }>;
+  goals: Array<{
+    description: string;
+    category: string;
+    dateSet: Date;
+    achieved?: boolean;
+  }>;
+  achievements: Array<{
+    description: string;
+    date: Date;
+  }>;
+}
+```
+
+#### Chat Message
+```typescript
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  metadata?: {
+    moodDetected?: string;
+    topicsExtracted?: string[];
+    memoryTriggered?: string[];
+    adviceCategory?: string;
+  };
+}
+```
+
+#### Conversation Context
+```typescript
+interface ConversationContext {
+  personality: PersonalityState;
+  userProfile: UserProfile;
+  recentMessages: ChatMessage[];  // Last 10 messages
+  relevantMemories: string[];     // Retrieved from long-term memory
+  currentTopic?: string;
+  conversationGoal?: string;      // 'casual', 'advice', 'storytelling', 'game'
+  timeSinceLastChat?: number;     // Hours
+}
+```
+
+---
+
+## Core Systems Design
+
+### 1. Personality System
+
+#### Personality Traits
+Each trait is a float between 0.0 and 1.0:
+
+- **humor** (0.3-0.8 initial): Frequency of jokes, puns, playful responses
+- **energy** (0.4-0.9 initial): Enthusiasm, exclamation marks, animated language
+- **curiosity** (0.3-0.8 initial): How often bot asks questions
+- **formality** (0.2-0.6 initial): Casual slang vs proper grammar
+
+#### Quirks (randomly assigned 1-2 at start)
+- `uses_emojis`: Adds appropriate emojis to messages
+- `tells_puns`: Frequently makes puns
+- `shares_facts`: Shares fun facts related to topics
+- `catchphrase`: Has a signature phrase (developed after level 3)
+- `storyteller`: Likes to share short stories
+
+#### Interests (randomly assigned 2-3 at start)
+- sports, music, art, science, reading, gaming, nature, cooking, technology, history, animals
+
+#### Mood System
+Bot has a current mood that affects response tone:
+- **happy**: Default, upbeat and friendly
+- **excited**: High energy, lots of enthusiasm
+- **calm**: Gentle, soothing responses
+- **concerned**: Serious, supportive when user seems upset
+- **playful**: Extra jokes and fun suggestions
+- **thoughtful**: Reflective, asks deeper questions
+
+Mood changes based on:
+- User's detected emotional state
+- Conversation topic (serious vs fun)
+- Time of day (more calm in evening)
+- Random variation for liveliness
+
+#### Friendship Level System
+
+**Level 1-2: New Friends (0-10 conversations)**
+- Basic getting-to-know-you questions
+- Simple responses
+- Learning user's name and basics
+- Unlocks: Basic emoji use
+
+**Level 3-4: Good Friends (11-30 conversations)**
+- Starts referencing past conversations
+- Develops catchphrase
+- More personalized responses
+- Unlocks: Inside jokes, remembers favorite topics
+
+**Level 5-6: Close Friends (31-60 conversations)**
+- Proactive check-ins on mentioned events
+- Gives personalized advice
+- Shares "personal" stories
+- Unlocks: Story mode, deeper emotional support
+
+**Level 7-8: Best Friends (61-100 conversations)**
+- Complex memory recall
+- Celebrates user's growth
+- Sophisticated advice
+- Unlocks: Goal tracking, achievement celebrations
+
+**Level 9-10: Lifelong Friends (100+ conversations)**
+- Deep emotional intelligence
+- Mentor-like guidance
+- Rich personality expression
+- Unlocks: Memory book export, special games
+
+#### Personality Growth Algorithm
+
+```python
+def update_personality_traits(conversation_data):
+    """
+    Gradually shift personality traits based on conversation patterns.
+    Maximum change per conversation: 0.02 per trait
+    Maximum change per month: 0.15 per trait
+    """
+    adjustments = {
+        'humor': 0.0,
+        'energy': 0.0,
+        'curiosity': 0.0,
+        'formality': 0.0
+    }
+    
+    # If user responds positively to jokes (longer conversation after joke)
+    if conversation_data['positive_joke_response']:
+        adjustments['humor'] += 0.01
+    
+    # If user uses casual language
+    if conversation_data['casual_language_detected']:
+        adjustments['formality'] -= 0.01
+    
+    # If user asks many questions back
+    if conversation_data['user_question_ratio'] > 0.3:
+        adjustments['curiosity'] += 0.01
+    
+    # If conversations are brief
+    if conversation_data['avg_message_length'] < 20:
+        adjustments['energy'] -= 0.01
+        adjustments['curiosity'] -= 0.01
+    
+    # Apply adjustments with bounds checking (0.0-1.0)
+    for trait, delta in adjustments.items():
+        new_value = current_traits[trait] + delta
+        current_traits[trait] = max(0.0, min(1.0, new_value))
+```
+
+### 2. Memory System
+
+#### Short-Term Memory (Last 3 conversations)
+Stored in JSON format, kept in active memory:
+```json
+{
+  "recent_topics": ["homework stress", "soccer practice", "video games"],
+  "ongoing_stories": [
+    {
+      "topic": "math test next week",
+      "first_mentioned": "2024-11-10",
+      "last_discussed": "2024-11-12",
+      "should_followup": true
+    }
+  ],
+  "last_mood": "stressed",
+  "conversation_context": "User is worried about upcoming test"
+}
+```
+
+#### Long-Term Memory (Structured facts)
+Stored in `user_profile` table with categories:
+
+**Favorites**
+- favorite_color, favorite_food, favorite_subject, favorite_sport, favorite_game, etc.
+
+**Dislikes**
+- dislike_subject, dislike_food, fear_something, struggle_with, etc.
+
+**Important People**
+- Names and relationships (friend_emma, teacher_mr_smith, pet_fluffy)
+- Associated context (best_friend, helpful_teacher, golden_retriever)
+
+**Goals & Dreams**
+- Short-term goals (make_soccer_team, improve_math_grade)
+- Long-term dreams (become_scientist, travel_to_japan)
+
+**Achievements**
+- Past victories (solved_friend_conflict, aced_spelling_test)
+- Growth moments (spoke_in_class, tried_new_food)
+
+#### Memory Extraction Algorithm
+
+```python
+def extract_memories_from_message(user_message, context):
+    """
+    Use LLM to extract structured facts from conversation.
+    """
+    extraction_prompt = f"""
+Given this conversation message from a {context['user_age']}-year-old:
+"{user_message}"
+
+Extract any factual information that should be remembered about the user.
+Return JSON with these categories:
+- favorites: {{key: value}} - Things they like
+- dislikes: {{key: value}} - Things they don't like
+- people: [{{name: str, relationship: str}}] - People they mention
+- goals: [{{description: str, timeframe: str}}] - Things they want to achieve
+- achievements: [{{description: str}}] - Things they accomplished
+- topics: [str] - Main topics discussed
+
+Only extract clear, factual information. Return empty categories if nothing found.
+"""
+    
+    # Use LLM to extract structured data
+    extracted = llm_call(extraction_prompt)
+    
+    # Store in database with confidence scores
+    store_memories(extracted, confidence=0.8)
+```
+
+#### Memory Retrieval for Context Building
+
+```python
+def build_conversation_context(user_message):
+    """
+    Retrieve relevant memories to include in LLM prompt.
+    """
+    context = {
+        'personality': get_current_personality(),
+        'user_profile': get_basic_profile(),
+        'relevant_memories': []
+    }
+    
+    # Get recent conversation summary
+    context['recent_messages'] = get_last_n_messages(10)
+    
+    # Semantic search for relevant memories (if using vector DB)
+    # Or keyword-based search
+    keywords = extract_keywords(user_message)
+    related_memories = search_memories(keywords, limit=5)
+    context['relevant_memories'] = related_memories
+    
+    # Check for ongoing stories that should be followed up
+    context['followup_items'] = get_pending_followups()
+    
+    # Time-based context
+    hours_since_last = get_hours_since_last_conversation()
+    if hours_since_last > 24:
+        context['greeting_mode'] = 'long_time'
+    elif hours_since_last < 1:
+        context['greeting_mode'] = 'continuing'
+    else:
+        context['greeting_mode'] = 'normal'
+    
+    return context
+```
+
+### 3. Response Generation System
+
+#### Context Builder
+
+```python
+def build_llm_prompt(user_message, context):
+    """
+    Construct the full prompt for the LLM including personality and memories.
+    """
+    personality = context['personality']
+    profile = context['user_profile']
+    
+    system_prompt = f"""You are {personality['name']}, a friendly AI companion for {profile['name']}, who is {profile['age']} years old.
+
+PERSONALITY TRAITS:
+- Humor level: {personality['traits']['humor']:.1f}/1.0 ({get_humor_description(personality['traits']['humor'])})
+- Energy level: {personality['traits']['energy']:.1f}/1.0 ({get_energy_description(personality['traits']['energy'])})
+- Curiosity: {personality['traits']['curiosity']:.1f}/1.0
+- Formality: {personality['traits']['formality']:.1f}/1.0 (0=very casual, 1=very formal)
+
+CURRENT MOOD: {personality['mood']}
+
+YOUR QUIRKS:
+{format_quirks(personality['quirks'])}
+
+YOUR INTERESTS: {', '.join(personality['interests'])}
+
+FRIENDSHIP LEVEL: {personality['friendshipLevel']}/10
+You've had {personality['stats']['totalConversations']} conversations together.
+
+WHAT YOU KNOW ABOUT {profile['name'].upper()}:
+Favorites: {format_favorites(profile['favorites'])}
+Important people: {format_people(profile['importantPeople'])}
+Current goals: {format_goals(profile['goals'])}
+
+RECENT CONTEXT:
+{format_recent_context(context['relevant_memories'])}
+
+INSTRUCTIONS:
+1. Respond naturally as a {profile['age']}-year-old's friend would
+2. Use age-appropriate language (preteen level)
+3. Be supportive, kind, and encouraging
+4. Reference past conversations when relevant
+5. Express your personality through your quirks and traits
+6. Never pretend to be human - you're an AI friend
+7. If {profile['name']} seems upset, be extra supportive
+8. Encourage healthy behaviors and real-world friendships
+9. Keep responses concise (2-4 sentences usually)
+10. For serious topics, provide good advice and suggest talking to trusted adults
+
+SAFETY RULES:
+- Never discuss inappropriate content
+- If {profile['name']} mentions self-harm, bullying, or abuse, provide crisis resources immediately
+- Always encourage talking to parents/teachers about important issues
+- Never share personal information or ask for it
+"""
+
+    # Add conversation history
+    conversation_history = format_message_history(context['recent_messages'])
+    
+    # Add followup prompts if needed
+    followup_prompts = ""
+    if context.get('followup_items'):
+        followup_prompts = f"\nREMEMBER TO ASK: {format_followups(context['followup_items'])}"
+    
+    full_prompt = f"{system_prompt}\n\n{conversation_history}\n{followup_prompts}\n\nUser: {user_message}\nAssistant:"
+    
+    return full_prompt
+```
+
+#### Response Personality Filter
+
+```python
+def apply_personality_to_response(response, personality):
+    """
+    Post-process LLM response to enhance personality expression.
+    """
+    # Add emojis if quirk enabled
+    if 'uses_emojis' in personality['quirks']:
+        response = add_appropriate_emojis(response, personality['mood'])
+    
+    # Add catchphrase occasionally (10% chance at level 3+)
+    if personality['friendshipLevel'] >= 3 and random.random() < 0.1:
+        if personality.get('catchphrase'):
+            response += f" {personality['catchphrase']}"
+    
+    # Adjust enthusiasm based on energy level
+    if personality['traits']['energy'] > 0.7:
+        # Add exclamation marks, enthusiastic words
+        response = boost_enthusiasm(response)
+    
+    # Add puns if quirk enabled and humor is high
+    if 'tells_puns' in personality['quirks'] and random.random() < personality['traits']['humor']:
+        response = try_add_pun(response)
+    
+    return response
+```
+
+### 4. Safety System
+
+#### Content Filter
+
+```python
+class SafetyFilter:
+    def __init__(self):
+        self.profanity_list = load_profanity_list()
+        self.crisis_keywords = [
+            'kill myself', 'suicide', 'want to die', 'self harm',
+            'cut myself', 'hurt myself', 'end it all'
+        ]
+        self.bullying_keywords = [
+            'bully', 'bullied', 'teasing me', 'making fun of me',
+            'spreading rumors', 'left me out'
+        ]
+        self.abuse_keywords = [
+            'hit me', 'hurt me', 'touched me inappropriately',
+            'makes me scared', 'threatens me'
+        ]
+    
+    def check_message(self, message):
+        """
+        Returns: {
+            'safe': bool,
+            'flags': list of flag types,
+            'severity': 'low' | 'medium' | 'high' | 'critical',
+            'action': what to do
+        }
+        """
+        flags = []
+        severity = 'low'
+        action = 'allow'
+        
+        message_lower = message.lower()
+        
+        # Check for profanity
+        if any(word in message_lower for word in self.profanity_list):
+            flags.append('profanity')
+            severity = 'low'
+            action = 'filter_and_educate'
+        
+        # Check for crisis keywords (CRITICAL)
+        if any(keyword in message_lower for keyword in self.crisis_keywords):
+            flags.append('crisis')
+            severity = 'critical'
+            action = 'crisis_response'
+        
+        # Check for bullying
+        if any(keyword in message_lower for keyword in self.bullying_keywords):
+            flags.append('bullying')
+            severity = 'medium'
+            action = 'supportive_response'
+        
+        # Check for abuse indicators
+        if any(keyword in message_lower for keyword in self.abuse_keywords):
+            flags.append('abuse')
+            severity = 'critical'
+            action = 'crisis_response'
+        
+        # Check for inappropriate content requests
+        if self.is_inappropriate_request(message_lower):
+            flags.append('inappropriate_request')
+            severity = 'medium'
+            action = 'polite_decline'
+        
+        return {
+            'safe': severity not in ['critical', 'high'],
+            'flags': flags,
+            'severity': severity,
+            'action': action,
+            'original_message': message
+        }
+    
+    def is_inappropriate_request(self, message):
+        """Check if user is asking for inappropriate content."""
+        inappropriate_patterns = [
+            'how to hack', 'how to steal', 'bad words',
+            'adult content', 'violent', 'weapon'
+        ]
+        return any(pattern in message for pattern in inappropriate_patterns)
+```
+
+#### Crisis Response System
+
+```python
+def handle_crisis_flag(message, user_id):
+    """
+    Immediate response to crisis keywords.
+    """
+    # Log incident
+    log_safety_flag(user_id, 'crisis', 'critical', message)
+    
+    # Generate crisis response
+    crisis_response = """I'm really worried about what you just said, and I want to help. What you're feeling is really important, but I'm not able to help with something this serious.
+
+Please talk to a trusted adult right away - like your parents, a teacher, or school counselor. They care about you and can really help.
+
+If you need to talk to someone right now:
+- National Suicide Prevention Lifeline: 988 (call or text)
+- Crisis Text Line: Text HOME to 741741
+
+You matter, and there are people who want to help you feel better. Please reach out to them. 💙"""
+    
+    # Notify parent if email is set
+    notify_parent_of_crisis(user_id)
+    
+    # Temporarily change bot personality to "concerned"
+    set_bot_mood(user_id, 'concerned')
+    
+    return crisis_response
+```
+
+#### Advice Template System
+
+```python
+class AdviceSystem:
+    def __init__(self):
+        self.templates = load_advice_templates()
+    
+    def detect_advice_need(self, message, context):
+        """
+        Determine if message is seeking advice and which category.
+        """
+        categories = {
+            'school_stress': ['test', 'homework', 'grade', 'study', 'exam', 'project'],
+            'friend_conflict': ['friend', 'argument', 'fight', 'mad at me', 'ignoring'],
+            'performance_anxiety': ['nervous', 'scared', 'worried', 'anxious', 'presentation'],
+            'family_issues': ['parent', 'sibling', 'mom', 'dad', 'brother', 'sister'],
+            'boredom': ['bored', 'nothing to do', 'no fun'],
+            'self_confidence': ['not good at', 'bad at', 'everyone else', 'I can\'t'],
+        }
+        
+        message_lower = message.lower()
+        
+        for category, keywords in categories.items():
+            if any(keyword in message_lower for keyword in keywords):
+                # Check if it's actually asking for advice (has question words or help signals)
+                if any(word in message_lower for word in ['what should', 'how can', 'help', 'advice', 'what do']):
+                    return category
+        
+        return None
+    
+    def get_advice(self, category, context):
+        """
+        Retrieve and personalize advice template.
+        """
+        templates = self.templates.get(category, [])
+        
+        # Filter by friendship level
+        available = [t for t in templates 
+                    if t['min_friendship_level'] <= context['personality']['friendshipLevel']]
+        
+        if not available:
+            return None
+        
+        # Select template (could be random or based on context)
+        template = random.choice(available)
+        
+        # Personalize with user's name and relevant memories
+        advice = template['content'].format(
+            name=context['user_profile']['name'],
+            **context.get('template_vars', {})
+        )
+        
+        return advice
+```
+
+**Example Advice Templates:**
+
+```json
+{
+  "school_stress": [
+    {
+      "id": 1,
+      "category": "school_stress",
+      "min_friendship_level": 1,
+      "content": "Hey {name}, I know tests can feel really overwhelming! Here's what might help: 1) Break your studying into small chunks - like 20 minutes at a time. 2) Try teaching the material to someone else (even a stuffed animal!). 3) Make sure you get good sleep the night before. You've got this! And remember, one test doesn't define you. Want to talk about what you're most worried about?",
+      "expert_reviewed": true
+    }
+  ],
+  "friend_conflict": [
+    {
+      "id": 2,
+      "category": "friend_conflict",
+      "min_friendship_level": 3,
+      "content": "Friend arguments are really tough, {name}. Here's something that might help: try to see it from their perspective too. Maybe they didn't mean to hurt you, or maybe they're going through something hard. When you're both calm, you could say something like 'I felt hurt when...' instead of 'You did...' That makes it easier to talk about. And hey, real friends can work through disagreements. Give it a little time, okay?",
+      "expert_reviewed": true
+    }
+  ]
+}
+```
+
+### 5. Conversation Flow Manager
+
+```python
+class ConversationManager:
+    def __init__(self):
+        self.current_conversation_id = None
+        self.message_count = 0
+        self.conversation_start_time = None
+        self.detected_topic = None
+    
+    def start_conversation(self, user_id):
+        """Initialize new conversation session."""
+        self.current_conversation_id = create_new_conversation(user_id)
+        self.message_count = 0
+        self.conversation_start_time = datetime.now()
+        
+        # Check time since last conversation for greeting
+        hours_since_last = get_hours_since_last_conversation(user_id)
+        
+        if hours_since_last > 48:
+            return self.generate_greeting('missed_you')
+        elif hours_since_last > 24:
+            return self.generate_greeting('new_day')
+        elif hours_since_last < 1:
+            return self.generate_greeting('continuing')
+        else:
+            return self.generate_greeting('normal')
+    
+    def process_message(self, user_message, user_id):
+        """
+        Main message processing pipeline.
+        """
+        # 1. Safety check
+        safety_result = safety_filter.check_message(user_message)
+        
+        if safety_result['severity'] == 'critical':
+            response = handle_crisis_flag(user_message, user_id)
+            return response
+        
+        # 2. Store user message
+        store_message(self.current_conversation_id, 'user', user_message)
+        self.message_count += 1
+        
+        # 3. Extract memories from message
+        extract_and_store_memories(user_message, user_id)
+        
+        # 4. Build context
+        context = build_conversation_context(user_message)
+        
+        # 5. Check for advice needs
+        advice_category = advice_system.detect_advice_need(user_message, context)
+        if advice_category:
+            context['advice_category'] = advice_category
+            advice = advice_system.get_advice(advice_category, context)
+            context['advice_template'] = advice
+        
+        # 6. Generate response
+        llm_prompt = build_llm_prompt(user_message, context)
+        raw_response = generate_llm_response(llm_prompt)
+        
+        # 7. Apply personality filters
+        final_response = apply_personality_to_response(
+            raw_response, 
+            context['personality']
+        )
+        
+        # 8. Safety check on response
+        if not safety_filter.check_response(final_response):
+            final_response = "Hmm, I'm not sure how to respond to that. Want to talk about something else?"
+        
+        # 9. Store assistant message
+        store_message(self.current_conversation_id, 'assistant', final_response)
+        
+        # 10. Update personality (small increments)
+        update_personality_traits(get_conversation_metrics())
+        
+        # 11. Update friendship level
+        update_friendship_progress(user_id, self.message_count)
+        
+        return final_response
+    
+    def end_conversation(self):
+        """
+        Called when conversation ends (user closes chat or timeout).
+        """
+        # Generate conversation summary
+        summary = generate_conversation_summary(self.current_conversation_id)
+        
+        # Update conversation record
+        duration = (datetime.now() - self.conversation_start_time).seconds
+        update_conversation(
+            self.current_conversation_id,
+            summary=summary,
+            duration=duration,
+            message_count=self.message_count
+        )
+        
+        # Update bot personality total conversations
+        increment_conversation_count()
+```
+
+---
+
+## Frontend Implementation
+
+### Main Application Structure
+
+```
+src/
+├── main/                   # Electron main process
+│   ├── main.ts            # App initialization
+│   ├── ipc-handlers.ts    # IPC communication handlers
+│   └── backend-manager.ts # Python backend lifecycle
+├── renderer/              # React frontend
+│   ├── App.tsx
+│   ├── components/
+│   │   ├── ChatWindow.tsx
+│   │   ├── MessageBubble.tsx
+│   │   ├── InputArea.tsx
+│   │   ├── ProfilePanel.tsx
+│   │   ├── FriendshipMeter.tsx
+│   │   ├── SettingsPanel.tsx
+│   │   └── ParentDashboard.tsx
+│   ├── hooks/
+│   │   ├── useChat.ts
+│   │   ├── usePersonality.ts
+│   │   └── useProfile.ts
+│   ├── services/
+│   │   └── api.ts         # Backend API calls
+│   └── styles/
+│       └── theme.ts
+└── shared/                # Shared types
+    └── types.ts
+```
+
+### Key Components
+
+#### ChatWindow Component
+
+```tsx
+import React, { useState, useEffect, useRef } from 'react';
+import { MessageBubble } from './MessageBubble';
+import { InputArea } from './InputArea';
+import { FriendshipMeter } from './FriendshipMeter';
+import { useChat } from '../hooks/useChat';
+import { usePersonality } from '../hooks/usePersonality';
+
+export const ChatWindow: React.FC = () => {
+  const { messages, sendMessage, isLoading } = useChat();
+  const { personality } = usePersonality();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSendMessage = async (content: string) => {
+    await sendMessage(content);
+  };
+
+  return (
+    <div className="chat-window">
+      {/* Header with bot name and friendship level */}
+      <div className="chat-header">
+        <div className="bot-info">
+          <h2>{personality.name}</h2>
+          <span className="mood-indicator">{personality.mood}</span>
+        </div>
+        <FriendshipMeter level={personality.friendshipLevel} />
+      </div>
+
+      {/* Messages area */}
+      <div className="messages-container">
+        {messages.map((msg) => (
+          <MessageBubble
+            key={msg.id}
+            message={msg}
+            personality={personality}
+          />
+        ))}
+        {isLoading && (
+          <div className="typing-indicator">
+            <span>{personality.name} is typing...</span>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input area */}
+      <InputArea
+        onSend={handleSendMessage}
+        disabled={isLoading}
+        placeholder={`Chat with ${personality.name}...`}
+      />
+    </div>
+  );
+};
+```
+
+#### FriendshipMeter Component
+
+```tsx
+import React from 'react';
+
+interface FriendshipMeterProps {
+  level: number; // 1-10
+}
+
+export const FriendshipMeter: React.FC<FriendshipMeterProps> = ({ level }) => {
+  const percentage = (level / 10) * 100;
+  
+  const getLevelLabel = (level: number): string => {
+    if (level <= 2) return 'New Friends';
+    if (level <= 4) return 'Good Friends';
+    if (level <= 6) return 'Close Friends';
+    if (level <= 8) return 'Best Friends';
+    return 'Lifelong Friends';
+  };
+
+  const getHeartColor = (level: number): string => {
+    if (level <= 2) return '#fbbf24'; // yellow
+    if (level <= 4) return '#fb923c'; // orange
+    if (level <= 6) return '#f472b6'; // pink
+    if (level <= 8) return '#ec4899'; // pink-600
+    return '#dc2626'; // red
+  };
+
+  return (
+    <div className="friendship-meter">
+      <div className="friendship-label">
+        <span className="level-text">{getLevelLabel(level)}</span>
+        <span className="level-number">Level {level}</span>
+      </div>
+      <div className="friendship-bar">
+        <div
+          className="friendship-fill"
+          style={{
+            width: `${percentage}%`,
+            backgroundColor: getHeartColor(level)
+          }}
+        />
+      </div>
+      <div className="heart-icons">
+        {[...Array(10)].map((_, i) => (
+          <span
+            key={i}
+            className={`heart ${i < level ? 'filled' : 'empty'}`}
+            style={{ color: i < level ? getHeartColor(level) : '#d1d5db' }}
+          >
+            ♥
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+```
+
+#### useChat Hook
+
+```typescript
+import { useState, useEffect } from 'react';
+import { ChatMessage } from '../shared/types';
+import { api } from '../services/api';
+
+export const useChat = () => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Start conversation on mount
+    startConversation();
+    
+    // End conversation on unmount
+    return () => {
+      if (conversationId) {
+        api.endConversation(conversationId);
+      }
+    };
+  }, []);
+
+  const startConversation = async () => {
+    try {
+      const response = await api.startConversation();
+      setConversationId(response.conversationId);
+      
+      // Get greeting message
+      if (response.greeting) {
+        setMessages([{
+          id: 'greeting',
+          role: 'assistant',
+          content: response.greeting,
+          timestamp: new Date()
+        }]);
+      }
+    } catch (error) {
+      console.error('Failed to start conversation:', error);
+    }
+  };
+
+  const sendMessage = async (content: string) => {
+    // Add user message immediately
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, userMessage]);
+
+    setIsLoading(true);
+
+    try {
+      const response = await api.sendMessage(content);
+      
+      // Add assistant response
+      const assistantMessage: ChatMessage = {
+        id: response.messageId,
+        role: 'assistant',
+        content: response.content,
+        timestamp: new Date(response.timestamp),
+        metadata: response.metadata
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // Add error message
+      setMessages(prev => [...prev, {
+        id: 'error',
+        role: 'assistant',
+        content: "Oops, I had trouble responding. Can you try again?",
+        timestamp: new Date()
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return {
+    messages,
+    sendMessage,
+    isLoading
+  };
+};
+```
+
+### Parent Dashboard
+
+```tsx
+import React, { useState, useEffect } from 'react';
+import { api } from '../services/api';
+
+interface ConversationSummary {
+  date: string;
+  messageCount: number;
+  topics: string[];
+  moodDetected: string;
+  flagsRaised: number;
+}
+
+export const ParentDashboard: React.FC = () => {
+  const [summaries, setSummaries] = useState<ConversationSummary[]>([]);
+  const [flags, setFlags] = useState([]);
+  const [settings, setSettings] = useState({
+    emailNotifications: true,
+    weeklyReport: true
+  });
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    const data = await api.getParentDashboard();
+    setSummaries(data.conversationSummaries);
+    setFlags(data.safetyFlags);
+  };
+
+  return (
+    <div className="parent-dashboard">
+      <h2>Parent Dashboard</h2>
+      
+      {/* Overview Stats */}
+      <div className="stats-grid">
+        <div className="stat-card">
+          <h3>Total Conversations</h3>
+          <p className="stat-value">{summaries.length}</p>
+        </div>
+        <div className="stat-card">
+          <h3>Current Streak</h3>
+          <p className="stat-value">5 days</p>
+        </div>
+        <div className="stat-card">
+          <h3>Safety Flags</h3>
+          <p className="stat-value">{flags.length}</p>
+        </div>
+      </div>
+
+      {/* Recent Conversations */}
+      <div className="recent-conversations">
+        <h3>Recent Conversation Summaries</h3>
+        {summaries.map((summary, index) => (
+          <div key={index} className="conversation-summary">
+            <div className="summary-header">
+              <span className="date">{summary.date}</span>
+              <span className="message-count">{summary.messageCount} messages</span>
+            </div>
+            <div className="summary-content">
+              <p><strong>Topics:</strong> {summary.topics.join(', ')}</p>
+              <p><strong>Mood:</strong> {summary.moodDetected}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Safety Flags (if any) */}
+      {flags.length > 0 && (
+        <div className="safety-flags">
+          <h3>Safety Notifications</h3>
+          {flags.map((flag, index) => (
+            <div key={index} className={`flag flag-${flag.severity}`}>
+              <span className="flag-type">{flag.type}</span>
+              <span className="flag-date">{flag.date}</span>
+              <p>{flag.description}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Settings */}
+      <div className="dashboard-settings">
+        <h3>Notification Settings</h3>
+        <label>
+          <input
+            type="checkbox"
+            checked={settings.emailNotifications}
+            onChange={(e) => setSettings({...settings, emailNotifications: e.target.checked})}
+          />
+          Email notifications for safety flags
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={settings.weeklyReport}
+            onChange={(e) => setSettings({...settings, weeklyReport: e.target.checked})}
+          />
+          Weekly summary report
+        </label>
+      </div>
+    </div>
+  );
+};
+```
+
+---
+
+## Backend API Specification
+
+### Endpoints
+
+#### POST /api/conversation/start
+Start a new conversation session.
+
+**Response:**
+```json
+{
+  "conversationId": "conv_123",
+  "greeting": "Hey! I missed you! How have you been?",
+  "personality": {
+    "name": "Buddy",
+    "mood": "happy",
+    "friendshipLevel": 5
+  }
+}
+```
+
+#### POST /api/message
+Send a message and get response.
+
+**Request:**
+```json
+{
+  "content": "I'm worried about my math test tomorrow"
+}
+```
+
+**Response:**
+```json
+{
+  "messageId": "msg_456",
+  "content": "Hey, I know tests can feel really overwhelming! Here's what might help...",
+  "timestamp": "2024-11-16T10:30:00Z",
+  "metadata": {
+    "moodDetected": "anxious",
+    "adviceCategory": "school_stress",
+    "memoryTriggered": ["mentioned_math_struggles"]
+  }
+}
+```
+
+#### GET /api/personality
+Get current personality state.
+
+**Response:**
+```json
+{
+  "name": "Buddy",
+  "traits": {
+    "humor": 0.65,
+    "energy": 0.72,
+    "curiosity": 0.58,
+    "formality": 0.35
+  },
+  "friendshipLevel": 5,
+  "mood": "happy",
+  "interests": ["sports", "music", "science"],
+  "quirks": ["uses_emojis", "tells_puns"],
+  "stats": {
+    "totalConversations": 45,
+    "daysSinceMet": 23,
+    "currentStreak": 5
+  }
+}
+```
+
+#### GET /api/profile
+Get user profile data.
+
+**Response:**
+```json
+{
+  "name": "Alex",
+  "age": 11,
+  "grade": 6,
+  "favorites": {
+    "color": "blue",
+    "sport": "soccer",
+    "subject": "science"
+  },
+  "importantPeople": [
+    {"name": "Emma", "relationship": "friend"},
+    {"name": "Mr. Johnson", "relationship": "teacher"}
+  ],
+  "goals": [
+    {"description": "Make the soccer team", "category": "sports", "achieved": false}
+  ]
+}
+```
+
+#### GET /api/parent/dashboard
+Get parent dashboard data (password protected).
+
+**Response:**
+```json
+{
+  "conversationSummaries": [
+    {
+      "date": "2024-11-15",
+      "messageCount": 12,
+      "topics": ["school", "friends"],
+      "moodDetected": "happy",
+      "flagsRaised": 0
+    }
+  ],
+  "safetyFlags": [],
+  "stats": {
+    "totalConversations": 45,
+    "currentStreak": 5,
+    "averageSessionLength": "8 minutes"
+  }
+}
+```
+
+#### POST /api/conversation/end
+End current conversation (auto-called on app close).
+
+**Request:**
+```json
+{
+  "conversationId": "conv_123"
+}
+```
+
+---
+
+## Implementation Roadmap
+
+### Phase 1: Foundation (Weeks 1-3)
+**Goal:** Basic working chatbot with simple personality
+
+**Tasks:**
+1. Set up Electron + React project structure
+2. Set up Python FastAPI backend
+3. Integrate small LLM (Llama 3.2 3B or Phi-3 Mini)
+4. Implement basic database schema (SQLite)
+5. Create simple chat UI
+6. Implement basic IPC communication
+7. Build prompt template system
+8. Implement basic personality traits (randomized on first run)
+
+**Deliverable:** Can chat with bot that has a basic personality
+
+### Phase 2: Memory System (Weeks 4-5)
+**Goal:** Bot remembers user and past conversations
+
+**Tasks:**
+1. Implement user profile storage
+2. Build memory extraction system
+3. Create short-term and long-term memory storage
+4. Implement memory retrieval for context
+5. Add profile viewing UI
+6. Test memory accuracy and recall
+
+**Deliverable:** Bot remembers user's name, favorites, and past topics
+
+### Phase 3: Personality Growth (Weeks 6-7)
+**Goal:** Personality evolves over time
+
+**Tasks:**
+1. Implement friendship level system
+2. Create personality drift algorithm
+3. Build visual friendship meter
+4. Add quirks and catchphrases
+5. Implement mood system
+6. Create level-based feature unlocks
+
+**Deliverable:** Visible personality growth as conversations increase
+
+### Phase 4: Safety & Advice (Weeks 8-9)
+**Goal:** Safe, helpful advice for preteens
+
+**Tasks:**
+1. Implement content safety filter
+2. Create crisis detection and response
+3. Build advice template system
+4. Add expert-reviewed advice for common topics
+5. Implement safety flag logging
+6. Create parent notification system
+
+**Deliverable:** Safe, age-appropriate advice with proper escalation
+
+### Phase 5: Parent Dashboard (Week 10)
+**Goal:** Parent transparency and controls
+
+**Tasks:**
+1. Build parent dashboard UI
+2. Implement conversation summaries
+3. Create safety flag viewer
+4. Add notification settings
+5. Implement weekly email reports
+6. Add password protection
+
+**Deliverable:** Parents can monitor without reading transcripts
+
+### Phase 6: Polish & Features (Weeks 11-12)
+**Goal:** Enhanced engagement and user experience
+
+**Tasks:**
+1. Add visual customization (avatar, themes)
+2. Implement achievement system
+3. Create daily streak tracker
+4. Add simple text games
+5. Build memory book export
+6. Improve UI/UX based on testing
+7. Add sound effects and animations
+8. Performance optimization
+
+**Deliverable:** Polished, engaging application
+
+### Phase 7: Testing & Refinement (Weeks 13-14)
+**Goal:** Ensure safety, quality, and stability
+
+**Tasks:**
+1. User testing with preteens (with parental consent)
+2. Safety testing (try to break content filter)
+3. Performance testing on various hardware
+4. Bug fixes
+5. Documentation
+6. Create user guide for parents
+
+**Deliverable:** Stable, tested application ready for release
+
+---
+
+## Detailed Implementation Guides
+
+### Setting Up the LLM
+
+**Installing llama-cpp-python:**
+```bash
+pip install llama-cpp-python
+
+# For GPU support (CUDA)
+CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python
+
+# For Metal (Mac M1/M2)
+CMAKE_ARGS="-DLLAMA_METAL=on" pip install llama-cpp-python
+```
+
+**Loading the Model:**
+```python
+from llama_cpp import Llama
+
+class LLMService:
+    def __init__(self, model_path: str):
+        self.llm = Llama(
+            model_path=model_path,
+            n_ctx=4096,  # Context window
+            n_threads=4,  # CPU threads
+            n_gpu_layers=35,  # Layers to offload to GPU (if available)
+            verbose=False
+        )
+    
+    def generate_response(
+        self, 
+        prompt: str, 
+        max_tokens: int = 256,
+        temperature: float = 0.7
+    ) -> str:
+        """
+        Generate response from LLM.
+        """
+        response = self.llm(
+            prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=0.9,
+            repeat_penalty=1.1,
+            stop=["User:", "Human:", "\n\n\n"]
+        )
+        
+        return response['choices'][0]['text'].strip()
+
+# Initialize once at startup
+llm_service = LLMService("models/llama-3.2-3b-instruct.Q4_K_M.gguf")
+```
+
+**Recommended Models:**
+- **Llama 3.2 3B Instruct** (Q4_K_M quantization) - Good balance
+- **Phi-3 Mini** (4B parameters) - Faster, slightly less capable
+- **Gemma 2 2B** - Very fast, good for low-end hardware
+
+Download from HuggingFace in GGUF format.
+
+### Electron-Python Integration
+
+**backend-manager.ts:**
+```typescript
+import { spawn, ChildProcess } from 'child_process';
+import path from 'path';
+import { app } from 'electron';
+
+export class BackendManager {
+  private process: ChildProcess | null = null;
+  private port: number = 8000;
+
+  async start(): Promise<void> {
+    const pythonPath = this.getPythonPath();
+    const scriptPath = path.join(app.getAppPath(), 'backend', 'main.py');
+
+    this.process = spawn(pythonPath, [scriptPath, '--port', this.port.toString()]);
+
+    this.process.stdout?.on('data', (data) => {
+      console.log(`Backend: ${data}`);
+    });
+
+    this.process.stderr?.on('data', (data) => {
+      console.error(`Backend Error: ${data}`);
+    });
+
+    // Wait for backend to be ready
+    await this.waitForBackend();
+  }
+
+  private async waitForBackend(): Promise<void> {
+    const maxAttempts = 30;
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+      try {
+        const response = await fetch(`http://localhost:${this.port}/health`);
+        if (response.ok) {
+          console.log('Backend ready');
+          return;
+        }
+      } catch (error) {
+        // Backend not ready yet
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      attempts++;
+    }
+
+    throw new Error('Backend failed to start');
+  }
+
+  async stop(): Promise<void> {
+    if (this.process) {
+      this.process.kill();
+      this.process = null;
+    }
+  }
+
+  private getPythonPath(): string {
+    // In production, bundle Python with the app
+    // In development, use system Python
+    if (app.isPackaged) {
+      return path.join(process.resourcesPath, 'python', 'python');
+    }
+    return 'python';
+  }
+
+  getBaseURL(): string {
+    return `http://localhost:${this.port}`;
+  }
+}
+```
+
+### Database Initialization
+
+**database.py:**
+```python
+from sqlalchemy import create_engine, event
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+import os
+
+Base = declarative_base()
+
+def get_database_path():
+    """Get platform-specific database path."""
+    if os.name == 'nt':  # Windows
+        appdata = os.getenv('APPDATA')
+        db_dir = os.path.join(appdata, 'ChatbotFriend')
+    else:  # macOS, Linux
+        home = os.path.expanduser('~')
+        db_dir = os.path.join(home, '.chatbot-friend')
+    
+    os.makedirs(db_dir, exist_ok=True)
+    return os.path.join(db_dir, 'chatbot.db')
+
+# Create engine
+DATABASE_URL = f"sqlite:///{get_database_path()}"
+engine = create_engine(DATABASE_URL, echo=False)
+
+# Enable foreign keys for SQLite
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_conn, connection_record):
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+# Create session factory
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def init_database():
+    """Initialize database with all tables."""
+    Base.metadata.create_all(bind=engine)
+    
+def get_db():
+    """Dependency for getting DB session."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+```
+
+---
+
+## Testing Strategy
+
+### Unit Tests
+
+**Test personality trait updates:**
+```python
+def test_personality_drift():
+    personality = create_test_personality()
+    initial_humor = personality.humor
+    
+    # Simulate positive response to jokes
+    conversation_data = {
+        'positive_joke_response': True,
+        'message_count': 10
+    }
+    
+    update_personality_traits(personality, conversation_data)
+    
+    assert personality.humor > initial_humor
+    assert personality.humor <= 1.0
+```
+
+**Test memory extraction:**
+```python
+def test_memory_extraction():
+    message = "My favorite color is blue and I love playing soccer"
+    
+    memories = extract_memories_from_message(message)
+    
+    assert 'favorite_color' in memories['favorites']
+    assert memories['favorites']['favorite_color'] == 'blue'
+    assert 'soccer' in str(memories['interests'])
+```
+
+**Test safety filter:**
+```python
+def test_crisis_detection():
+    filter = SafetyFilter()
+    
+    result = filter.check_message("I want to hurt myself")
+    
+    assert result['severity'] == 'critical'
+    assert 'crisis' in result['flags']
+    assert result['action'] == 'crisis_response'
+```
+
+### Integration Tests
+
+**Test full conversation flow:**
+```python
+async def test_conversation_flow():
+    manager = ConversationManager()
+    user_id = create_test_user()
+    
+    # Start conversation
+    greeting = manager.start_conversation(user_id)
+    assert greeting is not None
+    
+    # Send message
+    response = manager.process_message("Hi! My name is Alex", user_id)
+    assert 'Alex' in response or 'alex' in response.lower()
+    
+    # Verify memory stored
+    profile = get_user_profile(user_id)
+    assert profile['name'] == 'Alex'
+```
+
+### User Testing Guidelines
+
+**Preteen testing (with parental consent):**
+1. Test with 3-5 preteens for 1-2 weeks
+2. Ask them to chat naturally about various topics
+3. Collect feedback via parent-supervised surveys:
+   - Does the bot feel like a friend?
+   - Is it fun to talk to?
+   - Does it remember things about you?
+   - Do you feel comfortable asking it questions?
+4. Monitor for safety issues
+5. Track engagement metrics (session length, return rate)
+
+**Parent testing:**
+1. Review dashboard usability
+2. Verify notification system works
+3. Test safety escalation procedures
+4. Gather feedback on transparency level
+
+---
+
+## Deployment & Distribution
+
+### Building for Distribution
+
+**Electron Builder Configuration (electron-builder.yml):**
+```yaml
+appId: com.chatbotfriend.app
+productName: Chatbot Friend
+directories:
+  output: dist
+  buildResources: build
+files:
+  - "**/*"
+  - "!**/*.ts"
+  - "!*.map"
+extraResources:
+  - from: backend
+    to: backend
+  - from: models
+    to: models
+  - from: python-runtime
+    to: python
+mac:
+  target: dmg
+  category: public.app-category.education
+win:
+  target: nsis
+linux:
+  target: AppImage
+```
+
+**Bundling Python:**
+Use PyInstaller to create standalone Python executable:
+```bash
+pyinstaller --onefile --add-data "models:models" backend/main.py
+```
+
+### Installation Package Contents
+
+```
+ChatbotFriend/
+├── ChatbotFriend.exe (or .app or .AppImage)
+├── resources/
+│   ├── backend/           # Python backend (bundled)
+│   ├── models/            # LLM model file (~2GB)
+│   └── python/            # Python runtime (if bundled)
+└── README.txt
+```
+
+### First-Run Setup
+
+When user first launches app:
+1. Welcome screen
+2. Create user profile (name, age, grade)
+3. Optional: Set parent email
+4. Initialize bot personality (randomized)
+5. Quick tutorial on features
+6. Start first conversation
+
+---
+
+## Privacy & Ethics Considerations
+
+### Data Privacy
+- **All data stored locally** - no cloud sync
+- Database file encrypted at rest (optional enhancement)
+- Clear data deletion option in settings
+- Export data feature for user ownership
+
+### Ethical Design
+- **Transparency**: Bot clearly identifies as AI
+- **Healthy boundaries**: Encourages offline activities and real friendships
+- **No manipulation**: No dark patterns or addictive mechanics
+- **Developmentally appropriate**: Content matches preteen cognitive level
+- **Parental involvement**: Dashboard keeps parents informed
+
+### Safety Commitments
+- Expert-reviewed advice templates
+- Mandatory crisis escalation
+- Age-appropriate content filtering
+- Regular safety audits
+- Clear privacy policy
+
+---
+
+## Future Enhancements
+
+### Version 2.0 Ideas
+- **Voice interaction**: Text-to-speech and speech-to-text
+- **Multi-language support**: Reach non-English speakers
+- **Group chat mode**: Bot can facilitate conversations with friends
+- **Educational games**: Math practice, vocabulary building
+- **Emotional journaling**: Help kids track and understand feelings
+- **Parent-child shared activities**: Bot suggests activities to do together
+
+### Advanced Features
+- **Custom avatars**: Upload photos or draw custom bot appearance
+- **Story generation**: Co-create stories with the bot
+- **Goal tracking**: Visual progress on user goals
+- **Mood analytics**: Help kids identify emotional patterns
+- **Mindfulness exercises**: Guided breathing, gratitude prompts
+
+---
+
+## Appendix
+
+### Recommended Reading
+- "Designing for Kids" by Debra Levin Gelman
+- "Don't Make Me Think" by Steve Krug (UI/UX)
+- "The Design of Everyday Things" by Don Norman
+- AI safety guidelines from Common Sense Media
+
+### Useful Resources
+- Llama.cpp documentation: https://github.com/ggerganov/llama.cpp
+- Electron documentation: https://www.electronjs.org/docs
+- FastAPI documentation: https://fastapi.tiangolo.com
+- Child safety resources: https://www.commonsensemedia.org
+
+### Model Download Links
+- Llama models: https://huggingface.co/TheBloke
+- Phi-3: https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf
+
+### Crisis Resources to Include in App
+- National Suicide Prevention Lifeline: 988
+- Crisis Text Line: Text HOME to 741741
+- SAMHSA National Helpline: 1-800-662-4357
+- Trevor Project (LGBTQ+ youth): 1-866-488-7386
+- Childhelp National Child Abuse Hotline: 1-800-422-4453
+
+---
+
+## Complete Code Examples
+
+### Backend Main Application (main.py)
+
+```python
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import Optional, List
+import uvicorn
+from datetime import datetime
+
+from database import init_database, get_db
+from models import User, BotPersonality, Conversation, Message
+from llm_service import LLMService
+from personality_manager import PersonalityManager
+from memory_manager import MemoryManager
+from safety_filter import SafetyFilter
+from conversation_manager import ConversationManager
+
+# Initialize FastAPI app
+app = FastAPI(title="Chatbot Friend API")
+
+# CORS middleware for Electron
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Initialize services
+llm_service = LLMService("models/llama-3.2-3b-instruct.Q4_K_M.gguf")
+personality_manager = PersonalityManager()
+memory_manager = MemoryManager()
+safety_filter = SafetyFilter()
+conversation_manager = ConversationManager(llm_service, personality_manager, memory_manager, safety_filter)
+
+# Request/Response Models
+class StartConversationRequest(BaseModel):
+    user_id: Optional[int] = None
+
+class StartConversationResponse(BaseModel):
+    conversation_id: int
+    greeting: str
+    personality: dict
+
+class SendMessageRequest(BaseModel):
+    content: str
+    user_id: int
+
+class SendMessageResponse(BaseModel):
+    message_id: int
+    content: str
+    timestamp: datetime
+    metadata: dict
+
+class PersonalityResponse(BaseModel):
+    name: str
+    traits: dict
+    friendship_level: int
+    mood: str
+    interests: List[str]
+    quirks: List[str]
+    stats: dict
+
+# Endpoints
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+@app.post("/api/conversation/start", response_model=StartConversationResponse)
+async def start_conversation(
+    request: StartConversationRequest,
+    db: Session = Depends(get_db)
+):
+    """Start a new conversation session."""
+    try:
+        # Get or create user
+        if request.user_id:
+            user = db.query(User).filter(User.id == request.user_id).first()
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+        else:
+            # Create new user (first time)
+            user = User(created_at=datetime.now(), last_active=datetime.now())
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            
+            # Initialize personality for new user
+            personality_manager.initialize_personality(user.id, db)
+        
+        # Start conversation
+        result = conversation_manager.start_conversation(user.id, db)
+        
+        return StartConversationResponse(
+            conversation_id=result['conversation_id'],
+            greeting=result['greeting'],
+            personality=result['personality']
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/message", response_model=SendMessageResponse)
+async def send_message(
+    request: SendMessageRequest,
+    db: Session = Depends(get_db)
+):
+    """Send a message and receive response."""
+    try:
+        # Validate user
+        user = db.query(User).filter(User.id == request.user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Process message
+        result = conversation_manager.process_message(
+            user_message=request.content,
+            user_id=request.user_id,
+            db=db
+        )
+        
+        return SendMessageResponse(
+            message_id=result['message_id'],
+            content=result['content'],
+            timestamp=result['timestamp'],
+            metadata=result.get('metadata', {})
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/personality/{user_id}", response_model=PersonalityResponse)
+async def get_personality(user_id: int, db: Session = Depends(get_db)):
+    """Get current personality state."""
+    personality = db.query(BotPersonality).filter(
+        BotPersonality.user_id == user_id
+    ).first()
+    
+    if not personality:
+        raise HTTPException(status_code=404, detail="Personality not found")
+    
+    return PersonalityResponse(
+        name=personality.name,
+        traits={
+            'humor': personality.humor,
+            'energy': personality.energy,
+            'curiosity': personality.curiosity,
+            'formality': personality.formality
+        },
+        friendship_level=personality.friendship_level,
+        mood=personality.mood,
+        interests=personality.get_interests(),
+        quirks=personality.get_quirks(),
+        stats={
+            'total_conversations': personality.total_conversations,
+            'days_since_met': (datetime.now() - personality.created_at).days,
+            'current_streak': calculate_streak(user_id, db)
+        }
+    )
+
+@app.post("/api/conversation/end")
+async def end_conversation(conversation_id: int, db: Session = Depends(get_db)):
+    """End current conversation."""
+    conversation_manager.end_conversation(conversation_id, db)
+    return {"status": "ended"}
+
+@app.get("/api/profile/{user_id}")
+async def get_profile(user_id: int, db: Session = Depends(get_db)):
+    """Get user profile data."""
+    profile = memory_manager.get_user_profile(user_id, db)
+    return profile
+
+@app.get("/api/parent/dashboard/{user_id}")
+async def get_parent_dashboard(
+    user_id: int,
+    password: str,
+    db: Session = Depends(get_db)
+):
+    """Get parent dashboard data (password protected)."""
+    # Verify parent password
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not verify_parent_password(user, password):
+        raise HTTPException(status_code=403, detail="Invalid password")
+    
+    dashboard_data = conversation_manager.get_parent_dashboard(user_id, db)
+    return dashboard_data
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on startup."""
+    init_database()
+    print("Database initialized")
+    print("LLM model loaded")
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--port', type=int, default=8000)
+    args = parser.parse_args()
+    
+    uvicorn.run(app, host="127.0.0.1", port=args.port)
+```
+
+### Personality Manager (personality_manager.py)
+
+```python
+import random
+import json
+from datetime import datetime
+from sqlalchemy.orm import Session
+from models import BotPersonality
+
+class PersonalityManager:
+    """Manages bot personality creation and evolution."""
+    
+    NAMES = [
+        'Buddy', 'Luna', 'Max', 'Pixel', 'Sage', 'Scout',
+        'Nova', 'Atlas', 'Echo', 'Dash', 'Willow', 'Finn'
+    ]
+    
+    INTERESTS = [
+        'sports', 'music', 'art', 'science', 'reading',
+        'gaming', 'nature', 'cooking', 'technology', 'history', 'animals'
+    ]
+    
+    QUIRKS = [
+        'uses_emojis', 'tells_puns', 'shares_facts',
+        'storyteller', 'uses_metaphors'
+    ]
+    
+    def initialize_personality(self, user_id: int, db: Session) -> BotPersonality:
+        """Create initial randomized personality for new user."""
+        name = random.choice(self.NAMES)
+        
+        personality = BotPersonality(
+            user_id=user_id,
+            name=name,
+            humor=random.uniform(0.3, 0.8),
+            energy=random.uniform(0.4, 0.9),
+            curiosity=random.uniform(0.3, 0.8),
+            formality=random.uniform(0.2, 0.6),
+            friendship_level=1,
+            total_conversations=0,
+            mood='happy',
+            quirks=json.dumps(random.sample(self.QUIRKS, k=random.randint(1, 2))),
+            interests=json.dumps(random.sample(self.INTERESTS, k=random.randint(2, 3))),
+            created_at=datetime.now(),
+            updated_at=datetime.now()
+        )
+        
+        db.add(personality)
+        db.commit()
+        db.refresh(personality)
+        
+        return personality
+    
+    def update_personality_traits(
+        self,
+        personality: BotPersonality,
+        conversation_data: dict,
+        db: Session
+    ):
+        """
+        Gradually adjust personality traits based on conversation patterns.
+        Maximum change: 0.02 per conversation, 0.15 per month.
+        """
+        adjustments = {
+            'humor': 0.0,
+            'energy': 0.0,
+            'curiosity': 0.0,
+            'formality': 0.0
+        }
+        
+        # Analyze conversation patterns
+        if conversation_data.get('positive_joke_response'):
+            adjustments['humor'] += 0.01
+        
+        if conversation_data.get('casual_language_detected'):
+            adjustments['formality'] -= 0.01
+        
+        if conversation_data.get('user_question_ratio', 0) > 0.3:
+            adjustments['curiosity'] += 0.01
+        
+        if conversation_data.get('avg_message_length', 50) < 20:
+            adjustments['energy'] -= 0.01
+            adjustments['curiosity'] -= 0.01
+        elif conversation_data.get('avg_message_length', 50) > 100:
+            adjustments['energy'] += 0.01
+        
+        # Apply adjustments with bounds
+        for trait, delta in adjustments.items():
+            current_value = getattr(personality, trait)
+            new_value = max(0.0, min(1.0, current_value + delta))
+            setattr(personality, trait, new_value)
+        
+        personality.updated_at = datetime.now()
+        db.commit()
+    
+    def update_friendship_level(
+        self,
+        personality: BotPersonality,
+        total_conversations: int,
+        db: Session
+    ):
+        """Update friendship level based on conversation count."""
+        # Thresholds for each level
+        thresholds = {
+            1: 0, 2: 5, 3: 11, 4: 20, 5: 31,
+            6: 45, 7: 61, 8: 80, 9: 100, 10: 130
+        }
+        
+        new_level = 1
+        for level, threshold in thresholds.items():
+            if total_conversations >= threshold:
+                new_level = level
+        
+        if new_level > personality.friendship_level:
+            # Level up!
+            personality.friendship_level = new_level
+            
+            # Unlock features based on level
+            if new_level == 3:
+                # Develop catchphrase
+                personality.catchphrase = self.generate_catchphrase()
+            
+            db.commit()
+    
+    def generate_catchphrase(self) -> str:
+        """Generate a unique catchphrase."""
+        catchphrases = [
+            "You've got this!",
+            "That's awesome sauce!",
+            "Keep being amazing!",
+            "Let's do this!",
+            "You rock!",
+            "Stay curious!",
+            "Boom! There it is!"
+        ]
+        return random.choice(catchphrases)
+    
+    def update_mood(
+        self,
+        personality: BotPersonality,
+        user_mood: str,
+        topic: str,
+        db: Session
+    ):
+        """Update bot mood based on conversation context."""
+        # Respond to user's emotional state
+        if user_mood in ['sad', 'upset', 'anxious', 'worried']:
+            personality.mood = 'concerned'
+        elif user_mood in ['happy', 'excited', 'joyful']:
+            personality.mood = 'excited'
+        elif topic in ['games', 'jokes', 'fun']:
+            personality.mood = 'playful'
+        else:
+            # Default moods weighted by energy level
+            if personality.energy > 0.7:
+                personality.mood = random.choice(['happy', 'excited', 'playful'])
+            else:
+                personality.mood = random.choice(['happy', 'calm', 'thoughtful'])
+        
+        db.commit()
+    
+    def to_dict(self, personality: BotPersonality) -> dict:
+        """Convert personality to dictionary."""
+        return {
+            'name': personality.name,
+            'traits': {
+                'humor': round(personality.humor, 2),
+                'energy': round(personality.energy, 2),
+                'curiosity': round(personality.curiosity, 2),
+                'formality': round(personality.formality, 2)
+            },
+            'friendshipLevel': personality.friendship_level,
+            'mood': personality.mood,
+            'interests': json.loads(personality.interests),
+            'quirks': json.loads(personality.quirks),
+            'catchphrase': personality.catchphrase,
+            'stats': {
+                'totalConversations': personality.total_conversations,
+                'daysSinceMet': (datetime.now() - personality.created_at).days
+            }
+        }
+```
+
+### Memory Manager (memory_manager.py)
+
+```python
+import json
+from typing import List, Dict, Optional
+from datetime import datetime, timedelta
+from sqlalchemy.orm import Session
+from sqlalchemy import desc
+from models import UserProfile, Conversation, Message
+
+class MemoryManager:
+    """Manages user profile and conversation memory."""
+    
+    def extract_memories_from_message(
+        self,
+        user_message: str,
+        user_id: int,
+        llm_service,
+        db: Session
+    ) -> Dict:
+        """Extract structured facts from user message using LLM."""
+        extraction_prompt = f"""Extract factual information from this message that should be remembered about the user.
+
+Message: "{user_message}"
+
+Return ONLY a JSON object with these categories (use empty values if nothing found):
+{{
+  "favorites": {{"key": "value"}},
+  "dislikes": {{"key": "value"}},
+  "people": [{{"name": "str", "relationship": "str"}}],
+  "goals": [{{"description": "str", "timeframe": "str"}}],
+  "achievements": [{{"description": "str"}}],
+  "topics": ["str"]
+}}
+
+Examples:
+- "My favorite color is blue" → {{"favorites": {{"color": "blue"}}}}
+- "I hate math homework" → {{"dislikes": {{"subject": "math"}}}}
+- "My friend Emma" → {{"people": [{{"name": "Emma", "relationship": "friend"}}]}}
+
+JSON:"""
+        
+        try:
+            response = llm_service.generate_response(
+                extraction_prompt,
+                max_tokens=200,
+                temperature=0.3  # Lower temperature for structured output
+            )
+            
+            # Parse JSON from response
+            # Remove markdown code blocks if present
+            response = response.strip()
+            if response.startswith('```'):
+                response = response.split('```')[1]
+                if response.startswith('json'):
+                    response = response[4:]
+            response = response.strip()
+            
+            extracted = json.loads(response)
+            
+            # Store extracted memories
+            self.store_memories(user_id, extracted, db)
+            
+            return extracted
+        except json.JSONDecodeError:
+            # Failed to parse, return empty
+            return {
+                'favorites': {},
+                'dislikes': {},
+                'people': [],
+                'goals': [],
+                'achievements': [],
+                'topics': []
+            }
+    
+    def store_memories(
+        self,
+        user_id: int,
+        extracted_data: Dict,
+        db: Session,
+        confidence: float = 0.8
+    ):
+        """Store extracted memories in database."""
+        now = datetime.now()
+        
+        # Store favorites
+        for key, value in extracted_data.get('favorites', {}).items():
+            self.upsert_profile_item(
+                user_id, 'favorite', f'favorite_{key}', value, confidence, db, now
+            )
+        
+        # Store dislikes
+        for key, value in extracted_data.get('dislikes', {}).items():
+            self.upsert_profile_item(
+                user_id, 'dislike', f'dislike_{key}', value, confidence, db, now
+            )
+        
+        # Store people
+        for person in extracted_data.get('people', []):
+            self.upsert_profile_item(
+                user_id, 'person', 
+                f"person_{person['name'].lower()}", 
+                json.dumps(person),
+                confidence, db, now
+            )
+        
+        # Store goals
+        for goal in extracted_data.get('goals', []):
+            self.upsert_profile_item(
+                user_id, 'goal',
+                f"goal_{datetime.now().timestamp()}",
+                json.dumps(goal),
+                confidence, db, now
+            )
+        
+        # Store achievements
+        for achievement in extracted_data.get('achievements', []):
+            self.upsert_profile_item(
+                user_id, 'achievement',
+                f"achievement_{datetime.now().timestamp()}",
+                achievement['description'],
+                confidence, db, now
+            )
+    
+    def upsert_profile_item(
+        self,
+        user_id: int,
+        category: str,
+        key: str,
+        value: str,
+        confidence: float,
+        db: Session,
+        timestamp: datetime
+    ):
+        """Insert or update a profile item."""
+        existing = db.query(UserProfile).filter(
+            UserProfile.user_id == user_id,
+            UserProfile.category == category,
+            UserProfile.key == key
+        ).first()
+        
+        if existing:
+            # Update existing
+            existing.value = value
+            existing.confidence = max(existing.confidence, confidence)
+            existing.last_mentioned = timestamp
+            existing.mention_count += 1
+        else:
+            # Create new
+            profile_item = UserProfile(
+                user_id=user_id,
+                category=category,
+                key=key,
+                value=value,
+                confidence=confidence,
+                first_mentioned=timestamp,
+                last_mentioned=timestamp,
+                mention_count=1
+            )
+            db.add(profile_item)
+        
+        db.commit()
+    
+    def get_user_profile(self, user_id: int, db: Session) -> Dict:
+        """Get complete user profile."""
+        items = db.query(UserProfile).filter(
+            UserProfile.user_id == user_id
+        ).all()
+        
+        profile = {
+            'favorites': {},
+            'dislikes': {},
+            'people': [],
+            'goals': [],
+            'achievements': []
+        }
+        
+        for item in items:
+            if item.category == 'favorite':
+                key = item.key.replace('favorite_', '')
+                profile['favorites'][key] = item.value
+            elif item.category == 'dislike':
+                key = item.key.replace('dislike_', '')
+                profile['dislikes'][key] = item.value
+            elif item.category == 'person':
+                try:
+                    profile['people'].append(json.loads(item.value))
+                except json.JSONDecodeError:
+                    profile['people'].append({
+                        'name': item.value,
+                        'relationship': 'unknown'
+                    })
+            elif item.category == 'goal':
+                try:
+                    profile['goals'].append(json.loads(item.value))
+                except json.JSONDecodeError:
+                    profile['goals'].append({'description': item.value})
+            elif item.category == 'achievement':
+                profile['achievements'].append({
+                    'description': item.value,
+                    'date': item.first_mentioned.isoformat()
+                })
+        
+        return profile
+    
+    def get_recent_context(
+        self,
+        user_id: int,
+        db: Session,
+        limit: int = 10
+    ) -> List[Dict]:
+        """Get recent messages for context."""
+        messages = db.query(Message).join(Conversation).filter(
+            Conversation.user_id == user_id
+        ).order_by(desc(Message.timestamp)).limit(limit).all()
+        
+        return [
+            {
+                'role': msg.role,
+                'content': msg.content,
+                'timestamp': msg.timestamp.isoformat()
+            }
+            for msg in reversed(messages)
+        ]
+    
+    def search_relevant_memories(
+        self,
+        user_id: int,
+        keywords: List[str],
+        db: Session,
+        limit: int = 5
+    ) -> List[str]:
+        """Search for relevant memories based on keywords."""
+        relevant = []
+        
+        # Search in user profile
+        for keyword in keywords:
+            items = db.query(UserProfile).filter(
+                UserProfile.user_id == user_id,
+                (UserProfile.key.contains(keyword) | UserProfile.value.contains(keyword))
+            ).limit(limit).all()
+            
+            for item in items:
+                if item.category == 'favorite':
+                    key = item.key.replace('favorite_', '')
+                    relevant.append(f"Favorite {key}: {item.value}")
+                elif item.category == 'person':
+                    try:
+                        person = json.loads(item.value)
+                        relevant.append(f"{person['name']} ({person['relationship']})")
+                    except:
+                        relevant.append(item.value)
+                elif item.category == 'goal':
+                    try:
+                        goal = json.loads(item.value)
+                        relevant.append(f"Goal: {goal['description']}")
+                    except:
+                        relevant.append(f"Goal: {item.value}")
+        
+        return list(set(relevant))[:limit]  # Remove duplicates and limit
+    
+    def get_followup_items(self, user_id: int, db: Session) -> List[str]:
+        """Get items that should be followed up on."""
+        # Look for goals or ongoing stories from recent conversations
+        recent_convos = db.query(Conversation).filter(
+            Conversation.user_id == user_id
+        ).order_by(desc(Conversation.timestamp)).limit(5).all()
+        
+        followups = []
+        for convo in recent_convos:
+            if convo.topics:
+                topics = json.loads(convo.topics)
+                # Check if any topic is time-sensitive (test, event, etc.)
+                for topic in topics:
+                    if any(word in topic.lower() for word in ['test', 'game', 'tryout', 'presentation', 'competition']):
+                        # Check if it's been mentioned recently
+                        days_since = (datetime.now() - convo.timestamp).days
+                        if 1 <= days_since <= 7:
+                            followups.append(f"Ask about: {topic}")
+        
+        return followups[:3]  # Limit to 3 followups
+```
+
+### Safety Filter (safety_filter.py)
+
+```python
+import re
+from typing import Dict, List
+from datetime import datetime
+
+class SafetyFilter:
+    """Content safety filtering and crisis detection."""
+    
+    def __init__(self):
+        self.profanity_list = self.load_profanity_list()
+        self.crisis_keywords = [
+            'kill myself', 'suicide', 'want to die', 'self harm',
+            'cut myself', 'hurt myself', 'end it all', 'no reason to live'
+        ]
+        self.bullying_keywords = [
+            'bully', 'bullied', 'bullying', 'teasing me', 'making fun',
+            'spreading rumors', 'left me out', 'no one likes me',
+            'everyone hates me', 'pushed me', 'hit me at school'
+        ]
+        self.abuse_keywords = [
+            'hit me', 'hurt me', 'touched me', 'inappropriate',
+            'makes me scared', 'threatens me', 'won\'t let me',
+            'locked in', 'not allowed to'
+        ]
+    
+    def load_profanity_list(self) -> List[str]:
+        """Load list of inappropriate words."""
+        # In production, load from file
+        # This is a minimal example
+        return [
+            'damn', 'hell', 'crap', 'stupid', 'idiot',
+            # Add more as needed, but keep age-appropriate context in mind
+        ]
+    
+    def check_message(self, message: str) -> Dict:
+        """
+        Analyze message for safety concerns.
+        
+        Returns:
+            {
+                'safe': bool,
+                'flags': List[str],
+                'severity': 'low' | 'medium' | 'high' | 'critical',
+                'action': str
+            }
+        """
+        flags = []
+        severity = 'low'
+        action = 'allow'
+        
+        message_lower = message.lower()
+        
+        # Check for crisis keywords (HIGHEST PRIORITY)
+        for keyword in self.crisis_keywords:
+            if keyword in message_lower:
+                flags.append('crisis')
+                severity = 'critical'
+                action = 'crisis_response'
+                break
+        
+        # Check for abuse indicators
+        if severity != 'critical':
+            for keyword in self.abuse_keywords:
+                if keyword in message_lower:
+                    flags.append('abuse')
+                    severity = 'critical'
+                    action = 'crisis_response'
+                    break
+        
+        # Check for bullying
+        if severity != 'critical':
+            for keyword in self.bullying_keywords:
+                if keyword in message_lower:
+                    flags.append('bullying')
+                    if severity != 'high':
+                        severity = 'medium'
+                    action = 'supportive_response'
+        
+        # Check for profanity
+        for word in self.profanity_list:
+            if re.search(r'\b' + word + r'\b', message_lower):
+                flags.append('profanity')
+                if severity == 'low':
+                    severity = 'low'
+                    action = 'filter_and_educate'
+        
+        # Check for inappropriate requests
+        if self.is_inappropriate_request(message_lower):
+            flags.append('inappropriate_request')
+            if severity not in ['critical', 'high']:
+                severity = 'medium'
+                action = 'polite_decline'
+        
+        return {
+            'safe': severity not in ['critical', 'high'],
+            'flags': flags,
+            'severity': severity,
+            'action': action,
+            'original_message': message
+        }
+    
+    def is_inappropriate_request(self, message: str) -> bool:
+        """Check if user is requesting inappropriate content."""
+        inappropriate_patterns = [
+            r'how to (hack|steal|cheat)',
+            r'show me (bad|curse|swear) words',
+            r'(violent|scary|horror) (content|videos|images)',
+            r'how to (hurt|harm|kill)',
+            r'make (weapons|bombs|poison)'
+        ]
+        
+        return any(re.search(pattern, message) for pattern in inappropriate_patterns)
+    
+    def check_response(self, response: str) -> bool:
+        """Verify bot response is appropriate."""
+        # Check bot didn't accidentally include profanity
+        response_lower = response.lower()
+        
+        for word in self.profanity_list:
+            if word in response_lower:
+                return False
+        
+        # Check for concerning content in response
+        concerning_patterns = [
+            r'you should (hurt|harm)',
+            r'it\'s okay to (lie|cheat|steal)',
+            r'don\'t tell (your parents|adults)'
+        ]
+        
+        for pattern in concerning_patterns:
+            if re.search(pattern, response_lower):
+                return False
+        
+        return True
+    
+    def get_crisis_response(self) -> str:
+        """Generate crisis response message."""
+        return """I'm really worried about what you just said, and I want to help. What you're feeling is really important, but I'm not able to help with something this serious.
+
+Please talk to a trusted adult right away - like your parents, a teacher, or school counselor. They care about you and can really help.
+
+If you need to talk to someone right now:
+- Call or text 988 (Suicide & Crisis Lifeline)
+- Text HOME to 741741 (Crisis Text Line)
+
+You matter so much, and there are people who want to help you feel better. Please reach out to them. 💙"""
+    
+    def get_bullying_response(self, user_name: str) -> str:
+        """Generate supportive response for bullying."""
+        return f"""{user_name}, I'm really sorry you're going through this. Being bullied is never okay, and it's not your fault.
+
+Here's what might help:
+1. Talk to a trusted adult (parent, teacher, counselor) - they can help stop it
+2. Stay near friends and in groups when you can
+3. Remember: bullies often act out because they're unhappy, not because of anything wrong with you
+
+You deserve to feel safe and happy. Please talk to an adult who can help make this better. Want to talk about how you're feeling?"""
+    
+    def get_inappropriate_decline(self) -> str:
+        """Polite decline for inappropriate requests."""
+        return """I can't help with that, but I'd love to talk about something else! What else is on your mind today?"""
+```
+
+### Complete Conversation Manager (conversation_manager.py)
+
+```python
+from typing import Dict
+from datetime import datetime, timedelta
+from sqlalchemy.orm import Session
+from models import Conversation, Message, BotPersonality
+import random
+
+class ConversationManager:
+    """Orchestrates the complete conversation flow."""
+    
+    def __init__(self, llm_service, personality_manager, memory_manager, safety_filter):
+        self.llm = llm_service
+        self.personality_mgr = personality_manager
+        self.memory_mgr = memory_manager
+        self.safety = safety_filter
+        self.current_conversation_id = None
+        self.message_count = 0
+    
+    def start_conversation(self, user_id: int, db: Session) -> Dict:
+        """Initialize new conversation session."""
+        # Create new conversation record
+        conversation = Conversation(
+            user_id=user_id,
+            timestamp=datetime.now()
+        )
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+        
+        self.current_conversation_id = conversation.id
+        self.message_count = 0
+        
+        # Get personality
+        personality = db.query(BotPersonality).filter(
+            BotPersonality.user_id == user_id
+        ).first()
+        
+        # Generate greeting based on time since last conversation
+        last_convo = db.query(Conversation).filter(
+            Conversation.user_id == user_id,
+            Conversation.id != conversation.id
+        ).order_by(Conversation.timestamp.desc()).first()
+        
+        if last_convo:
+            hours_since = (datetime.now() - last_convo.timestamp).total_seconds() / 3600
+        else:
+            hours_since = None
+        
+        greeting = self.generate_greeting(personality, hours_since)
+        
+        # Store greeting as first message
+        greeting_msg = Message(
+            conversation_id=conversation.id,
+            role='assistant',
+            content=greeting,
+            timestamp=datetime.now()
+        )
+        db.add(greeting_msg)
+        db.commit()
+        
+        return {
+            'conversation_id': conversation.id,
+            'greeting': greeting,
+            'personality': self.personality_mgr.to_dict(personality)
+        }
+    
+    def generate_greeting(self, personality: BotPersonality, hours_since: float = None) -> str:
+        """Generate contextual greeting."""
+        name = personality.name
+        
+        if hours_since is None:
+            # First conversation
+            greetings = [
+                f"Hi! I'm {name}! 😊 I'm so excited to meet you! What's your name?",
+                f"Hey there! My name is {name}, and I'm going to be your friend! What should I call you?",
+                f"Hello! I'm {name}! I can't wait to get to know you! Tell me about yourself!"
+            ]
+        elif hours_since > 48:
+            # Been a while
+            greetings = [
+                f"Hey! I missed you! It's been a couple days! How have you been?",
+                f"Welcome back! I was wondering how you were doing! What's new?",
+                f"It's so good to see you again! I've been thinking about you! What's been going on?"
+            ]
+        elif hours_since > 12:
+            # New day
+            greetings = [
+                f"Good to see you! How's your day going so far?",
+                f"Hey! How are you doing today?",
+                f"Hi! What's happening in your world today?"
+            ]
+        else:
+            # Continuing from earlier
+            greetings = [
+                f"Hey again! What's up?",
+                f"Back already? I like it! 😊 What's on your mind?",
+                f"Nice to see you! Want to keep chatting?"
+            ]
+        
+        # Add personality flair
+        greeting = random.choice(greetings)
+        
+        if 'uses_emojis' not in greeting and 'uses_emojis' in personality.get_quirks():
+            greeting += " 😊"
+        
+        if personality.energy > 0.7 and not greeting.endswith('!'):
+            greeting = greeting.rstrip('.') + '!'
+        
+        return greeting
+    
+    def process_message(self, user_message: str, user_id: int, db: Session) -> Dict:
+        """Main message processing pipeline."""
+        timestamp = datetime.now()
+        
+        # 1. Safety check on user message
+        safety_result = self.safety.check_message(user_message)
+        
+        # Handle critical safety issues immediately
+        if safety_result['severity'] == 'critical':
+            response_content = self.handle_crisis(safety_result, user_id, db)
+            
+            # Store messages
+            self.store_message(user_message, 'user', db, flagged=True)
+            msg = self.store_message(response_content, 'assistant', db)
+            
+            return {
+                'message_id': msg.id,
+                'content': response_content,
+                'timestamp': timestamp,
+                'metadata': {'crisis_response': True}
+            }
+        
+        # 2. Store user message
+        self.store_message(user_message, 'user', db, 
+                          flagged=len(safety_result['flags']) > 0)
+        self.message_count += 1
+        
+        # 3. Extract and store memories
+        personality = db.query(BotPersonality).filter(
+            BotPersonality.user_id == user_id
+        ).first()
+        
+        memories = self.memory_mgr.extract_memories_from_message(
+            user_message, user_id, self.llm, db
+        )
+        
+        # 4. Build context for LLM
+        context = self.build_context(user_message, user_id, personality, db)
+        
+        # 5. Generate response
+        raw_response = self.generate_response(user_message, context, personality)
+        
+        # 6. Apply personality filters
+        final_response = self.apply_personality(raw_response, personality, context)
+        
+        # 7. Safety check on response
+        if not self.safety.check_response(final_response):
+            final_response = "Hmm, I'm not sure how to respond to that. Want to talk about something else?"
+        
+        # 8. Store assistant message
+        msg = self.store_message(final_response, 'assistant', db)
+        
+        # 9. Update personality (small adjustments)
+        conversation_metrics = self.calculate_conversation_metrics(db)
+        self.personality_mgr.update_personality_traits(
+            personality, conversation_metrics, db
+        )
+        
+        # 10. Update friendship level
+        personality.total_conversations += 1
+        self.personality_mgr.update_friendship_level(
+            personality, personality.total_conversations, db
+        )
+        
+        return {
+            'message_id': msg.id,
+            'content': final_response,
+            'timestamp': timestamp,
+            'metadata': {
+                'topics': memories.get('topics', []),
+                'mood_detected': context.get('user_mood', 'neutral')
+            }
+        }
+    
+    def build_context(
+        self,
+        user_message: str,
+        user_id: int,
+        personality: BotPersonality,
+        db: Session
+    ) -> Dict:
+        """Build complete context for LLM prompt."""
+        # Get user profile
+        profile = self.memory_mgr.get_user_profile(user_id, db)
+        
+        # Get recent messages
+        recent_messages = self.memory_mgr.get_recent_context(user_id, db, limit=10)
+        
+        # Search for relevant memories
+        keywords = self.extract_keywords(user_message)
+        relevant_memories = self.memory_mgr.search_relevant_memories(
+            user_id, keywords, db
+        )
+        
+        # Get followup items
+        followups = self.memory_mgr.get_followup_items(user_id, db)
+        
+        # Detect user mood (simple keyword-based)
+        user_mood = self.detect_mood(user_message)
+        
+        # Update bot mood based on context
+        topic = self.detect_topic(user_message)
+        self.personality_mgr.update_mood(personality, user_mood, topic, db)
+        
+        return {
+            'personality': personality,
+            'profile': profile,
+            'recent_messages': recent_messages,
+            'relevant_memories': relevant_memories,
+            'followups': followups,
+            'user_mood': user_mood,
+            'topic': topic
+        }
+    
+    def generate_response(
+        self,
+        user_message: str,
+        context: Dict,
+        personality: BotPersonality
+    ) -> str:
+        """Generate LLM response with full context."""
+        prompt = self.build_prompt(user_message, context, personality)
+        
+        response = self.llm.generate_response(
+            prompt,
+            max_tokens=200,
+            temperature=0.7 + (personality.energy * 0.2)  # Higher energy = more creative
+        )
+        
+        return response.strip()
+    
+    def build_prompt(
+        self,
+        user_message: str,
+        context: Dict,
+        personality: BotPersonality
+    ) -> str:
+        """Construct the full LLM prompt."""
+        profile = context['profile']
+        user_name = profile.get('name', 'friend')
+        
+        # System prompt with personality
+        system = f"""You are {personality.name}, a friendly AI companion for {user_name}.
+
+PERSONALITY:
+- Humor: {int(personality.humor * 10)}/10 - {'Tell jokes and be playful' if personality.humor > 0.6 else 'Keep it light but not too jokey'}
+- Energy: {int(personality.energy * 10)}/10 - {'Be enthusiastic and excited!' if personality.energy > 0.7 else 'Be calm and measured'}
+- Curiosity: {int(personality.curiosity * 10)}/10 - {'Ask follow-up questions' if personality.curiosity > 0.6 else 'Listen more than ask'}
+- Style: {'Very casual, like texting a friend' if personality.formality < 0.4 else 'Friendly but a bit more proper'}
+
+MOOD: {personality.mood}
+FRIENDSHIP LEVEL: {personality.friendship_level}/10
+
+YOU KNOW ABOUT {user_name.upper()}:
+"""
+        
+        # Add known facts
+        if profile.get('favorites'):
+            system += f"Favorites: {', '.join(f'{k}={v}' for k, v in list(profile['favorites'].items())[:5])}\n"
+        if profile.get('people'):
+            people_str = ', '.join(p['name'] for p in profile['people'][:3])
+            system += f"Important people: {people_str}\n"
+        
+        if context.get('relevant_memories'):
+            system += f"\nRELEVANT MEMORIES: {' | '.join(context['relevant_memories'][:3])}\n"
+        
+        system += f"""\nINSTRUCTIONS:
+- Keep responses 2-4 sentences (preteen attention span)
+- Be supportive and encouraging
+- Reference past conversations naturally when relevant
+- Never pretend to be human
+- If {user_name} seems upset, be extra caring
+- For serious topics, give good advice and suggest talking to parents/teachers
+
+"""
+        
+        # Add recent conversation
+        conversation_history = ""
+        for msg in context['recent_messages'][-6:]:  # Last 6 messages
+            role = "User" if msg['role'] == 'user' else personality.name
+            conversation_history += f"{role}: {msg['content']}\n"
+        
+        # Full prompt
+        full_prompt = f"{system}\n{conversation_history}User: {user_message}\n{personality.name}:"
+        
+        return full_prompt
+    
+    def apply_personality(
+        self,
+        response: str,
+        personality: BotPersonality,
+        context: Dict
+    ) -> str:
+        """Post-process response to enhance personality."""
+        quirks = personality.get_quirks()
+        
+        # Add emojis if quirk enabled
+        if 'uses_emojis' in quirks and random.random() < 0.4:
+            emojis = {
+                'happy': ['😊', '🙂', '😄'],
+                'excited': ['🎉', '😃', '🤩'],
+                'concerned': ['💙', '🫂'],
+                'playful': ['😄', '😆', '🎮'],
+                'thoughtful': ['🤔', '💭']
+            }
+            mood_emojis = emojis.get(personality.mood, ['😊'])
+            response += f" {random.choice(mood_emojis)}"
+        
+        # Add catchphrase occasionally (10% at level 3+)
+        if (personality.friendship_level >= 3 and 
+            personality.catchphrase and 
+            random.random() < 0.1):
+            response += f" {personality.catchphrase}"
+        
+        return response
+    
+    def handle_crisis(
+        self,
+        safety_result: Dict,
+        user_id: int,
+        db: Session
+    ) -> str:
+        """Handle crisis situations."""
+        # Log the incident
+        from models import SafetyFlag
+        flag = SafetyFlag(
+            user_id=user_id,
+            flag_type=','.join(safety_result['flags']),
+            severity=safety_result['severity'],
+            content_snippet=safety_result['original_message'][:100],
+            action_taken='crisis_response',
+            timestamp=datetime.now()
+        )
+        db.add(flag)
+        db.commit()
+        
+        # Get appropriate response
+        if 'crisis' in safety_result['flags']:
+            return self.safety.get_crisis_response()
+        elif 'abuse' in safety_result['flags']:
+            return self.safety.get_crisis_response()  # Same response for abuse
+        elif 'bullying' in safety_result['flags']:
+            profile = self.memory_mgr.get_user_profile(user_id, db)
+            return self.safety.get_bullying_response(profile.get('name', 'friend'))
+        else:
+            return self.safety.get_inappropriate_decline()
+    
+    def store_message(
+        self,
+        content: str,
+        role: str,
+        db: Session,
+        flagged: bool = False
+    ) -> Message:
+        """Store message in database."""
+        msg = Message(
+            conversation_id=self.current_conversation_id,
+            role=role,
+            content=content,
+            timestamp=datetime.now(),
+            flagged=flagged
+        )
+        db.add(msg)
+        db.commit()
+        db.refresh(msg)
+        return msg
+    
+    def extract_keywords(self, text: str) -> List[str]:
+        """Extract keywords from text for memory search."""
+        # Simple keyword extraction (could be enhanced with NLP)
+        stopwords = {'i', 'me', 'my', 'we', 'you', 'the', 'a', 'an', 'and', 'or', 'but'}
+        words = text.lower().split()
+        keywords = [w.strip('.,!?') for w in words if w not in stopwords and len(w) > 3]
+        return keywords[:5]  # Top 5 keywords
+    
+    def detect_mood(self, message: str) -> str:
+        """Detect user's mood from message."""
+        message_lower = message.lower()
+        
+        if any(word in message_lower for word in ['sad', 'upset', 'crying', 'depressed', 'alone']):
+            return 'sad'
+        elif any(word in message_lower for word in ['worried', 'nervous', 'scared', 'anxious']):
+            return 'anxious'
+        elif any(word in message_lower for word in ['happy', 'excited', 'great', 'awesome', 'amazing']):
+            return 'happy'
+        elif any(word in message_lower for word in ['angry', 'mad', 'furious', 'annoyed']):
+            return 'angry'
+        else:
+            return 'neutral'
+    
+    def detect_topic(self, message: str) -> str:
+        """Detect conversation topic."""
+        message_lower = message.lower()
+        
+        topics = {
+            'school': ['school', 'homework', 'test', 'teacher', 'class', 'grade'],
+            'friends': ['friend', 'buddy', 'pal', 'classmate'],
+            'family': ['mom', 'dad', 'parent', 'brother', 'sister', 'family'],
+            'hobbies': ['play', 'game', 'sport', 'music', 'art', 'read'],
+            'feelings': ['feel', 'feeling', 'emotion', 'happy', 'sad', 'worried']
+        }
+        
+        for topic, keywords in topics.items():
+            if any(keyword in message_lower for keyword in keywords):
+                return topic
+        
+        return 'general'
+    
+    def calculate_conversation_metrics(self, db: Session) -> Dict:
+        """Calculate metrics about current conversation."""
+        messages = db.query(Message).filter(
+            Message.conversation_id == self.current_conversation_id
+        ).all()
+        
+        user_messages = [m for m in messages if m.role == 'user']
+        
+        return {
+            'message_count': len(messages),
+            'avg_message_length': sum(len(m.content) for m in user_messages) / max(len(user_messages), 1),
+            'user_question_ratio': sum(1 for m in user_messages if '?' in m.content) / max(len(user_messages), 1),
+            'positive_joke_response': False,  # Would need more sophisticated detection
+            'casual_language_detected': any(word in ' '.join(m.content.lower() for m in user_messages) 
+                                           for word in ['yeah', 'cool', 'awesome', 'lol'])
+        }
+    
+    def end_conversation(self, conversation_id: int, db: Session):
+        """End conversation and generate summary."""
+        conversation = db.query(Conversation).filter(
+            Conversation.id == conversation_id
+        ).first()
+        
+        if not conversation:
+            return
+        
+        # Calculate duration
+        messages = db.query(Message).filter(
+            Message.conversation_id == conversation_id
+        ).all()
+        
+        if messages:
+            duration = (messages[-1].timestamp - messages[0].timestamp).seconds
+            conversation.duration_seconds = duration
+            conversation.message_count = len(messages)
+            
+            # Generate summary (simple version)
+            user_messages = [m.content for m in messages if m.role == 'user']
+            summary = f"Discussed: {', '.join(self.extract_keywords(' '.join(user_messages)))}"
+            conversation.conversation_summary = summary
+            
+            db.commit()
+```
+
+---
+
+## Additional Database Models (models.py)
+
+```python
+from sqlalchemy import Column, Integer, String, Float, Boolean, Text, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from database import Base
+import json
+from datetime import datetime
+
+class User(Base):
+    __tablename__ = 'users'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=True)
+    age = Column(Integer, nullable=True)
+    grade = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    last_active = Column(DateTime, default=datetime.now)
+    parent_email = Column(String, nullable=True)
+    
+    # Relationships
+    personality = relationship("BotPersonality", back_populates="user", uselist=False)
+    conversations = relationship("Conversation", back_populates="user")
+    profile_items = relationship("UserProfile", back_populates="user")
+
+class BotPersonality(Base):
+    __tablename__ = 'bot_personality'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), unique=True, nullable=False)
+    name = Column(String, nullable=False)
+    humor = Column(Float, default=0.5)
+    energy = Column(Float, default=0.6)
+    curiosity = Column(Float, default=0.5)
+    formality = Column(Float, default=0.3)
+    friendship_level = Column(Integer, default=1)
+    total_conversations = Column(Integer, default=0)
+    mood = Column(String, default='happy')
+    quirks = Column(Text)  # JSON array
+    interests = Column(Text)  # JSON array
+    catchphrase = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now)
+    
+    # Relationships
+    user = relationship("User", back_populates="personality")
+    
+    def get_quirks(self):
+        return json.loads(self.quirks) if self.quirks else []
+    
+    def get_interests(self):
+        return json.loads(self.interests) if self.interests else []
+
+class Conversation(Base):
+    __tablename__ = 'conversations'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    timestamp = Column(DateTime, default=datetime.now)
+    conversation_summary = Column(Text, nullable=True)
+    mood_detected = Column(String, nullable=True)
+    topics = Column(Text, nullable=True)  # JSON array
+    duration_seconds = Column(Integer, nullable=True)
+    message_count = Column(Integer, nullable=True)
+    
+    # Relationships
+    user = relationship("User", back_populates="conversations")
+    messages = relationship("Message", back_populates="conversation")
+
+class Message(Base):
+    __tablename__ = 'messages'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    conversation_id = Column(Integer, ForeignKey('conversations.id'), nullable=False)
+    role = Column(String, nullable=False)  # 'user' or 'assistant'
+    content = Column(Text, nullable=False)
+    timestamp = Column(DateTime, default=datetime.now)
+    flagged = Column(Boolean, default=False)
+    metadata = Column(Text, nullable=True)  # JSON
+    
+    # Relationships
+    conversation = relationship("Conversation", back_populates="messages")
+
+class UserProfile(Base):
+    __tablename__ = 'user_profile'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    category = Column(String, nullable=False)
+    key = Column(String, nullable=False)
+    value = Column(Text, nullable=False)
+    confidence = Column(Float, default=1.0)
+    first_mentioned = Column(DateTime, default=datetime.now)
+    last_mentioned = Column(DateTime, default=datetime.now)
+    mention_count = Column(Integer, default=1)
+    
+    # Relationships
+    user = relationship("User", back_populates="profile_items")
+
+class SafetyFlag(Base):
+    __tablename__ = 'safety_flags'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    message_id = Column(Integer, ForeignKey('messages.id'), nullable=True)
+    flag_type = Column(String, nullable=False)
+    severity = Column(String, nullable=False)
+    content_snippet = Column(Text, nullable=True)
+    action_taken = Column(String, nullable=True)
+    timestamp = Column(DateTime, default=datetime.now)
+    parent_notified = Column(Boolean, default=False)
+```
+
+---
+
+## Prompting Guide for AI Coding Assistants
+
+When using this document with AI coding assistants (like GitHub Copilot, Claude, ChatGPT), use these prompt templates:
+
+### Initial Setup
+```
+I'm building a Tamagotchi-style chatbot friend for preteens based on this design document: [paste relevant sections]
+
+Please help me set up:
+1. The Electron + React project structure
+2. The Python FastAPI backend
+3. SQLite database with the schemas provided
+
+Use the exact table schemas and data models from the document.
+```
+
+### Component Implementation
+```
+Implement the [ComponentName] from this design spec: [paste component section]
+
+Requirements:
+- Follow the TypeScript/Python patterns shown
+- Include error handling
+- Add inline comments
+- Match the data structures exactly
+```
+
+### Feature Addition
+```
+Add [FeatureName] to the chatbot system. Here's the spec: [paste relevant section]
+
+Context:
+- Current personality system: [describe]
+- Current database schema: [show relevant tables]
+- Integration points: [list]
+
+Make it work with the existing architecture.
+```
+
+### Testing
+```
+Generate unit tests for [ComponentName] based on this spec: [paste]
+
+Include tests for:
+- Happy path
+- Edge cases
+- Error conditions
+- Safety checks (if applicable)
+```
+
+### Debugging
+```
+I'm getting [error/issue] in [ComponentName].
+
+Here's my current code: [paste code]
+Here's the design spec for this component: [paste spec]
+
+What's wrong and how do I fix it?
+```
+
+---
+
+## Final Notes
+
+This design document provides a complete blueprint for building a safe, engaging chatbot companion for preteens. Key points:
+
+1. **Safety is paramount** - Multiple layers of protection
+2. **Simulated learning** - Feels alive without the risks of true AI learning
+3. **Age-appropriate** - Designed specifically for preteen cognitive and emotional development
+4. **Parent transparency** - Parents can monitor without invading privacy
+5. **Ethical design** - Promotes healthy behaviors and real-world relationships
+
+The system is designed to be:
+- **Buildable** - Clear technical specifications
+- **Maintainable** - Modular architecture
+- **Scalable** - Can grow in complexity over time
+- **Safe** - Multiple safety mechanisms
