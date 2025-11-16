@@ -149,19 +149,46 @@ backend/
 
 ## API Endpoints
 
+Visit `http://localhost:8000/docs` for interactive API documentation (Swagger UI).
+
+### Health & Status
+- `GET /` - Root endpoint with API info
+- `GET /health` - Health check with LLM and database status
+
 ### Conversation
-- `POST /api/conversation/start` - Start new conversation
+- `POST /api/conversation/start` - Start new conversation session
+  - Query: `user_id` (default: 1)
+  - Returns: conversation_id, greeting, personality snapshot
 - `POST /api/message` - Send message and get response
-- `POST /api/conversation/end` - End conversation
+  - Body: `{"user_message": "...", "conversation_id": 123, "user_id": 1}`
+  - Returns: bot response with safety metadata
+- `POST /api/conversation/end/{conversation_id}` - End conversation
+  - Updates personality traits and friendship level
+- `GET /api/conversation/{conversation_id}` - Get conversation details
+  - Returns: messages, summary, topics, duration
 
-### Data Retrieval
-- `GET /api/personality` - Get current personality state
-- `GET /api/profile` - Get user profile data
+### Personality
+- `GET /api/personality` - Get current bot personality
+  - Query: `user_id` (default: 1)
+  - Returns: traits, mood, friendship level, quirks, interests, stats
+- `GET /api/personality/description` - Get human-readable trait descriptions
+  - Query: `user_id` (default: 1)
+  - Returns: descriptive text for each trait level
+
+### Profile & Memory
+- `GET /api/profile` - Get user profile summary
+  - Query: `user_id` (default: 1)
+  - Returns: favorites, dislikes, goals, people, achievements
+- `GET /api/profile/memories` - Get memory items
+  - Query: `user_id` (default: 1), `category` (optional filter)
+  - Returns: list of profile items with confidence scores
+- `PUT /api/profile/update` - Update user information
+  - Body: `{"user_id": 1, "name": "Alex", "age": 12, "grade": 7}`
+  - Returns: updated user data
+
+### Parent Dashboard (Coming Soon)
 - `GET /api/parent/dashboard` - Get parent dashboard (password protected)
-
-### Testing
-- `GET /` - Root endpoint (health check)
-- `GET /health` - Health check
+- `GET /api/parent/safety-events` - Get safety event log
 
 ## Configuration
 
