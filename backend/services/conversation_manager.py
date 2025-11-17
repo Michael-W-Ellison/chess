@@ -17,6 +17,7 @@ from services.safety_filter import safety_filter
 from services.memory_manager import memory_manager
 from services.personality_manager import personality_manager
 from services.conversation_tracker import conversation_tracker
+from services.feature_gates import can_use_catchphrase, apply_feature_modifiers
 
 logger = logging.getLogger("chatbot.conversation_manager")
 
@@ -442,9 +443,9 @@ INSTRUCTIONS:
             emojis = emoji_map.get(personality.mood, ["😊"])
             response += f" {random.choice(emojis)}"
 
-        # Add catchphrase occasionally
+        # Add catchphrase occasionally (if feature unlocked)
         if (
-            personality.friendship_level >= 3
+            can_use_catchphrase(personality)
             and personality.catchphrase
             and random.random() < 0.1
         ):

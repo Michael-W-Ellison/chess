@@ -14,6 +14,8 @@ from models.personality import BotPersonality
 from services.personality_manager import personality_manager
 from services.friendship_progression import friendship_manager
 from services.level_up_event_handler import level_up_event_handler
+from services.feature_unlock_manager import feature_unlock_manager
+from services.feature_gates import check_feature_access, get_feature_gate_message
 
 logger = logging.getLogger("chatbot.routes.personality")
 
@@ -574,4 +576,300 @@ async def get_specific_level_rewards(level: int):
         raise
     except Exception as e:
         logger.error(f"Error getting level rewards: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Feature unlock endpoints
+@router.get("/features/summary")
+async def get_feature_summary(user_id: int = 1, db: Session = Depends(get_db)):
+    """
+    Get comprehensive feature summary for a user
+
+    Args:
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Feature summary with unlocked/locked features
+    """
+    try:
+        personality = (
+            db.query(BotPersonality).filter(BotPersonality.user_id == user_id).first()
+        )
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        summary = feature_unlock_manager.get_feature_summary(personality)
+
+        return {
+            "success": True,
+            "summary": summary,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting feature summary: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/features/unlocked")
+async def get_unlocked_features(user_id: int = 1, db: Session = Depends(get_db)):
+    """
+    Get all unlocked features for a user
+
+    Args:
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        List of unlocked features
+    """
+    try:
+        personality = (
+            db.query(BotPersonality).filter(BotPersonality.user_id == user_id).first()
+        )
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        features = feature_unlock_manager.get_unlocked_features(
+            personality.friendship_level
+        )
+
+        return {
+            "success": True,
+            "features": features,
+            "count": len(features),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting unlocked features: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/features/locked")
+async def get_locked_features(user_id: int = 1, db: Session = Depends(get_db)):
+    """
+    Get all locked features for a user
+
+    Args:
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        List of locked features
+    """
+    try:
+        personality = (
+            db.query(BotPersonality).filter(BotPersonality.user_id == user_id).first()
+        )
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        features = feature_unlock_manager.get_locked_features(
+            personality.friendship_level
+        )
+
+        return {
+            "success": True,
+            "features": features,
+            "count": len(features),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting locked features: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/features/check/{feature_id}")
+async def check_feature(feature_id: str, user_id: int = 1, db: Session = Depends(get_db)):
+    """
+    Check if a specific feature is unlocked
+
+    Args:
+        feature_id: Feature identifier
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Feature unlock status and information
+    """
+    try:
+        personality = (
+            db.query(BotPersonality).filter(BotPersonality.user_id == user_id).first()
+        )
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        unlocked = check_feature_access(personality, feature_id)
+        feature_info = feature_unlock_manager.get_feature_info(feature_id)
+
+        if not feature_info:
+            raise HTTPException(status_code=404, detail="Feature not found")
+
+        response = {
+            "success": True,
+            "feature_id": feature_id,
+            "unlocked": unlocked,
+            "feature_info": feature_info,
+        }
+
+        # Add lock message if locked
+        if not unlocked:
+            response["lock_message"] = get_feature_gate_message(feature_id, personality)
+
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking feature: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class FeatureCheckRequest(BaseModel):
+    """Request model for checking multiple features"""
+    feature_ids: List[str]
+
+
+@router.post("/features/check-multiple")
+async def check_multiple_features(
+    request: FeatureCheckRequest,
+    user_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """
+    Check multiple features at once
+
+    Args:
+        request: List of feature IDs to check
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Dictionary of feature statuses
+    """
+    try:
+        personality = (
+            db.query(BotPersonality).filter(BotPersonality.user_id == user_id).first()
+        )
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        results = feature_unlock_manager.check_multiple_features(
+            request.feature_ids,
+            personality.friendship_level
+        )
+
+        return {
+            "success": True,
+            "results": results,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking multiple features: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/features/by-level/{level}")
+async def get_features_by_level(level: int):
+    """
+    Get all features that unlock at a specific level
+
+    Args:
+        level: Friendship level (1-10)
+
+    Returns:
+        List of features unlocking at that level
+    """
+    try:
+        if level < 1 or level > 10:
+            raise HTTPException(status_code=400, detail="Level must be between 1 and 10")
+
+        features = feature_unlock_manager.get_features_by_level(level)
+
+        return {
+            "success": True,
+            "level": level,
+            "features": features,
+            "count": len(features),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting features by level: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/features/by-category/{category}")
+async def get_features_by_category(category: str, user_id: Optional[int] = None, db: Session = Depends(get_db)):
+    """
+    Get all features in a specific category
+
+    Args:
+        category: Feature category
+        user_id: Optional user ID to filter by unlocked status
+        db: Database session
+
+    Returns:
+        List of features in category
+    """
+    try:
+        friendship_level = None
+
+        if user_id:
+            personality = (
+                db.query(BotPersonality).filter(BotPersonality.user_id == user_id).first()
+            )
+            if personality:
+                friendship_level = personality.friendship_level
+
+        features = feature_unlock_manager.get_features_by_category(
+            category,
+            friendship_level
+        )
+
+        return {
+            "success": True,
+            "category": category,
+            "features": features,
+            "count": len(features),
+            "filtered_by_level": friendship_level is not None,
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting features by category: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/features/categories")
+async def get_feature_categories():
+    """
+    Get all feature categories
+
+    Returns:
+        Dictionary of categories
+    """
+    try:
+        categories = feature_unlock_manager.get_all_categories()
+
+        return {
+            "success": True,
+            "categories": categories,
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting categories: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
