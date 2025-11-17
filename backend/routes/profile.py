@@ -519,3 +519,178 @@ async def delete_dislike(
     except Exception as e:
         logger.error(f"Error deleting dislike: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Important People Category CRUD Endpoints
+
+
+class PersonCreate(BaseModel):
+    """Request model for creating an important person"""
+
+    key: str
+    value: str
+
+
+class PersonUpdate(BaseModel):
+    """Request model for updating an important person"""
+
+    key: Optional[str] = None
+    value: Optional[str] = None
+
+
+@router.get("/profile/people")
+async def get_people(user_id: int = 1, db: Session = Depends(get_db)):
+    """
+    Get all important people for a user
+
+    Args:
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        List of important people
+    """
+    try:
+        people = memory_manager.get_people(user_id, db)
+
+        return {
+            "people": [person.to_dict() for person in people],
+            "count": len(people),
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting people: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/profile/people/{person_id}")
+async def get_person(
+    person_id: int, user_id: int = 1, db: Session = Depends(get_db)
+):
+    """
+    Get a specific person by ID
+
+    Args:
+        person_id: Person ID
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Person object
+    """
+    try:
+        person = memory_manager.get_person_by_id(person_id, user_id, db)
+
+        if not person:
+            raise HTTPException(status_code=404, detail="Person not found")
+
+        return person.to_dict()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting person: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/profile/people")
+async def create_person(
+    person: PersonCreate, user_id: int = 1, db: Session = Depends(get_db)
+):
+    """
+    Create a new important person
+
+    Args:
+        person: Person data (key and value)
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Created person object
+    """
+    try:
+        new_person = memory_manager.add_person(
+            user_id, person.key, person.value, db
+        )
+
+        return {
+            "message": "Person created successfully",
+            "person": new_person.to_dict(),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating person: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/profile/people/{person_id}")
+async def update_person(
+    person_id: int,
+    person: PersonUpdate,
+    user_id: int = 1,
+    db: Session = Depends(get_db),
+):
+    """
+    Update an existing important person
+
+    Args:
+        person_id: Person ID
+        person: Person update data
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Updated person object
+    """
+    try:
+        updated_person = memory_manager.update_person(
+            person_id, user_id, person.key, person.value, db
+        )
+
+        if not updated_person:
+            raise HTTPException(status_code=404, detail="Person not found")
+
+        return {
+            "message": "Person updated successfully",
+            "person": updated_person.to_dict(),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating person: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/profile/people/{person_id}")
+async def delete_person(
+    person_id: int, user_id: int = 1, db: Session = Depends(get_db)
+):
+    """
+    Delete an important person
+
+    Args:
+        person_id: Person ID
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Success message
+    """
+    try:
+        deleted = memory_manager.delete_person(person_id, user_id, db)
+
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Person not found")
+
+        return {"message": "Person deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting person: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

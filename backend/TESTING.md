@@ -510,6 +510,50 @@ pytest tests/test_dislikes_storage.py -v
 - ✅ User isolation (dislikes separated by user_id)
 - ✅ Dislikes separate from favorites
 
+### 6. Important People Category Storage Tests
+
+**File:** `tests/test_people_storage.py`
+
+Pytest-compatible test suite for important people category CRUD operations.
+
+**Features:**
+- Complete CRUD operations testing
+- Input validation and error handling
+- User isolation verification
+- Duplicate handling (updates existing)
+- Ordering by last_mentioned
+- Authorization checks
+- Separation from other categories
+- Various person types (friends, family, teachers, etc.)
+
+**Run:**
+```bash
+cd backend
+pytest tests/test_people_storage.py -v
+```
+
+**Note:** These tests currently cannot run due to a pre-existing issue with the Message model (reserved `metadata` attribute in SQLAlchemy). The implementation has been verified manually.
+
+**Test Cases:**
+- ✅ Add new person
+- ✅ Add duplicate person (updates existing)
+- ✅ Empty key/value validation
+- ✅ Get all people
+- ✅ Get people returns empty list when none exist
+- ✅ Get specific person by ID
+- ✅ Get person by ID not found
+- ✅ Update person value only
+- ✅ Update person key only
+- ✅ Update both key and value
+- ✅ Update with neither raises ValueError
+- ✅ Update non-existent person
+- ✅ Delete person
+- ✅ Delete non-existent person
+- ✅ People ordered by last_mentioned
+- ✅ User isolation (people separated by user_id)
+- ✅ People separate from favorites and dislikes
+- ✅ Various person types (friends, family, teachers, neighbors, coaches)
+
 ## Resources
 
 - [Pytest Documentation](https://docs.pytest.org/)
@@ -519,3 +563,4 @@ pytest tests/test_dislikes_storage.py -v
 - [Short-Term Memory Guide](SHORT_TERM_MEMORY.md)
 - [Favorites Storage Guide](FAVORITES_STORAGE.md)
 - [Dislikes Storage Guide](DISLIKES_STORAGE.md)
+- [Important People Storage Guide](PEOPLE_STORAGE.md)

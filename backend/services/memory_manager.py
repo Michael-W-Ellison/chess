@@ -767,6 +767,179 @@ class MemoryManager:
         logger.info(f"Deleted dislike {dislike_id} for user {user_id}")
         return True
 
+    # Important People Category Management Methods
+
+    def add_person(self, user_id: int, key: str, value: str, db: Session) -> UserProfile:
+        """
+        Add an important person for a user
+
+        Args:
+            user_id: User ID
+            key: Person identifier (e.g., 'friend_emma', 'teacher_smith', 'mom')
+            value: Person details/description
+            db: Database session
+
+        Returns:
+            Created or updated UserProfile object
+
+        Raises:
+            ValueError: If key or value is empty
+        """
+        if not key or not value:
+            raise ValueError("Key and value cannot be empty")
+
+        # Check if person already exists
+        existing = (
+            db.query(UserProfile)
+            .filter(
+                UserProfile.user_id == user_id,
+                UserProfile.category == "person",
+                UserProfile.key == key,
+            )
+            .first()
+        )
+
+        if existing:
+            # Update existing person
+            existing.value = value
+            existing.last_mentioned = datetime.now()
+            existing.mention_count += 1
+            existing.confidence = min(1.0, existing.confidence + 0.1)
+            db.commit()
+            db.refresh(existing)
+            logger.info(f"Updated person {key} for user {user_id}")
+            return existing
+        else:
+            # Create new person
+            person = UserProfile(
+                user_id=user_id,
+                category="person",
+                key=key,
+                value=value,
+                confidence=1.0,  # User-added people have full confidence
+                first_mentioned=datetime.now(),
+                last_mentioned=datetime.now(),
+                mention_count=1,
+            )
+            db.add(person)
+            db.commit()
+            db.refresh(person)
+            logger.info(f"Added person {key} for user {user_id}")
+            return person
+
+    def get_people(self, user_id: int, db: Session) -> List[UserProfile]:
+        """
+        Get all important people for a user
+
+        Args:
+            user_id: User ID
+            db: Database session
+
+        Returns:
+            List of UserProfile objects with category='person'
+        """
+        people = (
+            db.query(UserProfile)
+            .filter(
+                UserProfile.user_id == user_id,
+                UserProfile.category == "person"
+            )
+            .order_by(UserProfile.last_mentioned.desc())
+            .all()
+        )
+
+        logger.debug(f"Retrieved {len(people)} important people for user {user_id}")
+        return people
+
+    def get_person_by_id(self, person_id: int, user_id: int, db: Session) -> Optional[UserProfile]:
+        """
+        Get a specific person by ID
+
+        Args:
+            person_id: Person ID
+            user_id: User ID (for authorization)
+            db: Database session
+
+        Returns:
+            UserProfile object or None if not found
+        """
+        person = (
+            db.query(UserProfile)
+            .filter(
+                UserProfile.id == person_id,
+                UserProfile.user_id == user_id,
+                UserProfile.category == "person"
+            )
+            .first()
+        )
+
+        return person
+
+    def update_person(
+        self, person_id: int, user_id: int, key: Optional[str], value: Optional[str], db: Session
+    ) -> Optional[UserProfile]:
+        """
+        Update an existing person
+
+        Args:
+            person_id: Person ID
+            user_id: User ID (for authorization)
+            key: New key (optional)
+            value: New value (optional)
+            db: Database session
+
+        Returns:
+            Updated UserProfile object or None if not found
+
+        Raises:
+            ValueError: If neither key nor value is provided
+        """
+        if key is None and value is None:
+            raise ValueError("Must provide at least one of key or value to update")
+
+        person = self.get_person_by_id(person_id, user_id, db)
+
+        if not person:
+            logger.warning(f"Person {person_id} not found for user {user_id}")
+            return None
+
+        # Update fields
+        if key is not None:
+            person.key = key
+        if value is not None:
+            person.value = value
+
+        person.last_mentioned = datetime.now()
+        db.commit()
+        db.refresh(person)
+
+        logger.info(f"Updated person {person_id} for user {user_id}")
+        return person
+
+    def delete_person(self, person_id: int, user_id: int, db: Session) -> bool:
+        """
+        Delete a person
+
+        Args:
+            person_id: Person ID
+            user_id: User ID (for authorization)
+            db: Database session
+
+        Returns:
+            True if deleted, False if not found
+        """
+        person = self.get_person_by_id(person_id, user_id, db)
+
+        if not person:
+            logger.warning(f"Person {person_id} not found for user {user_id}")
+            return False
+
+        db.delete(person)
+        db.commit()
+
+        logger.info(f"Deleted person {person_id} for user {user_id}")
+        return True
+
 
 # Global instance
 memory_manager = MemoryManager()
