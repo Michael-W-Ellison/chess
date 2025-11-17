@@ -940,6 +940,179 @@ class MemoryManager:
         logger.info(f"Deleted person {person_id} for user {user_id}")
         return True
 
+    # Goals Category Management Methods
+
+    def add_goal(self, user_id: int, key: str, value: str, db: Session) -> UserProfile:
+        """
+        Add a goal for a user
+
+        Args:
+            user_id: User ID
+            key: Goal identifier (e.g., 'make_soccer_team', 'learn_guitar', 'improve_grades')
+            value: Goal description
+            db: Database session
+
+        Returns:
+            Created or updated UserProfile object
+
+        Raises:
+            ValueError: If key or value is empty
+        """
+        if not key or not value:
+            raise ValueError("Key and value cannot be empty")
+
+        # Check if goal already exists
+        existing = (
+            db.query(UserProfile)
+            .filter(
+                UserProfile.user_id == user_id,
+                UserProfile.category == "goal",
+                UserProfile.key == key,
+            )
+            .first()
+        )
+
+        if existing:
+            # Update existing goal
+            existing.value = value
+            existing.last_mentioned = datetime.now()
+            existing.mention_count += 1
+            existing.confidence = min(1.0, existing.confidence + 0.1)
+            db.commit()
+            db.refresh(existing)
+            logger.info(f"Updated goal {key} for user {user_id}")
+            return existing
+        else:
+            # Create new goal
+            goal = UserProfile(
+                user_id=user_id,
+                category="goal",
+                key=key,
+                value=value,
+                confidence=1.0,  # User-added goals have full confidence
+                first_mentioned=datetime.now(),
+                last_mentioned=datetime.now(),
+                mention_count=1,
+            )
+            db.add(goal)
+            db.commit()
+            db.refresh(goal)
+            logger.info(f"Added goal {key} for user {user_id}")
+            return goal
+
+    def get_goals(self, user_id: int, db: Session) -> List[UserProfile]:
+        """
+        Get all goals for a user
+
+        Args:
+            user_id: User ID
+            db: Database session
+
+        Returns:
+            List of UserProfile objects with category='goal'
+        """
+        goals = (
+            db.query(UserProfile)
+            .filter(
+                UserProfile.user_id == user_id,
+                UserProfile.category == "goal"
+            )
+            .order_by(UserProfile.last_mentioned.desc())
+            .all()
+        )
+
+        logger.debug(f"Retrieved {len(goals)} goals for user {user_id}")
+        return goals
+
+    def get_goal_by_id(self, goal_id: int, user_id: int, db: Session) -> Optional[UserProfile]:
+        """
+        Get a specific goal by ID
+
+        Args:
+            goal_id: Goal ID
+            user_id: User ID (for authorization)
+            db: Database session
+
+        Returns:
+            UserProfile object or None if not found
+        """
+        goal = (
+            db.query(UserProfile)
+            .filter(
+                UserProfile.id == goal_id,
+                UserProfile.user_id == user_id,
+                UserProfile.category == "goal"
+            )
+            .first()
+        )
+
+        return goal
+
+    def update_goal(
+        self, goal_id: int, user_id: int, key: Optional[str], value: Optional[str], db: Session
+    ) -> Optional[UserProfile]:
+        """
+        Update an existing goal
+
+        Args:
+            goal_id: Goal ID
+            user_id: User ID (for authorization)
+            key: New key (optional)
+            value: New value (optional)
+            db: Database session
+
+        Returns:
+            Updated UserProfile object or None if not found
+
+        Raises:
+            ValueError: If neither key nor value is provided
+        """
+        if key is None and value is None:
+            raise ValueError("Must provide at least one of key or value to update")
+
+        goal = self.get_goal_by_id(goal_id, user_id, db)
+
+        if not goal:
+            logger.warning(f"Goal {goal_id} not found for user {user_id}")
+            return None
+
+        # Update fields
+        if key is not None:
+            goal.key = key
+        if value is not None:
+            goal.value = value
+
+        goal.last_mentioned = datetime.now()
+        db.commit()
+        db.refresh(goal)
+
+        logger.info(f"Updated goal {goal_id} for user {user_id}")
+        return goal
+
+    def delete_goal(self, goal_id: int, user_id: int, db: Session) -> bool:
+        """
+        Delete a goal
+
+        Args:
+            goal_id: Goal ID
+            user_id: User ID (for authorization)
+            db: Database session
+
+        Returns:
+            True if deleted, False if not found
+        """
+        goal = self.get_goal_by_id(goal_id, user_id, db)
+
+        if not goal:
+            logger.warning(f"Goal {goal_id} not found for user {user_id}")
+            return False
+
+        db.delete(goal)
+        db.commit()
+
+        logger.info(f"Deleted goal {goal_id} for user {user_id}")
+        return True
+
 
 # Global instance
 memory_manager = MemoryManager()

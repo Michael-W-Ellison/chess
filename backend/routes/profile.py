@@ -694,3 +694,178 @@ async def delete_person(
     except Exception as e:
         logger.error(f"Error deleting person: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Goals Category CRUD Endpoints
+
+
+class GoalCreate(BaseModel):
+    """Request model for creating a goal"""
+
+    key: str
+    value: str
+
+
+class GoalUpdate(BaseModel):
+    """Request model for updating a goal"""
+
+    key: Optional[str] = None
+    value: Optional[str] = None
+
+
+@router.get("/profile/goals")
+async def get_goals(user_id: int = 1, db: Session = Depends(get_db)):
+    """
+    Get all goals for a user
+
+    Args:
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        List of goals
+    """
+    try:
+        goals = memory_manager.get_goals(user_id, db)
+
+        return {
+            "goals": [goal.to_dict() for goal in goals],
+            "count": len(goals),
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting goals: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/profile/goals/{goal_id}")
+async def get_goal(
+    goal_id: int, user_id: int = 1, db: Session = Depends(get_db)
+):
+    """
+    Get a specific goal by ID
+
+    Args:
+        goal_id: Goal ID
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Goal object
+    """
+    try:
+        goal = memory_manager.get_goal_by_id(goal_id, user_id, db)
+
+        if not goal:
+            raise HTTPException(status_code=404, detail="Goal not found")
+
+        return goal.to_dict()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting goal: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/profile/goals")
+async def create_goal(
+    goal: GoalCreate, user_id: int = 1, db: Session = Depends(get_db)
+):
+    """
+    Create a new goal
+
+    Args:
+        goal: Goal data (key and value)
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Created goal object
+    """
+    try:
+        new_goal = memory_manager.add_goal(
+            user_id, goal.key, goal.value, db
+        )
+
+        return {
+            "message": "Goal created successfully",
+            "goal": new_goal.to_dict(),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating goal: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/profile/goals/{goal_id}")
+async def update_goal(
+    goal_id: int,
+    goal: GoalUpdate,
+    user_id: int = 1,
+    db: Session = Depends(get_db),
+):
+    """
+    Update an existing goal
+
+    Args:
+        goal_id: Goal ID
+        goal: Goal update data
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Updated goal object
+    """
+    try:
+        updated_goal = memory_manager.update_goal(
+            goal_id, user_id, goal.key, goal.value, db
+        )
+
+        if not updated_goal:
+            raise HTTPException(status_code=404, detail="Goal not found")
+
+        return {
+            "message": "Goal updated successfully",
+            "goal": updated_goal.to_dict(),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating goal: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/profile/goals/{goal_id}")
+async def delete_goal(
+    goal_id: int, user_id: int = 1, db: Session = Depends(get_db)
+):
+    """
+    Delete a goal
+
+    Args:
+        goal_id: Goal ID
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Success message
+    """
+    try:
+        deleted = memory_manager.delete_goal(goal_id, user_id, db)
+
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Goal not found")
+
+        return {"message": "Goal deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting goal: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

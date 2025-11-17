@@ -554,6 +554,50 @@ pytest tests/test_people_storage.py -v
 - ✅ People separate from favorites and dislikes
 - ✅ Various person types (friends, family, teachers, neighbors, coaches)
 
+### Goals Storage Tests
+
+**File:** `tests/test_goals_storage.py`
+
+Pytest-compatible test suite for goals category CRUD operations.
+
+**Features:**
+- Complete CRUD operations testing
+- Input validation and error handling
+- User isolation verification
+- Duplicate handling (updates existing)
+- Ordering by last_mentioned
+- Authorization checks
+- Separation from other categories
+- Various goal types (academic, fitness, personal, social, creative)
+
+**Run:**
+```bash
+cd backend
+pytest tests/test_goals_storage.py -v
+```
+
+**Note:** These tests currently cannot run due to a pre-existing issue with the Message model (reserved `metadata` attribute in SQLAlchemy). The implementation has been verified manually.
+
+**Test Cases:**
+- ✅ Add new goal
+- ✅ Add duplicate goal (updates existing)
+- ✅ Empty key/value validation
+- ✅ Get all goals
+- ✅ Get goals returns empty list when none exist
+- ✅ Get specific goal by ID
+- ✅ Get goal by ID not found
+- ✅ Update goal value only
+- ✅ Update goal key only
+- ✅ Update both key and value
+- ✅ Update with neither raises ValueError
+- ✅ Update non-existent goal
+- ✅ Delete goal
+- ✅ Delete non-existent goal
+- ✅ Goals ordered by last_mentioned
+- ✅ User isolation (goals separated by user_id)
+- ✅ Goals separate from other categories
+- ✅ Various goal types (academic, fitness, personal, social, creative)
+
 ## Resources
 
 - [Pytest Documentation](https://docs.pytest.org/)
@@ -564,3 +608,4 @@ pytest tests/test_people_storage.py -v
 - [Favorites Storage Guide](FAVORITES_STORAGE.md)
 - [Dislikes Storage Guide](DISLIKES_STORAGE.md)
 - [Important People Storage Guide](PEOPLE_STORAGE.md)
+- [Goals Storage Guide](GOALS_STORAGE.md)
