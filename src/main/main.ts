@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { setupIpcHandlers, cleanupIpcHandlers } from './ipc-handlers';
+import { backendManager } from './backend-manager';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling
 if (require('electron-squirrel-startup')) {
@@ -72,9 +73,20 @@ function createMainWindow(): void {
 /**
  * App lifecycle: Ready
  */
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Set up IPC communication handlers
   setupIpcHandlers();
+
+  // Start Python backend
+  console.log('Starting Python backend...');
+  try {
+    await backendManager.start();
+    console.log('✓ Backend started successfully');
+  } catch (error) {
+    console.error('Failed to start backend:', error);
+    console.error('The application will run with limited functionality');
+    // Continue anyway - app can still show UI, just without backend functionality
+  }
 
   createMainWindow();
 
@@ -100,16 +112,26 @@ app.on('window-all-closed', () => {
  * App lifecycle: Before quit
  * Clean up resources here
  */
-app.on('before-quit', async () => {
+app.on('before-quit', async (event) => {
   console.log('Application shutting down...');
 
-  // Cleanup IPC handlers
-  cleanupIpcHandlers();
+  // Prevent default to allow async cleanup
+  event.preventDefault();
 
-  // TODO: Additional cleanup tasks
-  // - End active conversation
-  // - Save any pending data
-  // - Shutdown Python backend gracefully
+  try {
+    // Cleanup IPC handlers
+    cleanupIpcHandlers();
+
+    // Shutdown Python backend gracefully
+    console.log('Stopping Python backend...');
+    await backendManager.stop();
+    console.log('✓ Backend stopped');
+  } catch (error) {
+    console.error('Error during cleanup:', error);
+  } finally {
+    // Now actually quit
+    app.exit(0);
+  }
 });
 
 /**
