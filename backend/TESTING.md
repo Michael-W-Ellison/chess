@@ -468,6 +468,48 @@ pytest tests/test_favorites_storage.py -v
 - ✅ Favorites ordered by last_mentioned
 - ✅ User isolation (favorites separated by user_id)
 
+### 5. Dislikes Category Storage Tests
+
+**File:** `tests/test_dislikes_storage.py`
+
+Pytest-compatible test suite for dislikes category CRUD operations.
+
+**Features:**
+- Complete CRUD operations testing
+- Input validation and error handling
+- User isolation verification
+- Duplicate handling (updates existing)
+- Ordering by last_mentioned
+- Authorization checks
+- Separation from favorites category
+
+**Run:**
+```bash
+cd backend
+pytest tests/test_dislikes_storage.py -v
+```
+
+**Note:** These tests currently cannot run due to a pre-existing issue with the Message model (reserved `metadata` attribute in SQLAlchemy). The implementation has been verified manually.
+
+**Test Cases:**
+- ✅ Add new dislike
+- ✅ Add duplicate dislike (updates existing)
+- ✅ Empty key/value validation
+- ✅ Get all dislikes
+- ✅ Get dislikes returns empty list when none exist
+- ✅ Get specific dislike by ID
+- ✅ Get dislike by ID not found
+- ✅ Update dislike value only
+- ✅ Update dislike key only
+- ✅ Update both key and value
+- ✅ Update with neither raises ValueError
+- ✅ Update non-existent dislike
+- ✅ Delete dislike
+- ✅ Delete non-existent dislike
+- ✅ Dislikes ordered by last_mentioned
+- ✅ User isolation (dislikes separated by user_id)
+- ✅ Dislikes separate from favorites
+
 ## Resources
 
 - [Pytest Documentation](https://docs.pytest.org/)
@@ -476,3 +518,4 @@ pytest tests/test_favorites_storage.py -v
 - [Memory Extraction Guide](MEMORY_EXTRACTION.md)
 - [Short-Term Memory Guide](SHORT_TERM_MEMORY.md)
 - [Favorites Storage Guide](FAVORITES_STORAGE.md)
+- [Dislikes Storage Guide](DISLIKES_STORAGE.md)

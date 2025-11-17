@@ -594,6 +594,179 @@ class MemoryManager:
         logger.info(f"Deleted favorite {favorite_id} for user {user_id}")
         return True
 
+    # Dislikes Category Management Methods
+
+    def add_dislike(self, user_id: int, key: str, value: str, db: Session) -> UserProfile:
+        """
+        Add a new dislike for a user
+
+        Args:
+            user_id: User ID
+            key: Dislike key (e.g., 'food', 'activity', 'subject')
+            value: Dislike value
+            db: Database session
+
+        Returns:
+            Created or updated UserProfile object
+
+        Raises:
+            ValueError: If key or value is empty
+        """
+        if not key or not value:
+            raise ValueError("Key and value cannot be empty")
+
+        # Check if dislike already exists
+        existing = (
+            db.query(UserProfile)
+            .filter(
+                UserProfile.user_id == user_id,
+                UserProfile.category == "dislike",
+                UserProfile.key == key,
+            )
+            .first()
+        )
+
+        if existing:
+            # Update existing dislike
+            existing.value = value
+            existing.last_mentioned = datetime.now()
+            existing.mention_count += 1
+            existing.confidence = min(1.0, existing.confidence + 0.1)
+            db.commit()
+            db.refresh(existing)
+            logger.info(f"Updated dislike {key} for user {user_id}")
+            return existing
+        else:
+            # Create new dislike
+            dislike = UserProfile(
+                user_id=user_id,
+                category="dislike",
+                key=key,
+                value=value,
+                confidence=1.0,  # User-added dislikes have full confidence
+                first_mentioned=datetime.now(),
+                last_mentioned=datetime.now(),
+                mention_count=1,
+            )
+            db.add(dislike)
+            db.commit()
+            db.refresh(dislike)
+            logger.info(f"Added dislike {key} for user {user_id}")
+            return dislike
+
+    def get_dislikes(self, user_id: int, db: Session) -> List[UserProfile]:
+        """
+        Get all dislikes for a user
+
+        Args:
+            user_id: User ID
+            db: Database session
+
+        Returns:
+            List of UserProfile objects with category='dislike'
+        """
+        dislikes = (
+            db.query(UserProfile)
+            .filter(
+                UserProfile.user_id == user_id,
+                UserProfile.category == "dislike"
+            )
+            .order_by(UserProfile.last_mentioned.desc())
+            .all()
+        )
+
+        logger.debug(f"Retrieved {len(dislikes)} dislikes for user {user_id}")
+        return dislikes
+
+    def get_dislike_by_id(self, dislike_id: int, user_id: int, db: Session) -> Optional[UserProfile]:
+        """
+        Get a specific dislike by ID
+
+        Args:
+            dislike_id: Dislike ID
+            user_id: User ID (for authorization)
+            db: Database session
+
+        Returns:
+            UserProfile object or None if not found
+        """
+        dislike = (
+            db.query(UserProfile)
+            .filter(
+                UserProfile.id == dislike_id,
+                UserProfile.user_id == user_id,
+                UserProfile.category == "dislike"
+            )
+            .first()
+        )
+
+        return dislike
+
+    def update_dislike(
+        self, dislike_id: int, user_id: int, key: Optional[str], value: Optional[str], db: Session
+    ) -> Optional[UserProfile]:
+        """
+        Update an existing dislike
+
+        Args:
+            dislike_id: Dislike ID
+            user_id: User ID (for authorization)
+            key: New key (optional)
+            value: New value (optional)
+            db: Database session
+
+        Returns:
+            Updated UserProfile object or None if not found
+
+        Raises:
+            ValueError: If neither key nor value is provided
+        """
+        if key is None and value is None:
+            raise ValueError("Must provide at least one of key or value to update")
+
+        dislike = self.get_dislike_by_id(dislike_id, user_id, db)
+
+        if not dislike:
+            logger.warning(f"Dislike {dislike_id} not found for user {user_id}")
+            return None
+
+        # Update fields
+        if key is not None:
+            dislike.key = key
+        if value is not None:
+            dislike.value = value
+
+        dislike.last_mentioned = datetime.now()
+        db.commit()
+        db.refresh(dislike)
+
+        logger.info(f"Updated dislike {dislike_id} for user {user_id}")
+        return dislike
+
+    def delete_dislike(self, dislike_id: int, user_id: int, db: Session) -> bool:
+        """
+        Delete a dislike
+
+        Args:
+            dislike_id: Dislike ID
+            user_id: User ID (for authorization)
+            db: Database session
+
+        Returns:
+            True if deleted, False if not found
+        """
+        dislike = self.get_dislike_by_id(dislike_id, user_id, db)
+
+        if not dislike:
+            logger.warning(f"Dislike {dislike_id} not found for user {user_id}")
+            return False
+
+        db.delete(dislike)
+        db.commit()
+
+        logger.info(f"Deleted dislike {dislike_id} for user {user_id}")
+        return True
+
 
 # Global instance
 memory_manager = MemoryManager()

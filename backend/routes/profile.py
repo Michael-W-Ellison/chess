@@ -344,3 +344,178 @@ async def delete_favorite(
     except Exception as e:
         logger.error(f"Error deleting favorite: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Dislikes Category CRUD Endpoints
+
+
+class DislikeCreate(BaseModel):
+    """Request model for creating a dislike"""
+
+    key: str
+    value: str
+
+
+class DislikeUpdate(BaseModel):
+    """Request model for updating a dislike"""
+
+    key: Optional[str] = None
+    value: Optional[str] = None
+
+
+@router.get("/profile/dislikes")
+async def get_dislikes(user_id: int = 1, db: Session = Depends(get_db)):
+    """
+    Get all dislikes for a user
+
+    Args:
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        List of dislikes
+    """
+    try:
+        dislikes = memory_manager.get_dislikes(user_id, db)
+
+        return {
+            "dislikes": [dislike.to_dict() for dislike in dislikes],
+            "count": len(dislikes),
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting dislikes: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/profile/dislikes/{dislike_id}")
+async def get_dislike(
+    dislike_id: int, user_id: int = 1, db: Session = Depends(get_db)
+):
+    """
+    Get a specific dislike by ID
+
+    Args:
+        dislike_id: Dislike ID
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Dislike object
+    """
+    try:
+        dislike = memory_manager.get_dislike_by_id(dislike_id, user_id, db)
+
+        if not dislike:
+            raise HTTPException(status_code=404, detail="Dislike not found")
+
+        return dislike.to_dict()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting dislike: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/profile/dislikes")
+async def create_dislike(
+    dislike: DislikeCreate, user_id: int = 1, db: Session = Depends(get_db)
+):
+    """
+    Create a new dislike
+
+    Args:
+        dislike: Dislike data (key and value)
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Created dislike object
+    """
+    try:
+        new_dislike = memory_manager.add_dislike(
+            user_id, dislike.key, dislike.value, db
+        )
+
+        return {
+            "message": "Dislike created successfully",
+            "dislike": new_dislike.to_dict(),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating dislike: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/profile/dislikes/{dislike_id}")
+async def update_dislike(
+    dislike_id: int,
+    dislike: DislikeUpdate,
+    user_id: int = 1,
+    db: Session = Depends(get_db),
+):
+    """
+    Update an existing dislike
+
+    Args:
+        dislike_id: Dislike ID
+        dislike: Dislike update data
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Updated dislike object
+    """
+    try:
+        updated_dislike = memory_manager.update_dislike(
+            dislike_id, user_id, dislike.key, dislike.value, db
+        )
+
+        if not updated_dislike:
+            raise HTTPException(status_code=404, detail="Dislike not found")
+
+        return {
+            "message": "Dislike updated successfully",
+            "dislike": updated_dislike.to_dict(),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating dislike: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/profile/dislikes/{dislike_id}")
+async def delete_dislike(
+    dislike_id: int, user_id: int = 1, db: Session = Depends(get_db)
+):
+    """
+    Delete a dislike
+
+    Args:
+        dislike_id: Dislike ID
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Success message
+    """
+    try:
+        deleted = memory_manager.delete_dislike(dislike_id, user_id, db)
+
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Dislike not found")
+
+        return {"message": "Dislike deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting dislike: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
