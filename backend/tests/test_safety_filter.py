@@ -16,12 +16,15 @@ class TestSafetyFilterIntegration:
 
     def test_initialization(self):
         """Test that SafetyFilter initializes all services correctly"""
+        assert self.filter.crisis_detector is not None
         assert self.filter.profanity_filter is not None
         assert self.filter.inappropriate_detector is not None
         assert self.filter.word_list is not None
-        assert len(self.filter.crisis_keywords) > 0
         assert len(self.filter.bullying_keywords) > 0
-        assert len(self.filter.abuse_keywords) > 0
+        # Verify crisis detector has keyword lists
+        assert len(self.filter.crisis_detector.suicide_keywords) > 0
+        assert len(self.filter.crisis_detector.self_harm_keywords) > 0
+        assert len(self.filter.crisis_detector.abuse_physical_keywords) > 0
 
     def test_crisis_detection_highest_priority(self):
         """Test that crisis detection has highest priority"""
@@ -35,8 +38,8 @@ class TestSafetyFilterIntegration:
         assert "988" in result["response_message"]
         assert "crisis" in result["details"]
 
-    def test_abuse_detection_second_priority(self):
-        """Test that abuse detection has second priority"""
+    def test_abuse_detection_via_crisis_detector(self):
+        """Test that abuse detection works via crisis detector"""
         result = self.filter.check_message("My dad hits me every day")
 
         assert result["safe"] is False
@@ -44,7 +47,9 @@ class TestSafetyFilterIntegration:
         assert result["severity"] == "critical"
         assert result["action"] == "crisis_response"
         assert result["notify_parent"] is True
-        assert result["details"]["abuse"]["detected"] is True
+        assert result["details"]["crisis"]["detected"] is True
+        assert result["details"]["crisis"]["primary_category"] == "abuse_physical"
+        assert "Childhelp" in result["response_message"]
 
     def test_inappropriate_request_detection(self):
         """Test inappropriate request detection integration"""
@@ -184,17 +189,20 @@ class TestSafetyFilterIntegration:
         """Test getting statistics from all services"""
         stats = self.filter.get_service_stats()
 
+        assert "crisis_keyword_list" in stats
         assert "profanity_word_list" in stats
         assert "profanity_filter" in stats
         assert "inappropriate_detector" in stats
-        assert "crisis_keywords_count" in stats
         assert "bullying_keywords_count" in stats
-        assert "abuse_keywords_count" in stats
 
         # Check that counts are reasonable
-        assert stats["crisis_keywords_count"] > 5
         assert stats["bullying_keywords_count"] > 5
-        assert stats["abuse_keywords_count"] > 5
+        # Verify crisis keyword list stats
+        crisis_stats = stats["crisis_keyword_list"]
+        assert crisis_stats["suicide_keywords"] > 5
+        assert crisis_stats["self_harm_keywords"] > 5
+        assert crisis_stats["abuse_physical_keywords"] > 5
+        assert crisis_stats["total_keywords"] > 50
 
     def test_reset_user_violations(self):
         """Test resetting user violations"""
@@ -210,6 +218,133 @@ class TestSafetyFilterIntegration:
         # After reset, violations should be cleared
         # (Actual violation count is tracked in profanity_filter)
         assert self.filter.profanity_filter.user_violations.get(user_id, 0) == 0
+
+
+class TestCrisisDetectionCategories:
+    """Test crisis detection with categorization"""
+
+    def setup_method(self):
+        """Set up test fixtures"""
+        self.filter = SafetyFilter()
+
+    def test_suicide_category_detection(self):
+        """Test detection of suicide category"""
+        test_messages = [
+            "I want to kill myself",
+            "I'm thinking about suicide",
+            "I want to die",
+            "There's no reason to live",
+        ]
+
+        for message in test_messages:
+            result = self.filter.check_message(message)
+            assert result["severity"] == "critical"
+            assert "crisis" in result["flags"]
+            assert result["details"]["crisis"]["primary_category"] == "suicide"
+            assert "988" in result["response_message"]
+
+    def test_self_harm_category_detection(self):
+        """Test detection of self-harm category"""
+        test_messages = [
+            "I cut myself last night",
+            "I want to hurt myself",
+            "I've been burning myself",
+        ]
+
+        for message in test_messages:
+            result = self.filter.check_message(message)
+            assert result["severity"] == "critical"
+            assert "crisis" in result["flags"]
+            assert result["details"]["crisis"]["primary_category"] == "self_harm"
+            assert "988" in result["response_message"]
+
+    def test_physical_abuse_category_detection(self):
+        """Test detection of physical abuse category"""
+        test_messages = [
+            "My dad hits me every day",
+            "My mom beats me when I get bad grades",
+            "He kicks me and punches me",
+        ]
+
+        for message in test_messages:
+            result = self.filter.check_message(message)
+            assert result["severity"] == "critical"
+            assert "abuse" in result["flags"]
+            assert result["details"]["crisis"]["primary_category"] == "abuse_physical"
+            assert "Childhelp" in result["response_message"]
+
+    def test_emotional_abuse_category_detection(self):
+        """Test detection of emotional abuse category"""
+        test_messages = [
+            "My dad threatens me all the time",
+            "My mom screams at me and makes me scared",
+            "They won't let me eat dinner",
+        ]
+
+        for message in test_messages:
+            result = self.filter.check_message(message)
+            assert result["severity"] == "critical"
+            assert "abuse" in result["flags"]
+            assert result["details"]["crisis"]["primary_category"] == "abuse_emotional"
+            assert "Childhelp" in result["response_message"]
+
+    def test_sexual_abuse_category_detection(self):
+        """Test detection of sexual abuse category"""
+        test_messages = [
+            "Someone touched me inappropriately",
+            "My uncle touched my private parts",
+            "He told me not to tell anyone",
+        ]
+
+        for message in test_messages:
+            result = self.filter.check_message(message)
+            assert result["severity"] == "critical"
+            assert "abuse" in result["flags"]
+            assert result["details"]["crisis"]["primary_category"] == "abuse_sexual"
+            assert "Childhelp" in result["response_message"]
+
+    def test_multiple_crisis_categories(self):
+        """Test detection of multiple crisis categories in one message"""
+        message = "I want to kill myself and I cut myself and my dad hits me"
+        result = self.filter.check_message(message)
+
+        assert result["severity"] == "critical"
+        assert "crisis" in result["flags"] or "abuse" in result["flags"]
+        # Should detect multiple categories
+        all_categories = result["details"]["crisis"]["all_categories"]
+        assert len(all_categories) >= 2
+        # Should include suicide, self_harm, and abuse_physical
+        assert "suicide" in all_categories
+        assert "self_harm" in all_categories
+        assert "abuse_physical" in all_categories
+
+    def test_crisis_category_priority(self):
+        """Test that crisis categories follow priority order"""
+        # Suicide should have priority over self-harm
+        result1 = self.filter.check_message("I want to kill myself and I cut myself")
+        assert result1["details"]["crisis"]["primary_category"] == "suicide"
+
+        # Self-harm should have priority over abuse
+        result2 = self.filter.check_message("I cut myself and my dad hits me")
+        assert result2["details"]["crisis"]["primary_category"] == "self_harm"
+
+        # Sexual abuse should have priority among abuse types
+        result3 = self.filter.check_message("My dad hits me and touched me inappropriately")
+        assert result3["details"]["crisis"]["primary_category"] == "abuse_sexual"
+
+    def test_crisis_keywords_found_details(self):
+        """Test that specific keywords found are reported"""
+        result = self.filter.check_message("I want to kill myself because there's no reason to live")
+
+        assert "crisis" in result["flags"]
+        keywords_found = result["details"]["crisis"]["keywords_found"]
+        assert len(keywords_found) > 0
+        # Each keyword should have category and severity
+        for kw in keywords_found:
+            assert "keyword" in kw
+            assert "category" in kw
+            assert "severity" in kw
+            assert kw["severity"] == "critical"
 
 
 class TestConvenienceFunctions:
