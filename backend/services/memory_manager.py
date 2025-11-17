@@ -421,6 +421,179 @@ class MemoryManager:
 
         return "\n".join(formatted)
 
+    # Favorites Category Management Methods
+
+    def add_favorite(self, user_id: int, key: str, value: str, db: Session) -> UserProfile:
+        """
+        Add a new favorite for a user
+
+        Args:
+            user_id: User ID
+            key: Favorite key (e.g., 'color', 'food', 'game')
+            value: Favorite value
+            db: Database session
+
+        Returns:
+            Created or updated UserProfile object
+
+        Raises:
+            ValueError: If key or value is empty
+        """
+        if not key or not value:
+            raise ValueError("Key and value cannot be empty")
+
+        # Check if favorite already exists
+        existing = (
+            db.query(UserProfile)
+            .filter(
+                UserProfile.user_id == user_id,
+                UserProfile.category == "favorite",
+                UserProfile.key == key,
+            )
+            .first()
+        )
+
+        if existing:
+            # Update existing favorite
+            existing.value = value
+            existing.last_mentioned = datetime.now()
+            existing.mention_count += 1
+            existing.confidence = min(1.0, existing.confidence + 0.1)
+            db.commit()
+            db.refresh(existing)
+            logger.info(f"Updated favorite {key} for user {user_id}")
+            return existing
+        else:
+            # Create new favorite
+            favorite = UserProfile(
+                user_id=user_id,
+                category="favorite",
+                key=key,
+                value=value,
+                confidence=1.0,  # User-added favorites have full confidence
+                first_mentioned=datetime.now(),
+                last_mentioned=datetime.now(),
+                mention_count=1,
+            )
+            db.add(favorite)
+            db.commit()
+            db.refresh(favorite)
+            logger.info(f"Added favorite {key} for user {user_id}")
+            return favorite
+
+    def get_favorites(self, user_id: int, db: Session) -> List[UserProfile]:
+        """
+        Get all favorites for a user
+
+        Args:
+            user_id: User ID
+            db: Database session
+
+        Returns:
+            List of UserProfile objects with category='favorite'
+        """
+        favorites = (
+            db.query(UserProfile)
+            .filter(
+                UserProfile.user_id == user_id,
+                UserProfile.category == "favorite"
+            )
+            .order_by(UserProfile.last_mentioned.desc())
+            .all()
+        )
+
+        logger.debug(f"Retrieved {len(favorites)} favorites for user {user_id}")
+        return favorites
+
+    def get_favorite_by_id(self, favorite_id: int, user_id: int, db: Session) -> Optional[UserProfile]:
+        """
+        Get a specific favorite by ID
+
+        Args:
+            favorite_id: Favorite ID
+            user_id: User ID (for authorization)
+            db: Database session
+
+        Returns:
+            UserProfile object or None if not found
+        """
+        favorite = (
+            db.query(UserProfile)
+            .filter(
+                UserProfile.id == favorite_id,
+                UserProfile.user_id == user_id,
+                UserProfile.category == "favorite"
+            )
+            .first()
+        )
+
+        return favorite
+
+    def update_favorite(
+        self, favorite_id: int, user_id: int, key: Optional[str], value: Optional[str], db: Session
+    ) -> Optional[UserProfile]:
+        """
+        Update an existing favorite
+
+        Args:
+            favorite_id: Favorite ID
+            user_id: User ID (for authorization)
+            key: New key (optional)
+            value: New value (optional)
+            db: Database session
+
+        Returns:
+            Updated UserProfile object or None if not found
+
+        Raises:
+            ValueError: If neither key nor value is provided
+        """
+        if key is None and value is None:
+            raise ValueError("Must provide at least one of key or value to update")
+
+        favorite = self.get_favorite_by_id(favorite_id, user_id, db)
+
+        if not favorite:
+            logger.warning(f"Favorite {favorite_id} not found for user {user_id}")
+            return None
+
+        # Update fields
+        if key is not None:
+            favorite.key = key
+        if value is not None:
+            favorite.value = value
+
+        favorite.last_mentioned = datetime.now()
+        db.commit()
+        db.refresh(favorite)
+
+        logger.info(f"Updated favorite {favorite_id} for user {user_id}")
+        return favorite
+
+    def delete_favorite(self, favorite_id: int, user_id: int, db: Session) -> bool:
+        """
+        Delete a favorite
+
+        Args:
+            favorite_id: Favorite ID
+            user_id: User ID (for authorization)
+            db: Database session
+
+        Returns:
+            True if deleted, False if not found
+        """
+        favorite = self.get_favorite_by_id(favorite_id, user_id, db)
+
+        if not favorite:
+            logger.warning(f"Favorite {favorite_id} not found for user {user_id}")
+            return False
+
+        db.delete(favorite)
+        db.commit()
+
+        logger.info(f"Deleted favorite {favorite_id} for user {user_id}")
+        return True
+
 
 # Global instance
 memory_manager = MemoryManager()

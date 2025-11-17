@@ -428,6 +428,46 @@ pytest tests/test_short_term_memory.py -v
 - ✅ Message limiting (5 per conversation)
 - ✅ Integration with context building
 
+### 4. Favorites Category Storage Tests
+
+**File:** `tests/test_favorites_storage.py`
+
+Pytest-compatible test suite for favorites category CRUD operations.
+
+**Features:**
+- Complete CRUD operations testing
+- Input validation and error handling
+- User isolation verification
+- Duplicate handling (updates existing)
+- Ordering by last_mentioned
+- Authorization checks
+
+**Run:**
+```bash
+cd backend
+pytest tests/test_favorites_storage.py -v
+```
+
+**Note:** These tests currently cannot run due to a pre-existing issue with the Message model (reserved `metadata` attribute in SQLAlchemy). The implementation has been verified manually via `test_favorites_simple.py`.
+
+**Test Cases:**
+- ✅ Add new favorite
+- ✅ Add duplicate favorite (updates existing)
+- ✅ Empty key/value validation
+- ✅ Get all favorites
+- ✅ Get favorites returns empty list when none exist
+- ✅ Get specific favorite by ID
+- ✅ Get favorite by ID not found
+- ✅ Update favorite value only
+- ✅ Update favorite key only
+- ✅ Update both key and value
+- ✅ Update with neither raises ValueError
+- ✅ Update non-existent favorite
+- ✅ Delete favorite
+- ✅ Delete non-existent favorite
+- ✅ Favorites ordered by last_mentioned
+- ✅ User isolation (favorites separated by user_id)
+
 ## Resources
 
 - [Pytest Documentation](https://docs.pytest.org/)
@@ -435,3 +475,4 @@ pytest tests/test_short_term_memory.py -v
 - [Extraction Prompts](services/prompts.py)
 - [Memory Extraction Guide](MEMORY_EXTRACTION.md)
 - [Short-Term Memory Guide](SHORT_TERM_MEMORY.md)
+- [Favorites Storage Guide](FAVORITES_STORAGE.md)

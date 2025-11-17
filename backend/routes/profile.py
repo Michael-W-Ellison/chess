@@ -169,3 +169,178 @@ async def update_profile(
     except Exception as e:
         logger.error(f"Error updating profile: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Favorites Category CRUD Endpoints
+
+
+class FavoriteCreate(BaseModel):
+    """Request model for creating a favorite"""
+
+    key: str
+    value: str
+
+
+class FavoriteUpdate(BaseModel):
+    """Request model for updating a favorite"""
+
+    key: Optional[str] = None
+    value: Optional[str] = None
+
+
+@router.get("/profile/favorites")
+async def get_favorites(user_id: int = 1, db: Session = Depends(get_db)):
+    """
+    Get all favorites for a user
+
+    Args:
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        List of favorites
+    """
+    try:
+        favorites = memory_manager.get_favorites(user_id, db)
+
+        return {
+            "favorites": [fav.to_dict() for fav in favorites],
+            "count": len(favorites),
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting favorites: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/profile/favorites/{favorite_id}")
+async def get_favorite(
+    favorite_id: int, user_id: int = 1, db: Session = Depends(get_db)
+):
+    """
+    Get a specific favorite by ID
+
+    Args:
+        favorite_id: Favorite ID
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Favorite object
+    """
+    try:
+        favorite = memory_manager.get_favorite_by_id(favorite_id, user_id, db)
+
+        if not favorite:
+            raise HTTPException(status_code=404, detail="Favorite not found")
+
+        return favorite.to_dict()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting favorite: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/profile/favorites")
+async def create_favorite(
+    favorite: FavoriteCreate, user_id: int = 1, db: Session = Depends(get_db)
+):
+    """
+    Create a new favorite
+
+    Args:
+        favorite: Favorite data (key and value)
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Created favorite object
+    """
+    try:
+        new_favorite = memory_manager.add_favorite(
+            user_id, favorite.key, favorite.value, db
+        )
+
+        return {
+            "message": "Favorite created successfully",
+            "favorite": new_favorite.to_dict(),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating favorite: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/profile/favorites/{favorite_id}")
+async def update_favorite(
+    favorite_id: int,
+    favorite: FavoriteUpdate,
+    user_id: int = 1,
+    db: Session = Depends(get_db),
+):
+    """
+    Update an existing favorite
+
+    Args:
+        favorite_id: Favorite ID
+        favorite: Favorite update data
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Updated favorite object
+    """
+    try:
+        updated_favorite = memory_manager.update_favorite(
+            favorite_id, user_id, favorite.key, favorite.value, db
+        )
+
+        if not updated_favorite:
+            raise HTTPException(status_code=404, detail="Favorite not found")
+
+        return {
+            "message": "Favorite updated successfully",
+            "favorite": updated_favorite.to_dict(),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating favorite: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/profile/favorites/{favorite_id}")
+async def delete_favorite(
+    favorite_id: int, user_id: int = 1, db: Session = Depends(get_db)
+):
+    """
+    Delete a favorite
+
+    Args:
+        favorite_id: Favorite ID
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Success message
+    """
+    try:
+        deleted = memory_manager.delete_favorite(favorite_id, user_id, db)
+
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Favorite not found")
+
+        return {"message": "Favorite deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting favorite: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
