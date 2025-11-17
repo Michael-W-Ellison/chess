@@ -20,6 +20,7 @@ from services.conversation_tracker import conversation_tracker
 from services.feature_gates import can_use_catchphrase, apply_feature_modifiers
 from services.personality_drift_calculator import personality_drift_calculator
 from services.emoji_quirk_service import emoji_quirk_service
+from services.pun_quirk_service import pun_quirk_service
 
 logger = logging.getLogger("chatbot.conversation_manager")
 
@@ -169,7 +170,7 @@ class ConversationManager:
             raw_response = self._fallback_response(context)
 
         # 8. Apply personality to response
-        final_response = self._apply_personality_filter(raw_response, personality)
+        final_response = self._apply_personality_filter(raw_response, personality, user_message)
 
         # 9. Safety check on response (optional)
         response_safety = safety_filter.check_message(final_response)
@@ -432,12 +433,23 @@ INSTRUCTIONS:
         return prompt
 
     def _apply_personality_filter(
-        self, response: str, personality: BotPersonality
+        self, response: str, personality: BotPersonality, context: str = ""
     ) -> str:
         """Apply personality quirks to response"""
         import random
 
         quirks = personality.get_quirks()
+
+        # Apply tells_puns quirk
+        if "tells_puns" in quirks:
+            # Probability increases slightly with friendship level
+            base_probability = 0.25
+            level_bonus = (personality.friendship_level - 1) * 0.02
+            probability = min(0.40, base_probability + level_bonus)
+
+            response = pun_quirk_service.add_pun(
+                response, context=context, probability=probability
+            )
 
         # Apply uses_emojis quirk with enhanced emoji service
         if "uses_emojis" in quirks:
