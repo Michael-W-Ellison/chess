@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 from models.personality import BotPersonality
 from models.user import User
+from models.level_up_event import LevelUpEvent  # Import to resolve SQLAlchemy relationship
 from database.database import Base
 from services.feature_unlock_manager import (
     FeatureUnlockManager,
@@ -55,10 +56,14 @@ def test_user(db_session):
 
 
 @pytest.fixture
-def test_personality_level_1(db_session, test_user):
+def test_personality_level_1(db_session):
     """Create test personality at level 1"""
+    user = User(id=10, name="User Level 1", age=12, grade=6)
+    db_session.add(user)
+    db_session.commit()
+
     personality = BotPersonality(
-        user_id=test_user.id,
+        user_id=user.id,
         name="TestBot",
         friendship_level=1,
         friendship_points=0,
@@ -70,10 +75,14 @@ def test_personality_level_1(db_session, test_user):
 
 
 @pytest.fixture
-def test_personality_level_5(db_session, test_user):
+def test_personality_level_5(db_session):
     """Create test personality at level 5"""
+    user = User(id=11, name="User Level 5", age=12, grade=6)
+    db_session.add(user)
+    db_session.commit()
+
     personality = BotPersonality(
-        user_id=test_user.id,
+        user_id=user.id,
         name="TestBot",
         friendship_level=5,
         friendship_points=1200,
@@ -85,10 +94,14 @@ def test_personality_level_5(db_session, test_user):
 
 
 @pytest.fixture
-def test_personality_level_10(db_session, test_user):
+def test_personality_level_10(db_session):
     """Create test personality at level 10"""
+    user = User(id=12, name="User Level 10", age=12, grade=6)
+    db_session.add(user)
+    db_session.commit()
+
     personality = BotPersonality(
-        user_id=test_user.id,
+        user_id=user.id,
         name="TestBot",
         friendship_level=10,
         friendship_points=8000,
