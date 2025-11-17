@@ -124,15 +124,18 @@ class ConversationManager:
             Dictionary with response and metadata
         """
         # 1. Safety check
-        safety_result = safety_filter.check_message(user_message)
+        safety_result = safety_filter.check_message(user_message, user_id=user_id)
 
         if safety_result["severity"] == "critical":
-            # Handle crisis
-            response = self._handle_crisis(safety_result, user_id, db)
+            # Handle crisis with category-specific response
+            response = self._handle_crisis(safety_result, user_id, conversation_id, db)
 
             # Store the message and response
-            self._store_message(conversation_id, "user", user_message, db, flagged=True)
-            self._store_message(conversation_id, "assistant", response, db)
+            user_msg = self._store_message(conversation_id, "user", user_message, db, flagged=True)
+            bot_msg = self._store_message(conversation_id, "assistant", response, db)
+
+            # Log safety event with message ID
+            safety_filter.log_safety_event(db, user_id, safety_result, message_id=user_msg.id)
 
             return {
                 "content": response,
@@ -140,6 +143,8 @@ class ConversationManager:
                     "safety_flag": True,
                     "severity": "critical",
                     "crisis_response": True,
+                    "flags": safety_result["flags"],
+                    "notify_parent": safety_result["notify_parent"],
                 },
             }
 
@@ -497,18 +502,80 @@ INSTRUCTIONS:
 
         return random.choice(responses)
 
-    def _handle_crisis(self, safety_result: Dict, user_id: int, db: Session) -> str:
-        """Handle crisis situation"""
-        # Log safety event
-        safety_filter.log_safety_event(db, user_id, safety_result)
+    def _handle_crisis(
+        self, safety_result: Dict, user_id: int, conversation_id: int, db: Session
+    ) -> str:
+        """
+        Handle crisis situation with category-specific response
 
-        # Get appropriate response
-        if "crisis" in safety_result["flags"] or "abuse" in safety_result["flags"]:
-            return safety_filter.get_crisis_response()
-        elif "bullying" in safety_result["flags"]:
-            return safety_filter.get_bullying_response()
-        else:
-            return safety_filter.get_inappropriate_decline()
+        Args:
+            safety_result: Result from safety_filter.check_message()
+            user_id: User ID
+            conversation_id: Current conversation ID
+            db: Database session
+
+        Returns:
+            Crisis response message
+        """
+        # Use the response_message from safety_result which is category-specific
+        response = safety_result.get("response_message", "")
+
+        # If no response in result, get default crisis response
+        if not response:
+            if "crisis" in safety_result["flags"] or "abuse" in safety_result["flags"]:
+                response = safety_filter.get_crisis_response()
+            elif "bullying" in safety_result["flags"]:
+                response = safety_filter.get_bullying_response()
+            else:
+                response = safety_filter.get_inappropriate_decline()
+
+        # Trigger parent notification if needed
+        if safety_result.get("notify_parent", False):
+            self._notify_parent_of_crisis(
+                user_id=user_id,
+                conversation_id=conversation_id,
+                safety_result=safety_result,
+                db=db
+            )
+
+        logger.warning(
+            f"Crisis detected for user {user_id}: "
+            f"flags={safety_result['flags']}, severity={safety_result['severity']}"
+        )
+
+        return response
+
+    def _notify_parent_of_crisis(
+        self,
+        user_id: int,
+        conversation_id: int,
+        safety_result: Dict,
+        db: Session
+    ) -> None:
+        """
+        Notify parent about crisis event
+
+        Args:
+            user_id: User ID
+            conversation_id: Conversation ID
+            safety_result: Safety check result
+            db: Database session
+        """
+        # Import here to avoid circular dependency
+        from services.parent_notification_service import parent_notification_service
+
+        # Send parent notification
+        parent_notification_service.notify_crisis_event(
+            user_id=user_id,
+            conversation_id=conversation_id,
+            safety_result=safety_result,
+            db=db
+        )
+
+        logger.info(
+            f"Parent notification triggered for user {user_id}: "
+            f"severity={safety_result['severity']}, flags={safety_result['flags']}"
+        )
 
     def _store_message(
         self,
