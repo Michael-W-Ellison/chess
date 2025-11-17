@@ -68,6 +68,37 @@ export const FriendshipMeter: React.FC<FriendshipMeterProps> = ({
     return 'Lifelong Friend';
   };
 
+  // Generate heart icons for visual level display
+  const renderHearts = () => {
+    const hearts = [];
+    const totalLevels = 10;
+
+    for (let i = 1; i <= totalLevels; i++) {
+      const isFilled = i <= friendshipLevel;
+      hearts.push(
+        <div
+          key={i}
+          className={`transition-all duration-300 hover:scale-125 ${
+            isFilled ? 'scale-110' : 'scale-100 opacity-40'
+          }`}
+        >
+          <span
+            className={`text-2xl ${
+              isFilled
+                ? 'text-pink-500 drop-shadow-md'
+                : 'text-gray-300'
+            }`}
+            title={`Level ${i}${isFilled ? ' - Achieved!' : ''}`}
+          >
+            {isFilled ? '❤️' : '🤍'}
+          </span>
+        </div>
+      );
+    }
+
+    return hearts;
+  };
+
   return (
     <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
       {/* Header */}
@@ -84,6 +115,16 @@ export const FriendshipMeter: React.FC<FriendshipMeterProps> = ({
         <div className="text-right">
           <div className="text-2xl font-bold text-purple-600">{friendshipLevel}</div>
           <div className="text-xs text-gray-500">Friendship Level</div>
+        </div>
+      </div>
+
+      {/* Heart icons visualization */}
+      <div className="mb-4 pb-4 border-b border-purple-200">
+        <div className="flex items-center justify-center gap-2 flex-wrap">
+          {renderHearts()}
+        </div>
+        <div className="text-xs text-gray-500 text-center mt-2">
+          {friendshipLevel} {friendshipLevel === 1 ? 'heart' : 'hearts'} earned
         </div>
       </div>
 

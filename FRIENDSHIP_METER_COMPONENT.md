@@ -13,6 +13,11 @@ The FriendshipMeter is a React component that displays friendship level progress
 ### 1. Visual Progress Display
 
 - **Progress Bar**: Animated gradient progress bar showing percentage toward next level
+- **Heart Icons Visualization**: 10 heart icons representing the 10 friendship levels:
+  - ❤️ Filled red/pink hearts for achieved levels
+  - 🤍 Empty white hearts for remaining levels
+  - Interactive hover effects with scaling animations
+  - Visual counter showing "X hearts earned"
 - **Level Icons**: Emoji indicators that change based on friendship level:
   - 🌱 New Friend (Levels 1-2)
   - 🌿 Good Friend (Levels 3-4)
@@ -183,6 +188,63 @@ metadata = Column(Text, nullable=True)
 message_metadata = Column(Text, nullable=True)
 ```
 
+## Heart Icons Visualization (Task 67)
+
+### Implementation
+
+The heart icons provide an intuitive visual representation of friendship level progression:
+
+```typescript
+const renderHearts = () => {
+  const hearts = [];
+  const totalLevels = 10;
+
+  for (let i = 1; i <= totalLevels; i++) {
+    const isFilled = i <= friendshipLevel;
+    hearts.push(
+      <div
+        key={i}
+        className={`transition-all duration-300 hover:scale-125 ${
+          isFilled ? 'scale-110' : 'scale-100 opacity-40'
+        }`}
+      >
+        <span
+          className={`text-2xl ${
+            isFilled
+              ? 'text-pink-500 drop-shadow-md'
+              : 'text-gray-300'
+          }`}
+          title={`Level ${i}${isFilled ? ' - Achieved!' : ''}`}
+        >
+          {isFilled ? '❤️' : '🤍'}
+        </span>
+      </div>
+    );
+  }
+
+  return hearts;
+};
+```
+
+### Features
+
+- **10 Heart Icons**: One for each friendship level (1-10)
+- **Filled Hearts (❤️)**: Pink/red hearts with drop shadow for achieved levels
+- **Empty Hearts (🤍)**: Gray, semi-transparent hearts for levels not yet reached
+- **Scaling Effect**: Filled hearts are slightly larger (scale-110) to draw attention
+- **Hover Interaction**: Hearts scale up to 125% on hover for interactivity
+- **Smooth Transitions**: All state changes animated with 300ms duration
+- **Tooltips**: Each heart shows "Level X" or "Level X - Achieved!" on hover
+- **Counter Label**: Text below shows "X hearts earned" (singular/plural aware)
+- **Responsive Layout**: Flexbox with wrapping for smaller screens
+
+### Styling
+
+- **Filled Hearts**: `text-pink-500 drop-shadow-md scale-110`
+- **Empty Hearts**: `text-gray-300 opacity-40 scale-100`
+- **Container**: Centered flexbox with gap-2 and flex-wrap
+- **Border**: Purple bottom border separates hearts from progress bar
+
 ## Progress Bar Calculation
 
 The component calculates progress between levels:
@@ -209,6 +271,9 @@ const getLevelProgress = (): { current: number; next: number; percentage: number
 🌱 New Friend
 Level 1 of 10
 
+❤️ 🤍 🤍 🤍 🤍 🤍 🤍 🤍 🤍 🤍
+1 heart earned
+
 Progress to next level: 60%
 [████████████░░░░░░░░]
 3 / 5 conversations
@@ -219,6 +284,9 @@ Progress to next level: 60%
 🌳 Close Friend
 Level 5 of 10
 
+❤️ ❤️ ❤️ ❤️ ❤️ 🤍 🤍 🤍 🤍 🤍
+5 hearts earned
+
 Progress to next level: 32%
 [██████░░░░░░░░░░░░░░]
 58 / 75 conversations
@@ -228,6 +296,9 @@ Progress to next level: 32%
 ```
 👑 Lifelong Friend
 Level 10 of 10
+
+❤️ ❤️ ❤️ ❤️ ❤️ ❤️ ❤️ ❤️ ❤️ ❤️
+10 hearts earned
 
 🎉 Max level reached!
 ```
@@ -273,11 +344,15 @@ Potential improvements:
 The FriendshipMeter component is **fully implemented and functional**. It provides:
 
 ✅ Visual progress bar with percentage display
+✅ Heart icons visualization (10 hearts showing level progression)
 ✅ Level icons and descriptive names
 ✅ Statistics display (conversations, messages, last interaction)
 ✅ Smooth animations and transitions
+✅ Interactive hover effects
 ✅ Backend integration with personality API
 ✅ Responsive design with Tailwind CSS
 ✅ Edge case handling (no data, max level, etc.)
 
 **Task 66 Complete**: Build FriendshipMeter component with progress bar.
+
+**Task 67 Complete**: Add heart icons visualization.
