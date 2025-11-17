@@ -16,6 +16,7 @@ from services.llm_service import llm_service
 from services.safety_filter import safety_filter
 from services.memory_manager import memory_manager
 from services.personality_manager import personality_manager
+from services.conversation_tracker import conversation_tracker
 
 logger = logging.getLogger("chatbot.conversation_manager")
 
@@ -82,6 +83,9 @@ class ConversationManager:
         user.last_active = datetime.now()
         db.commit()
 
+        # Track conversation start (daily check-in, streaks, points)
+        checkin_info = conversation_tracker.on_conversation_start(user_id, personality, db)
+
         # Generate greeting based on time since last conversation
         greeting = self._generate_greeting(user, personality, db)
 
@@ -94,7 +98,9 @@ class ConversationManager:
                 "name": personality.name,
                 "mood": personality.mood,
                 "friendship_level": personality.friendship_level,
+                "friendship_points": personality.friendship_points,
             },
+            "checkin_info": checkin_info,
         }
 
     def process_message(
@@ -136,38 +142,43 @@ class ConversationManager:
         user_msg = self._store_message(conversation_id, "user", user_message, db)
         self.message_count += 1
 
-        # 3. Extract and store memories
-        memory_manager.extract_and_store_memories(user_message, user_id, db)
-
-        # 4. Get personality
+        # 3. Get personality (needed early for tracking)
         personality = (
             db.query(BotPersonality).filter(BotPersonality.user_id == user_id).first()
         )
 
-        # 5. Build context
+        # 4. Track message and award points for activities
+        message_tracking = conversation_tracker.on_message_sent(
+            user_id, personality, user_message, db
+        )
+
+        # 5. Extract and store memories
+        memory_manager.extract_and_store_memories(user_message, user_id, db)
+
+        # 6. Build context
         context = self._build_context(user_message, user_id, personality, db)
 
-        # 6. Generate response
+        # 7. Generate response
         if llm_service.is_loaded:
             prompt = self._build_prompt(context, user_message, personality)
             raw_response = llm_service.generate(prompt, max_tokens=150, temperature=0.7)
         else:
             raw_response = self._fallback_response(context)
 
-        # 7. Apply personality to response
+        # 8. Apply personality to response
         final_response = self._apply_personality_filter(raw_response, personality)
 
-        # 8. Safety check on response (optional)
+        # 9. Safety check on response (optional)
         response_safety = safety_filter.check_message(final_response)
         if not response_safety["safe"]:
             final_response = (
                 "Hmm, I'm not sure how to respond to that. Want to talk about something else?"
             )
 
-        # 9. Store assistant response
+        # 10. Store assistant response
         self._store_message(conversation_id, "assistant", final_response, db)
 
-        # 10. Update conversation count
+        # 11. Update conversation count
         conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
         if conversation:
             conversation.message_count = self.message_count
@@ -179,6 +190,8 @@ class ConversationManager:
                 "safety_flag": safety_result["severity"] != "none",
                 "mood_detected": context.get("detected_mood"),
                 "topics_extracted": context.get("keywords", []),
+                "points_awarded": message_tracking.get("points_awarded", []),
+                "activities_detected": message_tracking.get("activities_detected", []),
             },
         }
 
@@ -223,8 +236,10 @@ class ConversationManager:
         )
 
         if personality:
-            # Increment conversation count
-            personality.total_conversations += 1
+            # Track conversation end (awards points based on quality)
+            end_info = conversation_tracker.on_conversation_end(
+                conversation_id, personality, db
+            )
 
             # Calculate conversation metrics
             metrics = self._calculate_conversation_metrics(conversation_id, db)
@@ -232,15 +247,11 @@ class ConversationManager:
             # Update traits based on conversation
             personality_manager.update_personality_traits(personality, metrics, db)
 
-            # Check for friendship level increase
-            personality, level_increased = personality_manager.update_friendship_level(
-                personality, db
+            logger.info(
+                f"Conversation ended - Quality: {end_info.get('conversation_quality')}, "
+                f"Friendship: Level {personality.friendship_level}, "
+                f"Points: {personality.friendship_points}"
             )
-
-            if level_increased:
-                logger.info(
-                    f"User {conversation.user_id} reached friendship level {personality.friendship_level}!"
-                )
 
         db.commit()
 
