@@ -1113,6 +1113,179 @@ class MemoryManager:
         logger.info(f"Deleted goal {goal_id} for user {user_id}")
         return True
 
+    # Achievements Category Management Methods
+
+    def add_achievement(self, user_id: int, key: str, value: str, db: Session) -> UserProfile:
+        """
+        Add an achievement for a user
+
+        Args:
+            user_id: User ID
+            key: Achievement identifier (e.g., 'academic', 'sports', 'personal')
+            value: Achievement description
+            db: Database session
+
+        Returns:
+            Created or updated UserProfile object
+
+        Raises:
+            ValueError: If key or value is empty
+        """
+        if not key or not value:
+            raise ValueError("Key and value cannot be empty")
+
+        # Check if achievement already exists
+        existing = (
+            db.query(UserProfile)
+            .filter(
+                UserProfile.user_id == user_id,
+                UserProfile.category == "achievement",
+                UserProfile.key == key,
+            )
+            .first()
+        )
+
+        if existing:
+            # Update existing achievement
+            existing.value = value
+            existing.last_mentioned = datetime.now()
+            existing.mention_count += 1
+            existing.confidence = min(1.0, existing.confidence + 0.1)
+            db.commit()
+            db.refresh(existing)
+            logger.info(f"Updated achievement {key} for user {user_id}")
+            return existing
+        else:
+            # Create new achievement
+            achievement = UserProfile(
+                user_id=user_id,
+                category="achievement",
+                key=key,
+                value=value,
+                confidence=1.0,  # User-added achievements have full confidence
+                first_mentioned=datetime.now(),
+                last_mentioned=datetime.now(),
+                mention_count=1,
+            )
+            db.add(achievement)
+            db.commit()
+            db.refresh(achievement)
+            logger.info(f"Added achievement {key} for user {user_id}")
+            return achievement
+
+    def get_achievements(self, user_id: int, db: Session) -> List[UserProfile]:
+        """
+        Get all achievements for a user
+
+        Args:
+            user_id: User ID
+            db: Database session
+
+        Returns:
+            List of UserProfile objects with category='achievement'
+        """
+        achievements = (
+            db.query(UserProfile)
+            .filter(
+                UserProfile.user_id == user_id,
+                UserProfile.category == "achievement"
+            )
+            .order_by(UserProfile.last_mentioned.desc())
+            .all()
+        )
+
+        logger.debug(f"Retrieved {len(achievements)} achievements for user {user_id}")
+        return achievements
+
+    def get_achievement_by_id(self, achievement_id: int, user_id: int, db: Session) -> Optional[UserProfile]:
+        """
+        Get a specific achievement by ID
+
+        Args:
+            achievement_id: Achievement ID
+            user_id: User ID (for authorization)
+            db: Database session
+
+        Returns:
+            UserProfile object or None if not found
+        """
+        achievement = (
+            db.query(UserProfile)
+            .filter(
+                UserProfile.id == achievement_id,
+                UserProfile.user_id == user_id,
+                UserProfile.category == "achievement"
+            )
+            .first()
+        )
+
+        return achievement
+
+    def update_achievement(
+        self, achievement_id: int, user_id: int, key: Optional[str], value: Optional[str], db: Session
+    ) -> Optional[UserProfile]:
+        """
+        Update an existing achievement
+
+        Args:
+            achievement_id: Achievement ID
+            user_id: User ID (for authorization)
+            key: New key (optional)
+            value: New value (optional)
+            db: Database session
+
+        Returns:
+            Updated UserProfile object or None if not found
+
+        Raises:
+            ValueError: If neither key nor value is provided
+        """
+        if key is None and value is None:
+            raise ValueError("Must provide at least one of key or value to update")
+
+        achievement = self.get_achievement_by_id(achievement_id, user_id, db)
+
+        if not achievement:
+            logger.warning(f"Achievement {achievement_id} not found for user {user_id}")
+            return None
+
+        # Update fields
+        if key is not None:
+            achievement.key = key
+        if value is not None:
+            achievement.value = value
+
+        achievement.last_mentioned = datetime.now()
+        db.commit()
+        db.refresh(achievement)
+
+        logger.info(f"Updated achievement {achievement_id} for user {user_id}")
+        return achievement
+
+    def delete_achievement(self, achievement_id: int, user_id: int, db: Session) -> bool:
+        """
+        Delete an achievement
+
+        Args:
+            achievement_id: Achievement ID
+            user_id: User ID (for authorization)
+            db: Database session
+
+        Returns:
+            True if deleted, False if not found
+        """
+        achievement = self.get_achievement_by_id(achievement_id, user_id, db)
+
+        if not achievement:
+            logger.warning(f"Achievement {achievement_id} not found for user {user_id}")
+            return False
+
+        db.delete(achievement)
+        db.commit()
+
+        logger.info(f"Deleted achievement {achievement_id} for user {user_id}")
+        return True
+
 
 # Global instance
 memory_manager = MemoryManager()

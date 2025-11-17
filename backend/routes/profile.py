@@ -869,3 +869,178 @@ async def delete_goal(
     except Exception as e:
         logger.error(f"Error deleting goal: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Achievements Category CRUD Endpoints
+
+
+class AchievementCreate(BaseModel):
+    """Request model for creating an achievement"""
+
+    key: str
+    value: str
+
+
+class AchievementUpdate(BaseModel):
+    """Request model for updating an achievement"""
+
+    key: Optional[str] = None
+    value: Optional[str] = None
+
+
+@router.get("/profile/achievements")
+async def get_achievements(user_id: int = 1, db: Session = Depends(get_db)):
+    """
+    Get all achievements for a user
+
+    Args:
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        List of achievements
+    """
+    try:
+        achievements = memory_manager.get_achievements(user_id, db)
+
+        return {
+            "achievements": [achievement.to_dict() for achievement in achievements],
+            "count": len(achievements),
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting achievements: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/profile/achievements/{achievement_id}")
+async def get_achievement(
+    achievement_id: int, user_id: int = 1, db: Session = Depends(get_db)
+):
+    """
+    Get a specific achievement by ID
+
+    Args:
+        achievement_id: Achievement ID
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Achievement object
+    """
+    try:
+        achievement = memory_manager.get_achievement_by_id(achievement_id, user_id, db)
+
+        if not achievement:
+            raise HTTPException(status_code=404, detail="Achievement not found")
+
+        return achievement.to_dict()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting achievement: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/profile/achievements")
+async def create_achievement(
+    achievement: AchievementCreate, user_id: int = 1, db: Session = Depends(get_db)
+):
+    """
+    Create a new achievement
+
+    Args:
+        achievement: Achievement data (key and value)
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Created achievement object
+    """
+    try:
+        new_achievement = memory_manager.add_achievement(
+            user_id, achievement.key, achievement.value, db
+        )
+
+        return {
+            "message": "Achievement created successfully",
+            "achievement": new_achievement.to_dict(),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating achievement: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/profile/achievements/{achievement_id}")
+async def update_achievement(
+    achievement_id: int,
+    achievement: AchievementUpdate,
+    user_id: int = 1,
+    db: Session = Depends(get_db),
+):
+    """
+    Update an existing achievement
+
+    Args:
+        achievement_id: Achievement ID
+        achievement: Achievement update data
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Updated achievement object
+    """
+    try:
+        updated_achievement = memory_manager.update_achievement(
+            achievement_id, user_id, achievement.key, achievement.value, db
+        )
+
+        if not updated_achievement:
+            raise HTTPException(status_code=404, detail="Achievement not found")
+
+        return {
+            "message": "Achievement updated successfully",
+            "achievement": updated_achievement.to_dict(),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating achievement: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/profile/achievements/{achievement_id}")
+async def delete_achievement(
+    achievement_id: int, user_id: int = 1, db: Session = Depends(get_db)
+):
+    """
+    Delete an achievement
+
+    Args:
+        achievement_id: Achievement ID
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Success message
+    """
+    try:
+        deleted = memory_manager.delete_achievement(achievement_id, user_id, db)
+
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Achievement not found")
+
+        return {"message": "Achievement deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting achievement: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

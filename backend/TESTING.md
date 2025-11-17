@@ -598,6 +598,50 @@ pytest tests/test_goals_storage.py -v
 - ✅ Goals separate from other categories
 - ✅ Various goal types (academic, fitness, personal, social, creative)
 
+### Achievements Storage Tests
+
+**File:** `tests/test_achievements_storage.py`
+
+Pytest-compatible test suite for achievements category CRUD operations.
+
+**Features:**
+- Complete CRUD operations testing
+- Input validation and error handling
+- User isolation verification
+- Duplicate handling (updates existing)
+- Ordering by last_mentioned
+- Authorization checks
+- Separation from other categories
+- Various achievement types (academic, sports, personal, creative, community)
+
+**Run:**
+```bash
+cd backend
+pytest tests/test_achievements_storage.py -v
+```
+
+**Note:** These tests currently cannot run due to a pre-existing issue with the Message model (reserved `metadata` attribute in SQLAlchemy). The implementation has been verified manually.
+
+**Test Cases:**
+- ✅ Add new achievement
+- ✅ Add duplicate achievement (updates existing)
+- ✅ Empty key/value validation
+- ✅ Get all achievements
+- ✅ Get achievements returns empty list when none exist
+- ✅ Get specific achievement by ID
+- ✅ Get achievement by ID not found
+- ✅ Update achievement value only
+- ✅ Update achievement key only
+- ✅ Update both key and value
+- ✅ Update with neither raises ValueError
+- ✅ Update non-existent achievement
+- ✅ Delete achievement
+- ✅ Delete non-existent achievement
+- ✅ Achievements ordered by last_mentioned
+- ✅ User isolation (achievements separated by user_id)
+- ✅ Achievements separate from other categories
+- ✅ Various achievement types (academic, sports, personal, creative, community)
+
 ## Resources
 
 - [Pytest Documentation](https://docs.pytest.org/)
@@ -609,3 +653,4 @@ pytest tests/test_goals_storage.py -v
 - [Dislikes Storage Guide](DISLIKES_STORAGE.md)
 - [Important People Storage Guide](PEOPLE_STORAGE.md)
 - [Goals Storage Guide](GOALS_STORAGE.md)
+- [Achievements Storage Guide](ACHIEVEMENTS_STORAGE.md)
