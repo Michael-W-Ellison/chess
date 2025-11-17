@@ -22,6 +22,7 @@ from services.personality_drift_calculator import personality_drift_calculator
 from services.emoji_quirk_service import emoji_quirk_service
 from services.pun_quirk_service import pun_quirk_service
 from services.fact_quirk_service import fact_quirk_service
+from services.advice_category_detector import advice_category_detector
 
 logger = logging.getLogger("chatbot.conversation_manager")
 
@@ -345,12 +346,16 @@ class ConversationManager:
         # Detect user mood (simple)
         detected_mood = self._detect_user_mood(user_message)
 
+        # Detect advice request and category
+        advice_detection = advice_category_detector.detect_advice_request(user_message)
+
         return {
             "personality": personality,
             "keywords": keywords,
             "relevant_memories": memories,
             "recent_messages": recent_messages,
             "detected_mood": detected_mood,
+            "advice_request": advice_detection,
         }
 
     def _get_short_term_memory(self, user_id: int, db: Session) -> List[Message]:
@@ -430,6 +435,17 @@ Total conversations together: {personality.total_conversations}
         if memories:
             memory_text = memory_manager.format_memories_for_prompt(memories)
             system += f"\n\nWHAT YOU REMEMBER ABOUT THEM:\n{memory_text}\n"
+
+        # Add advice request context if detected
+        advice_request = context.get("advice_request", {})
+        if advice_request.get("is_advice_request"):
+            category = advice_request.get("category", "general")
+            category_desc = advice_category_detector.get_category_description(category)
+            system += f"\n\nADVICE REQUEST DETECTED:\n"
+            system += f"- Category: {category}\n"
+            system += f"- Type: {category_desc}\n"
+            system += f"- The user is asking for your advice and guidance on this topic.\n"
+            system += f"- Provide supportive, age-appropriate advice.\n"
 
         # Add instructions
         system += """
