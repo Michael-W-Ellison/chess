@@ -18,6 +18,7 @@ from services.memory_manager import memory_manager
 from services.personality_manager import personality_manager
 from services.conversation_tracker import conversation_tracker
 from services.feature_gates import can_use_catchphrase, apply_feature_modifiers
+from services.personality_drift_calculator import personality_drift_calculator
 
 logger = logging.getLogger("chatbot.conversation_manager")
 
@@ -248,10 +249,16 @@ class ConversationManager:
             # Update traits based on conversation
             personality_manager.update_personality_traits(personality, metrics, db)
 
+            # Calculate and apply personality drift based on conversation patterns
+            drift_events = personality_drift_calculator.calculate_drift_after_conversation(
+                personality, conversation, db
+            )
+
             logger.info(
                 f"Conversation ended - Quality: {end_info.get('conversation_quality')}, "
                 f"Friendship: Level {personality.friendship_level}, "
-                f"Points: {personality.friendship_points}"
+                f"Points: {personality.friendship_points}, "
+                f"Drift events: {len(drift_events)}"
             )
 
         db.commit()

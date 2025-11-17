@@ -16,6 +16,7 @@ from services.friendship_progression import friendship_manager
 from services.level_up_event_handler import level_up_event_handler
 from services.feature_unlock_manager import feature_unlock_manager
 from services.feature_gates import check_feature_access, get_feature_gate_message
+from services.personality_drift_calculator import personality_drift_calculator
 
 logger = logging.getLogger("chatbot.routes.personality")
 
@@ -872,4 +873,260 @@ async def get_feature_categories():
 
     except Exception as e:
         logger.error(f"Error getting categories: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Personality Drift Endpoints
+# ============================================================================
+
+
+@router.get("/drift/history")
+async def get_drift_history(
+    user_id: int = 1,
+    trait_name: Optional[str] = None,
+    limit: int = 50,
+    db: Session = Depends(get_db)
+):
+    """
+    Get personality drift history for a user
+
+    Args:
+        user_id: User ID (default 1)
+        trait_name: Optional trait name to filter by (humor, energy, curiosity, formality)
+        limit: Maximum number of drift events to return (default 50)
+        db: Database session
+
+    Returns:
+        List of drift events
+    """
+    try:
+        drifts = personality_drift_calculator.get_drift_history(
+            user_id, db, trait_name, limit
+        )
+
+        return {
+            "success": True,
+            "user_id": user_id,
+            "trait_name": trait_name,
+            "drift_events": [drift.to_dict() for drift in drifts],
+            "count": len(drifts),
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting drift history: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/drift/summary")
+async def get_drift_summary(user_id: int = 1, db: Session = Depends(get_db)):
+    """
+    Get comprehensive drift summary for a user
+
+    Args:
+        user_id: User ID (default 1)
+        db: Database session
+
+    Returns:
+        Drift summary with statistics
+    """
+    try:
+        summary = personality_drift_calculator.get_drift_summary(user_id, db)
+
+        return {
+            "success": True,
+            "user_id": user_id,
+            "summary": summary,
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting drift summary: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/drift/timeline/{trait_name}")
+async def get_trait_timeline(
+    trait_name: str,
+    user_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """
+    Get timeline of changes for a specific trait
+
+    Args:
+        trait_name: Trait name (humor, energy, curiosity, formality)
+        user_id: User ID (default 1)
+        db: Database session
+
+    Returns:
+        Timeline of trait changes
+    """
+    try:
+        # Validate trait name
+        valid_traits = ["humor", "energy", "curiosity", "formality"]
+        if trait_name not in valid_traits:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid trait name. Must be one of: {', '.join(valid_traits)}"
+            )
+
+        timeline = personality_drift_calculator.get_trait_timeline(
+            user_id, trait_name, db
+        )
+
+        # Get current personality for current value
+        personality = db.query(BotPersonality).filter(
+            BotPersonality.user_id == user_id
+        ).first()
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        current_value = getattr(personality, trait_name)
+
+        return {
+            "success": True,
+            "user_id": user_id,
+            "trait_name": trait_name,
+            "current_value": current_value,
+            "timeline": timeline,
+            "total_changes": len(timeline),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting trait timeline: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class ManualTraitAdjustmentRequest(BaseModel):
+    """Request model for manual trait adjustment"""
+    user_id: int = 1
+    trait_name: str
+    new_value: float
+
+
+@router.post("/drift/manual-adjust")
+async def manual_adjust_trait(
+    request: ManualTraitAdjustmentRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Manually adjust a personality trait
+
+    Args:
+        request: Adjustment request with user_id, trait_name, new_value
+        db: Database session
+
+    Returns:
+        Drift event created
+    """
+    try:
+        # Get personality
+        personality = db.query(BotPersonality).filter(
+            BotPersonality.user_id == request.user_id
+        ).first()
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        # Apply adjustment
+        drift_event = personality_drift_calculator.manual_trait_adjustment(
+            personality, request.trait_name, request.new_value, db
+        )
+
+        return {
+            "success": True,
+            "message": f"Trait {request.trait_name} adjusted successfully",
+            "drift_event": drift_event.to_dict(),
+            "new_personality": personality.to_dict(),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adjusting trait: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/drift/stats")
+async def get_drift_stats(user_id: int = 1, db: Session = Depends(get_db)):
+    """
+    Get drift statistics for all traits
+
+    Args:
+        user_id: User ID (default 1)
+        db: Database session
+
+    Returns:
+        Statistics for each trait
+    """
+    try:
+        summary = personality_drift_calculator.get_drift_summary(user_id, db)
+
+        # Get current personality
+        personality = db.query(BotPersonality).filter(
+            BotPersonality.user_id == user_id
+        ).first()
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        current_traits = {
+            "humor": personality.humor,
+            "energy": personality.energy,
+            "curiosity": personality.curiosity,
+            "formality": personality.formality,
+        }
+
+        return {
+            "success": True,
+            "user_id": user_id,
+            "current_traits": current_traits,
+            "drift_stats": summary.get("by_trait", {}),
+            "total_drift_events": summary.get("total_drifts", 0),
+            "drift_by_trigger": summary.get("by_trigger", {}),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting drift stats: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/drift/recent")
+async def get_recent_drifts(
+    user_id: int = 1,
+    limit: int = 10,
+    db: Session = Depends(get_db)
+):
+    """
+    Get recent personality drift events
+
+    Args:
+        user_id: User ID (default 1)
+        limit: Number of recent events to return (default 10)
+        db: Database session
+
+    Returns:
+        Recent drift events
+    """
+    try:
+        drifts = personality_drift_calculator.get_drift_history(
+            user_id, db, trait_name=None, limit=limit
+        )
+
+        return {
+            "success": True,
+            "user_id": user_id,
+            "recent_drifts": [drift.to_dict() for drift in drifts],
+            "count": len(drifts),
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting recent drifts: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
