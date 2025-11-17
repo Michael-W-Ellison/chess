@@ -127,6 +127,21 @@ class ConversationManager:
         safety_result = safety_filter.check_message(user_message, user_id=user_id)
 
         if safety_result["severity"] == "critical":
+            # Get personality to update mood
+            personality = (
+                db.query(BotPersonality).filter(BotPersonality.user_id == user_id).first()
+            )
+
+            # Change bot's mood to 'concerned' during crisis
+            if personality:
+                old_mood = personality.mood
+                personality.mood = "concerned"
+                db.commit()
+                logger.info(
+                    f"Bot mood changed from '{old_mood}' to 'concerned' due to crisis "
+                    f"(user {user_id})"
+                )
+
             # Handle crisis with category-specific response
             response = self._handle_crisis(safety_result, user_id, conversation_id, db)
 
@@ -145,6 +160,7 @@ class ConversationManager:
                     "crisis_response": True,
                     "flags": safety_result["flags"],
                     "notify_parent": safety_result["notify_parent"],
+                    "mood_change": "concerned",
                 },
             }
 
