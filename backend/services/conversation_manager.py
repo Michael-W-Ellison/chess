@@ -21,6 +21,7 @@ from services.feature_gates import can_use_catchphrase, apply_feature_modifiers
 from services.personality_drift_calculator import personality_drift_calculator
 from services.emoji_quirk_service import emoji_quirk_service
 from services.pun_quirk_service import pun_quirk_service
+from services.fact_quirk_service import fact_quirk_service
 
 logger = logging.getLogger("chatbot.conversation_manager")
 
@@ -439,6 +440,17 @@ INSTRUCTIONS:
         import random
 
         quirks = personality.get_quirks()
+
+        # Apply shares_facts quirk
+        if "shares_facts" in quirks:
+            # Probability increases slightly with friendship level
+            base_probability = 0.20
+            level_bonus = (personality.friendship_level - 1) * 0.02
+            probability = min(0.35, base_probability + level_bonus)
+
+            response = fact_quirk_service.add_fact(
+                response, context=context, probability=probability
+            )
 
         # Apply tells_puns quirk
         if "tells_puns" in quirks:
