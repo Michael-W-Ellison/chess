@@ -60,6 +60,8 @@ const electronAPI = {
   // Invoke (request-response pattern)
   invoke: async (channel: string, ...args: any[]): Promise<any> => {
     const validChannels = [
+      'backend-status',
+      'backend-health',
       'start-conversation',
       'send-message',
       'end-conversation',

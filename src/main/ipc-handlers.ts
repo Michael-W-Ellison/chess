@@ -1,18 +1,20 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
+import { backendManager } from './backend-manager';
 
 /**
  * IPC Handlers - Handle all communication from renderer to main process
  * These handlers communicate with the Python backend via HTTP requests
  */
 
-// TODO: Import BackendManager when it's created
-// import { BackendManager } from './backend-manager';
-
 /**
  * Initialize all IPC handlers
  */
 export function setupIpcHandlers(): void {
   console.log('Setting up IPC handlers...');
+
+  // Backend Status
+  ipcMain.handle('backend-status', handleBackendStatus);
+  ipcMain.handle('backend-health', handleBackendHealth);
 
   // Conversation Management
   ipcMain.handle('start-conversation', handleStartConversation);
@@ -34,6 +36,59 @@ export function setupIpcHandlers(): void {
 }
 
 /**
+ * Get backend status
+ */
+async function handleBackendStatus(
+  event: IpcMainInvokeEvent
+): Promise<any> {
+  try {
+    const status = backendManager.getStatus();
+    return {
+      success: true,
+      data: status,
+    };
+  } catch (error) {
+    console.error('Error getting backend status:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Check backend health
+ */
+async function handleBackendHealth(
+  event: IpcMainInvokeEvent
+): Promise<any> {
+  try {
+    if (!backendManager.isBackendRunning()) {
+      return {
+        success: true,
+        data: { healthy: false, message: 'Backend is not running' },
+      };
+    }
+
+    const healthy = await backendManager.checkHealth();
+
+    return {
+      success: true,
+      data: {
+        healthy,
+        message: healthy ? 'Backend is healthy' : 'Backend health check failed'
+      },
+    };
+  } catch (error) {
+    console.error('Error checking backend health:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
  * Start a new conversation session
  */
 async function handleStartConversation(
@@ -42,23 +97,15 @@ async function handleStartConversation(
   try {
     console.log('IPC: Starting conversation...');
 
-    // TODO: Call Python backend API
-    // const response = await backendManager.request('POST', '/api/conversation/start');
+    if (!backendManager.isBackendRunning()) {
+      throw new Error('Backend is not running');
+    }
 
-    // Mock response for now
-    const mockResponse = {
-      conversationId: 'conv_' + Date.now(),
-      greeting: 'Hey there! I missed you! How have you been?',
-      personality: {
-        name: 'Buddy',
-        mood: 'happy',
-        friendshipLevel: 1,
-      },
-    };
+    const response = await backendManager.request('POST', '/api/conversation/start?user_id=1');
 
     return {
       success: true,
-      data: mockResponse,
+      data: response,
     };
   } catch (error) {
     console.error('Error starting conversation:', error);
@@ -74,33 +121,25 @@ async function handleStartConversation(
  */
 async function handleSendMessage(
   event: IpcMainInvokeEvent,
+  conversationId: number,
   message: string
 ): Promise<any> {
   try {
     console.log('IPC: Sending message:', message.substring(0, 50) + '...');
 
-    // TODO: Call Python backend API
-    // const response = await backendManager.request('POST', '/api/message', {
-    //   content: message
-    // });
+    if (!backendManager.isBackendRunning()) {
+      throw new Error('Backend is not running');
+    }
 
-    // Mock response for now
-    const mockResponse = {
-      messageId: 'msg_' + Date.now(),
-      content: 'That\'s really interesting! Tell me more about that.',
-      timestamp: new Date().toISOString(),
-      metadata: {
-        moodDetected: 'neutral',
-        topicsExtracted: [],
-      },
-    };
-
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    const response = await backendManager.request('POST', '/api/message', {
+      user_message: message,
+      conversation_id: conversationId,
+      user_id: 1,
+    });
 
     return {
       success: true,
-      data: mockResponse,
+      data: response,
     };
   } catch (error) {
     console.error('Error sending message:', error);
@@ -116,15 +155,16 @@ async function handleSendMessage(
  */
 async function handleEndConversation(
   event: IpcMainInvokeEvent,
-  conversationId: string
+  conversationId: number
 ): Promise<any> {
   try {
     console.log('IPC: Ending conversation:', conversationId);
 
-    // TODO: Call Python backend API
-    // await backendManager.request('POST', '/api/conversation/end', {
-    //   conversationId
-    // });
+    if (!backendManager.isBackendRunning()) {
+      throw new Error('Backend is not running');
+    }
+
+    await backendManager.request('POST', `/api/conversation/end/${conversationId}`);
 
     return {
       success: true,
@@ -147,32 +187,15 @@ async function handleGetPersonality(
   try {
     console.log('IPC: Getting personality...');
 
-    // TODO: Call Python backend API
-    // const response = await backendManager.request('GET', '/api/personality');
+    if (!backendManager.isBackendRunning()) {
+      throw new Error('Backend is not running');
+    }
 
-    // Mock response for now
-    const mockResponse = {
-      name: 'Buddy',
-      traits: {
-        humor: 0.65,
-        energy: 0.72,
-        curiosity: 0.58,
-        formality: 0.35,
-      },
-      friendshipLevel: 1,
-      mood: 'happy',
-      interests: ['sports', 'music', 'science'],
-      quirks: ['uses_emojis'],
-      stats: {
-        totalConversations: 0,
-        daysSinceMet: 0,
-        currentStreak: 0,
-      },
-    };
+    const response = await backendManager.request('GET', '/api/personality?user_id=1');
 
     return {
       success: true,
-      data: mockResponse,
+      data: response,
     };
   } catch (error) {
     console.error('Error getting personality:', error);
@@ -192,22 +215,15 @@ async function handleGetProfile(
   try {
     console.log('IPC: Getting profile...');
 
-    // TODO: Call Python backend API
-    // const response = await backendManager.request('GET', '/api/profile');
+    if (!backendManager.isBackendRunning()) {
+      throw new Error('Backend is not running');
+    }
 
-    // Mock response for now
-    const mockResponse = {
-      name: 'User',
-      age: null,
-      grade: null,
-      favorites: {},
-      importantPeople: [],
-      goals: [],
-    };
+    const response = await backendManager.request('GET', '/api/profile?user_id=1');
 
     return {
       success: true,
-      data: mockResponse,
+      data: response,
     };
   } catch (error) {
     console.error('Error getting profile:', error);
@@ -313,6 +329,8 @@ async function handleExportMemoryBook(
  */
 export function cleanupIpcHandlers(): void {
   console.log('Cleaning up IPC handlers...');
+  ipcMain.removeAllListeners('backend-status');
+  ipcMain.removeAllListeners('backend-health');
   ipcMain.removeAllListeners('start-conversation');
   ipcMain.removeAllListeners('send-message');
   ipcMain.removeAllListeners('end-conversation');
