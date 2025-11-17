@@ -1096,3 +1096,104 @@ async def search_memories(
     except Exception as e:
         logger.error(f"Error searching memories: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Memory Relevance Ranking Endpoints
+
+
+@router.get("/profile/top-memories")
+async def get_top_memories(
+    user_id: int = 1,
+    limit: int = 10,
+    category: Optional[str] = None,
+    strategy: str = "combined",
+    db: Session = Depends(get_db)
+):
+    """
+    Get top most relevant memories for a user
+
+    Args:
+        user_id: User ID
+        limit: Maximum number of results (default 10, max 50)
+        category: Optional category filter (favorite, dislike, person, goal, achievement)
+        strategy: Ranking strategy - "recency", "frequency", "confidence", or "combined"
+        db: Database session
+
+    Returns:
+        List of top memories ranked by relevance with scores
+    """
+    try:
+        # Validate parameters
+        if limit > 50:
+            limit = 50
+        if limit < 1:
+            limit = 10
+
+        valid_strategies = ["recency", "frequency", "confidence", "combined"]
+        if strategy not in valid_strategies:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid strategy. Must be one of: {', '.join(valid_strategies)}"
+            )
+
+        # Get top memories
+        memories = memory_manager.get_top_memories(
+            user_id=user_id,
+            db=db,
+            limit=limit,
+            category=category,
+            strategy=strategy
+        )
+
+        # Include relevance scores in response
+        results = []
+        for memory in memories:
+            score = memory_manager.calculate_memory_relevance(memory, strategy)
+            results.append({
+                "memory": memory.to_dict(),
+                "relevance_score": round(score, 2)
+            })
+
+        return {
+            "results": results,
+            "count": len(results),
+            "strategy": strategy,
+            "category": category
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting top memories: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/profile/memory-importance")
+async def get_memory_importance(
+    user_id: int = 1,
+    category: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Get breakdown of memory importance metrics
+
+    Args:
+        user_id: User ID
+        category: Optional category filter
+        db: Database session
+
+    Returns:
+        Comprehensive breakdown of memory importance by different criteria
+    """
+    try:
+        breakdown = memory_manager.get_memory_importance_breakdown(
+            user_id=user_id,
+            db=db,
+            category=category
+        )
+
+        return breakdown
+
+    except Exception as e:
+        logger.error(f"Error getting memory importance breakdown: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

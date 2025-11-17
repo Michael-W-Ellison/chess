@@ -1385,6 +1385,204 @@ class MemoryManager:
 
         return score
 
+    # Memory Relevance Ranking Methods
+
+    def calculate_memory_relevance(
+        self,
+        memory: UserProfile,
+        strategy: str = "combined"
+    ) -> float:
+        """
+        Calculate overall relevance score for a memory
+
+        Args:
+            memory: UserProfile object
+            strategy: Ranking strategy - "recency", "frequency", "confidence", or "combined"
+
+        Returns:
+            Relevance score (0.0 to 100.0)
+        """
+        from datetime import datetime, timedelta
+
+        if strategy == "recency":
+            # Score based on how recently the memory was mentioned
+            if memory.last_mentioned:
+                days_ago = (datetime.now() - memory.last_mentioned).days
+                # Exponential decay: 100 for today, 50 for 7 days ago, etc.
+                score = 100 * (0.9 ** days_ago)
+                return min(100.0, max(0.0, score))
+            return 0.0
+
+        elif strategy == "frequency":
+            # Score based on mention count
+            # Log scale to prevent very high counts from dominating
+            import math
+            score = 20 * math.log(memory.mention_count + 1)
+            return min(100.0, max(0.0, score))
+
+        elif strategy == "confidence":
+            # Score based on confidence (already 0.0 to 1.0)
+            return memory.confidence * 100
+
+        elif strategy == "combined":
+            # Weighted combination of all factors
+            recency_score = self.calculate_memory_relevance(memory, "recency")
+            frequency_score = self.calculate_memory_relevance(memory, "frequency")
+            confidence_score = self.calculate_memory_relevance(memory, "confidence")
+
+            # Weights: recency 40%, frequency 30%, confidence 30%
+            combined_score = (
+                recency_score * 0.4 +
+                frequency_score * 0.3 +
+                confidence_score * 0.3
+            )
+            return combined_score
+
+        else:
+            raise ValueError(f"Unknown ranking strategy: {strategy}")
+
+    def get_top_memories(
+        self,
+        user_id: int,
+        db: Session,
+        limit: int = 10,
+        category: Optional[str] = None,
+        strategy: str = "combined"
+    ) -> List[UserProfile]:
+        """
+        Get top most relevant memories for a user
+
+        Args:
+            user_id: User ID
+            db: Database session
+            limit: Maximum number of memories to return (default 10)
+            category: Optional category filter
+            strategy: Ranking strategy - "recency", "frequency", "confidence", or "combined"
+
+        Returns:
+            List of UserProfile objects ranked by relevance
+        """
+        # Build query
+        query = db.query(UserProfile).filter(UserProfile.user_id == user_id)
+
+        if category:
+            query = query.filter(UserProfile.category == category)
+
+        # Get all memories
+        all_memories = query.all()
+
+        # Score and rank
+        scored_memories = []
+        for memory in all_memories:
+            score = self.calculate_memory_relevance(memory, strategy)
+            scored_memories.append((memory, score))
+
+        # Sort by score (descending) and limit
+        scored_memories.sort(key=lambda x: x[1], reverse=True)
+        results = [memory for memory, score in scored_memories[:limit]]
+
+        logger.info(
+            f"Retrieved {len(results)} top memories for user {user_id} "
+            f"using strategy '{strategy}'"
+        )
+        return results
+
+    def get_memory_importance_breakdown(
+        self,
+        user_id: int,
+        db: Session,
+        category: Optional[str] = None
+    ) -> Dict:
+        """
+        Get breakdown of memory importance metrics
+
+        Args:
+            user_id: User ID
+            db: Database session
+            category: Optional category filter
+
+        Returns:
+            Dictionary with importance metrics and top memories by different criteria
+        """
+        # Build query
+        query = db.query(UserProfile).filter(UserProfile.user_id == user_id)
+
+        if category:
+            query = query.filter(UserProfile.category == category)
+
+        memories = query.all()
+
+        if not memories:
+            return {
+                "total_memories": 0,
+                "top_by_recency": [],
+                "top_by_frequency": [],
+                "top_by_confidence": [],
+                "top_combined": []
+            }
+
+        # Get top 5 by each strategy
+        top_recency = self.get_top_memories(
+            user_id, db, limit=5, category=category, strategy="recency"
+        )
+        top_frequency = self.get_top_memories(
+            user_id, db, limit=5, category=category, strategy="frequency"
+        )
+        top_confidence = self.get_top_memories(
+            user_id, db, limit=5, category=category, strategy="confidence"
+        )
+        top_combined = self.get_top_memories(
+            user_id, db, limit=5, category=category, strategy="combined"
+        )
+
+        # Calculate average scores
+        avg_recency = sum(
+            self.calculate_memory_relevance(m, "recency") for m in memories
+        ) / len(memories)
+        avg_frequency = sum(
+            self.calculate_memory_relevance(m, "frequency") for m in memories
+        ) / len(memories)
+        avg_confidence = sum(
+            self.calculate_memory_relevance(m, "confidence") for m in memories
+        ) / len(memories)
+
+        return {
+            "total_memories": len(memories),
+            "average_scores": {
+                "recency": round(avg_recency, 2),
+                "frequency": round(avg_frequency, 2),
+                "confidence": round(avg_confidence, 2)
+            },
+            "top_by_recency": [
+                {
+                    "memory": m.to_dict(),
+                    "score": round(self.calculate_memory_relevance(m, "recency"), 2)
+                }
+                for m in top_recency
+            ],
+            "top_by_frequency": [
+                {
+                    "memory": m.to_dict(),
+                    "score": round(self.calculate_memory_relevance(m, "frequency"), 2)
+                }
+                for m in top_frequency
+            ],
+            "top_by_confidence": [
+                {
+                    "memory": m.to_dict(),
+                    "score": round(self.calculate_memory_relevance(m, "confidence"), 2)
+                }
+                for m in top_confidence
+            ],
+            "top_combined": [
+                {
+                    "memory": m.to_dict(),
+                    "score": round(self.calculate_memory_relevance(m, "combined"), 2)
+                }
+                for m in top_combined
+            ]
+        }
+
 
 # Global instance
 memory_manager = MemoryManager()
