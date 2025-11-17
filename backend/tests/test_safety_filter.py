@@ -20,11 +20,15 @@ class TestSafetyFilterIntegration:
         assert self.filter.profanity_filter is not None
         assert self.filter.inappropriate_detector is not None
         assert self.filter.word_list is not None
-        assert len(self.filter.bullying_keywords) > 0
+        assert self.filter.bullying_detector is not None
         # Verify crisis detector has keyword lists
         assert len(self.filter.crisis_detector.suicide_keywords) > 0
         assert len(self.filter.crisis_detector.self_harm_keywords) > 0
         assert len(self.filter.crisis_detector.abuse_physical_keywords) > 0
+        # Verify bullying detector has keyword lists
+        assert len(self.filter.bullying_detector.physical_bullying_keywords) > 0
+        assert len(self.filter.bullying_detector.verbal_bullying_keywords) > 0
+        assert len(self.filter.bullying_detector.social_exclusion_keywords) > 0
 
     def test_crisis_detection_highest_priority(self):
         """Test that crisis detection has highest priority"""
@@ -74,13 +78,16 @@ class TestSafetyFilterIntegration:
         assert result["details"]["profanity"]["contains_profanity"] is True
 
     def test_bullying_detection(self):
-        """Test bullying keyword detection"""
+        """Test bullying keyword detection with categories"""
         result = self.filter.check_message("Everyone at school is bullying me")
 
         assert "bullying" in result["flags"]
         assert result["severity"] == "medium"
         assert result["action"] == "supportive_response"
         assert "bullying" in result["details"]
+        assert result["details"]["bullying"]["detected"] is True
+        assert result["details"]["bullying"]["primary_category"] == "physical_bullying"
+        assert len(result["details"]["bullying"]["keywords_found"]) > 0
 
     def test_priority_order_crisis_over_profanity(self):
         """Test that crisis detection overrides profanity detection"""
@@ -193,16 +200,21 @@ class TestSafetyFilterIntegration:
         assert "profanity_word_list" in stats
         assert "profanity_filter" in stats
         assert "inappropriate_detector" in stats
-        assert "bullying_keywords_count" in stats
+        assert "bullying_keyword_list" in stats
 
-        # Check that counts are reasonable
-        assert stats["bullying_keywords_count"] > 5
         # Verify crisis keyword list stats
         crisis_stats = stats["crisis_keyword_list"]
         assert crisis_stats["suicide_keywords"] > 5
         assert crisis_stats["self_harm_keywords"] > 5
         assert crisis_stats["abuse_physical_keywords"] > 5
         assert crisis_stats["total_keywords"] > 50
+
+        # Verify bullying keyword list stats
+        bullying_stats = stats["bullying_keyword_list"]
+        assert bullying_stats["physical_bullying_keywords"] > 5
+        assert bullying_stats["verbal_bullying_keywords"] > 5
+        assert bullying_stats["social_exclusion_keywords"] > 5
+        assert bullying_stats["total_keywords"] > 30
 
     def test_reset_user_violations(self):
         """Test resetting user violations"""

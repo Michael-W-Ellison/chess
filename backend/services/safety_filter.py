@@ -7,7 +7,7 @@ Integrates multiple specialized services:
 - ProfanityWordList: Comprehensive profanity word database
 - ProfanityDetectionFilter: Profanity detection with educational responses
 - InappropriateRequestDetector: Pattern-based inappropriate request detection
-- Bullying detection: Direct keyword matching for bullying situations
+- BullyingKeywordList: Comprehensive bullying detection (physical, verbal, social, cyber)
 """
 
 from typing import Dict, List, Optional
@@ -23,6 +23,7 @@ from services.crisis_keyword_list import crisis_keyword_list
 from services.profanity_word_list import profanity_word_list
 from services.profanity_detection_filter import ProfanityDetectionFilter
 from services.inappropriate_request_detector import inappropriate_request_detector
+from services.bullying_keyword_list import bullying_keyword_list
 
 logger = logging.getLogger("chatbot.safety_filter")
 
@@ -65,24 +66,7 @@ class SafetyFilter:
         self.profanity_filter = ProfanityDetectionFilter()
         self.inappropriate_detector = inappropriate_request_detector
         self.word_list = profanity_word_list
-
-        # Bullying keywords (MEDIUM severity)
-        # Note: Crisis and abuse keywords are now managed by crisis_keyword_list service
-        self.bullying_keywords = [
-            "bully",
-            "bullied",
-            "bullying",
-            "teasing me",
-            "making fun of me",
-            "spreading rumors",
-            "left me out",
-            "exclude",
-            "ignoring me",
-            "nobody likes me",
-            "everyone hates me",
-            "no friends",
-            "alone at school",
-        ]
+        self.bullying_detector = bullying_keyword_list
 
         logger.info("SafetyFilter initialized with all specialized services")
 
@@ -221,16 +205,20 @@ class SafetyFilter:
             # PRIORITY 4: Bullying Detection (MEDIUM)
             # ============================================================
             # Check for bullying if no other issues found
-            if not flags and self._contains_any(message_lower, self.bullying_keywords):
+            if not flags and self.bullying_detector.contains_bullying_keywords(message):
+                bullying_keywords_found = self.bullying_detector.find_bullying_keywords(message)
+                bullying_category = self.bullying_detector.get_category(message)
+                all_bullying_categories = self.bullying_detector.get_all_categories(message)
+
                 flags.append("bullying")
                 severity = "medium"
                 action = "supportive_response"
                 response_message = self.get_bullying_response()
                 details["bullying"] = {
                     "detected": True,
-                    "keywords_found": [
-                        kw for kw in self.bullying_keywords if kw in message_lower
-                    ],
+                    "primary_category": bullying_category,
+                    "all_categories": all_bullying_categories,
+                    "keywords_found": bullying_keywords_found,
                 }
 
         # Determine if message is safe (allow through)
@@ -249,19 +237,6 @@ class SafetyFilter:
             "notify_parent": notify_parent,
             "details": details,
         }
-
-    def _contains_any(self, text: str, keywords: List[str]) -> bool:
-        """
-        Check if text contains any of the keywords
-
-        Args:
-            text: Text to check (should be lowercased)
-            keywords: List of keywords to search for
-
-        Returns:
-            True if any keyword is found
-        """
-        return any(keyword in text for keyword in keywords)
 
     def get_crisis_response(self) -> str:
         """
@@ -397,7 +372,7 @@ How about we talk about something more fun instead? I'd love to hear about your 
             "profanity_word_list": self.word_list.get_stats(),
             "profanity_filter": self.profanity_filter.get_filter_stats(),
             "inappropriate_detector": self.inappropriate_detector.get_stats(),
-            "bullying_keywords_count": len(self.bullying_keywords),
+            "bullying_keyword_list": self.bullying_detector.get_stats(),
         }
         return stats
 
