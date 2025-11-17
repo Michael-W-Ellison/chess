@@ -12,6 +12,17 @@ from models.personality import BotPersonality
 
 logger = logging.getLogger("chatbot.friendship_progression")
 
+# Lazy import to avoid circular dependency
+_level_up_handler_cache = None
+
+def _get_level_up_handler():
+    """Lazy import of level-up event handler"""
+    global _level_up_handler_cache
+    if _level_up_handler_cache is None:
+        from services.level_up_event_handler import level_up_event_handler
+        _level_up_handler_cache = level_up_event_handler
+    return _level_up_handler_cache
+
 
 class FriendshipProgressionManager:
     """
@@ -280,6 +291,22 @@ class FriendshipProgressionManager:
             level_info = self.get_level_info(new_level)
             event_info["level_info"] = level_info
             event_info["message"] = f"Congratulations! You reached {level_info['name']}!"
+
+            # Create level-up event in database
+            try:
+                handler = _get_level_up_handler()
+                level_up_event = handler.create_level_up_event(
+                    user_id=personality.user_id,
+                    old_level=old_level,
+                    new_level=new_level,
+                    friendship_points=personality.friendship_points,
+                    points_earned=points,
+                    db=db
+                )
+                event_info["level_up_event_id"] = level_up_event.id
+            except Exception as e:
+                logger.error(f"Failed to create level-up event: {e}", exc_info=True)
+                # Don't fail the whole operation if event creation fails
 
         return personality, level_increased, event_info
 
