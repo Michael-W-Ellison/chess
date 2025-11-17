@@ -17,6 +17,7 @@ from services.level_up_event_handler import level_up_event_handler
 from services.feature_unlock_manager import feature_unlock_manager
 from services.feature_gates import check_feature_access, get_feature_gate_message
 from services.personality_drift_calculator import personality_drift_calculator
+from services.trait_adjuster import trait_adjuster
 
 logger = logging.getLogger("chatbot.routes.personality")
 
@@ -1129,4 +1130,378 @@ async def get_recent_drifts(
 
     except Exception as e:
         logger.error(f"Error getting recent drifts: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Trait Adjustment Endpoints
+# ============================================================================
+
+
+class TraitAdjustmentRequest(BaseModel):
+    """Request model for trait adjustment"""
+    user_id: int = 1
+    trait_name: str
+    new_value: float
+
+
+class TraitDeltaAdjustmentRequest(BaseModel):
+    """Request model for trait delta adjustment"""
+    user_id: int = 1
+    trait_name: str
+    delta: float
+
+
+class MultipleTraitAdjustmentRequest(BaseModel):
+    """Request model for multiple trait adjustments"""
+    user_id: int = 1
+    adjustments: Dict[str, float]
+    is_delta: bool = False
+
+
+@router.post("/traits/adjust")
+async def adjust_trait(
+    request: TraitAdjustmentRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Adjust a personality trait to a specific value (bounded 0.0-1.0)
+
+    Args:
+        request: Adjustment request with user_id, trait_name, new_value
+        db: Database session
+
+    Returns:
+        Adjustment result with old and new values
+    """
+    try:
+        # Get personality
+        personality = db.query(BotPersonality).filter(
+            BotPersonality.user_id == request.user_id
+        ).first()
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        # Adjust trait
+        old_value, new_value, change = trait_adjuster.adjust_trait(
+            personality, request.trait_name, request.new_value, db
+        )
+
+        return {
+            "success": True,
+            "message": f"Trait {request.trait_name} adjusted successfully",
+            "trait_name": request.trait_name,
+            "old_value": old_value,
+            "new_value": new_value,
+            "change": change,
+            "was_clamped": abs(request.new_value - new_value) > 0.001,
+            "personality": personality.to_dict(),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adjusting trait: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/traits/adjust-delta")
+async def adjust_trait_by_delta(
+    request: TraitDeltaAdjustmentRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Adjust a personality trait by a delta amount (bounded 0.0-1.0)
+
+    Args:
+        request: Adjustment request with user_id, trait_name, delta
+        db: Database session
+
+    Returns:
+        Adjustment result with old and new values
+    """
+    try:
+        # Get personality
+        personality = db.query(BotPersonality).filter(
+            BotPersonality.user_id == request.user_id
+        ).first()
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        # Adjust trait by delta
+        old_value, new_value, change = trait_adjuster.adjust_trait_by_delta(
+            personality, request.trait_name, request.delta, db
+        )
+
+        return {
+            "success": True,
+            "message": f"Trait {request.trait_name} adjusted by {request.delta:+.3f}",
+            "trait_name": request.trait_name,
+            "old_value": old_value,
+            "new_value": new_value,
+            "requested_delta": request.delta,
+            "actual_change": change,
+            "was_clamped": abs(request.delta - change) > 0.001,
+            "personality": personality.to_dict(),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adjusting trait by delta: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/traits/adjust-multiple")
+async def adjust_multiple_traits(
+    request: MultipleTraitAdjustmentRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Adjust multiple personality traits at once (bounded 0.0-1.0)
+
+    Args:
+        request: Adjustment request with user_id, adjustments dict, is_delta flag
+        db: Database session
+
+    Returns:
+        Adjustment results for all traits
+    """
+    try:
+        # Get personality
+        personality = db.query(BotPersonality).filter(
+            BotPersonality.user_id == request.user_id
+        ).first()
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        # Adjust multiple traits
+        results = trait_adjuster.adjust_multiple_traits(
+            personality, request.adjustments, db, request.is_delta
+        )
+
+        # Format results
+        formatted_results = {}
+        for trait, (old_val, new_val, change) in results.items():
+            formatted_results[trait] = {
+                "old_value": old_val,
+                "new_value": new_val,
+                "change": change,
+            }
+
+        return {
+            "success": True,
+            "message": f"Adjusted {len(request.adjustments)} traits successfully",
+            "results": formatted_results,
+            "personality": personality.to_dict(),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adjusting multiple traits: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/traits/reset/{trait_name}")
+async def reset_trait(
+    trait_name: str,
+    user_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """
+    Reset a personality trait to its default value
+
+    Args:
+        trait_name: Trait name to reset
+        user_id: User ID (default 1)
+        db: Database session
+
+    Returns:
+        Reset result with old and new values
+    """
+    try:
+        # Get personality
+        personality = db.query(BotPersonality).filter(
+            BotPersonality.user_id == user_id
+        ).first()
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        # Reset trait
+        old_value, new_value, change = trait_adjuster.reset_trait(
+            personality, trait_name, db
+        )
+
+        return {
+            "success": True,
+            "message": f"Trait {trait_name} reset to default value",
+            "trait_name": trait_name,
+            "old_value": old_value,
+            "default_value": new_value,
+            "change": change,
+            "personality": personality.to_dict(),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resetting trait: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/traits/reset-all")
+async def reset_all_traits(
+    user_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """
+    Reset all personality traits to their default values
+
+    Args:
+        user_id: User ID (default 1)
+        db: Database session
+
+    Returns:
+        Reset results for all traits
+    """
+    try:
+        # Get personality
+        personality = db.query(BotPersonality).filter(
+            BotPersonality.user_id == user_id
+        ).first()
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        # Reset all traits
+        results = trait_adjuster.reset_all_traits(personality, db)
+
+        # Format results
+        formatted_results = {}
+        for trait, (old_val, new_val, change) in results.items():
+            formatted_results[trait] = {
+                "old_value": old_val,
+                "default_value": new_val,
+                "change": change,
+            }
+
+        return {
+            "success": True,
+            "message": "All traits reset to default values",
+            "results": formatted_results,
+            "personality": personality.to_dict(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resetting all traits: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/traits/info/{trait_name}")
+async def get_trait_info(trait_name: str):
+    """
+    Get information about a specific trait
+
+    Args:
+        trait_name: Trait name
+
+    Returns:
+        Trait information including description, bounds, default
+    """
+    try:
+        info = trait_adjuster.get_trait_info(trait_name)
+
+        return {
+            "success": True,
+            "trait_name": trait_name,
+            "info": info,
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error getting trait info: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/traits/info")
+async def get_all_trait_info():
+    """
+    Get information about all personality traits
+
+    Returns:
+        Information for all traits
+    """
+    try:
+        info = trait_adjuster.get_all_trait_info()
+
+        return {
+            "success": True,
+            "traits": info,
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting all trait info: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/traits/validate")
+async def validate_traits(user_id: int = 1, db: Session = Depends(get_db)):
+    """
+    Validate that all traits are within bounds
+
+    Args:
+        user_id: User ID (default 1)
+        db: Database session
+
+    Returns:
+        Validation results for all traits
+    """
+    try:
+        # Get personality
+        personality = db.query(BotPersonality).filter(
+            BotPersonality.user_id == user_id
+        ).first()
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        # Validate all traits
+        validation = trait_adjuster.validate_all_traits(personality)
+        all_valid = all(validation.values())
+
+        # Get current values
+        current_values = trait_adjuster.get_all_trait_values(personality)
+
+        return {
+            "success": True,
+            "user_id": user_id,
+            "all_valid": all_valid,
+            "validation": validation,
+            "current_values": current_values,
+            "bounds": {
+                "min": trait_adjuster.TRAIT_MIN,
+                "max": trait_adjuster.TRAIT_MAX,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error validating traits: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
