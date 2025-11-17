@@ -19,6 +19,7 @@ from services.personality_manager import personality_manager
 from services.conversation_tracker import conversation_tracker
 from services.feature_gates import can_use_catchphrase, apply_feature_modifiers
 from services.personality_drift_calculator import personality_drift_calculator
+from services.emoji_quirk_service import emoji_quirk_service
 
 logger = logging.getLogger("chatbot.conversation_manager")
 
@@ -438,17 +439,17 @@ INSTRUCTIONS:
 
         quirks = personality.get_quirks()
 
-        # Add emoji if quirk enabled
-        if "uses_emojis" in quirks and random.random() < 0.4:
-            emoji_map = {
-                "happy": ["😊", "🙂", "😄"],
-                "excited": ["🎉", "😃", "🤩"],
-                "concerned": ["💙", "🫂"],
-                "playful": ["😄", "😆"],
-                "calm": ["😌", "✨"],
-            }
-            emojis = emoji_map.get(personality.mood, ["😊"])
-            response += f" {random.choice(emojis)}"
+        # Apply uses_emojis quirk with enhanced emoji service
+        if "uses_emojis" in quirks:
+            # Intensity varies by friendship level
+            # Higher friendship = more emojis
+            base_intensity = 0.4
+            level_bonus = (personality.friendship_level - 1) * 0.05
+            intensity = min(0.7, base_intensity + level_bonus)
+
+            response = emoji_quirk_service.apply_emojis(
+                response, mood=personality.mood, intensity=intensity
+            )
 
         # Add catchphrase occasionally (if feature unlocked)
         if (
