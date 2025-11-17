@@ -38,8 +38,10 @@ export interface PersonalityTraits {
 
 export interface PersonalityStats {
   totalConversations: number;
+  totalMessages: number;
   daysSinceMet: number;
   currentStreak: number;
+  lastInteraction?: string;  // ISO date string
 }
 
 export interface PersonalityState {

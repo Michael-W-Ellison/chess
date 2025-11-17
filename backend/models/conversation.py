@@ -102,8 +102,8 @@ class Message(Base):
     # Safety
     flagged = Column(Boolean, default=False, nullable=False)
 
-    # Optional metadata (JSON)
-    metadata = Column(Text, nullable=True)  # Can store mood detected, topics, etc.
+    # Optional metadata (JSON) - renamed to avoid SQLAlchemy conflict
+    message_metadata = Column(Text, nullable=True)  # Can store mood detected, topics, etc.
 
     # Relationships
     conversation = relationship("Conversation", back_populates="messages")
@@ -111,16 +111,16 @@ class Message(Base):
 
     def get_metadata(self):
         """Parse metadata JSON"""
-        if self.metadata:
+        if self.message_metadata:
             try:
-                return json.loads(self.metadata)
+                return json.loads(self.message_metadata)
             except json.JSONDecodeError:
                 return {}
         return {}
 
     def set_metadata(self, metadata_dict):
         """Set metadata from dictionary"""
-        self.metadata = json.dumps(metadata_dict)
+        self.message_metadata = json.dumps(metadata_dict)
 
     def __repr__(self):
         content_preview = self.content[:50] + "..." if len(self.content) > 50 else self.content

@@ -37,7 +37,7 @@ class PersonalityResponse(BaseModel):
     quirks: List[str]
     interests: List[str]
     catchphrase: str | None
-    stats: Dict[str, int]
+    stats: Dict[str, int | str | None]  # Flexible type for stats (includes lastInteraction string)
 
 
 # Endpoints
@@ -65,8 +65,28 @@ async def get_personality(user_id: int = 1, db: Session = Depends(get_db)):
 
         # Calculate days since met
         from datetime import datetime
+        from models.conversation import Conversation, Message
 
         days_since_met = (datetime.now() - personality.created_at).days
+
+        # Calculate total messages across all conversations
+        total_messages = (
+            db.query(Message)
+            .join(Conversation)
+            .filter(Conversation.user_id == user_id)
+            .count()
+        )
+
+        # Get last interaction time
+        last_conversation = (
+            db.query(Conversation)
+            .filter(Conversation.user_id == user_id)
+            .order_by(Conversation.timestamp.desc())
+            .first()
+        )
+        last_interaction = (
+            last_conversation.timestamp.isoformat() if last_conversation else None
+        )
 
         # TODO: Calculate current streak from conversation history
         current_streak = 0
@@ -87,8 +107,10 @@ async def get_personality(user_id: int = 1, db: Session = Depends(get_db)):
             catchphrase=personality.catchphrase,
             stats={
                 "totalConversations": personality.total_conversations,
+                "totalMessages": total_messages,
                 "daysSinceMet": days_since_met,
                 "currentStreak": current_streak,
+                "lastInteraction": last_interaction,
             },
         )
 
