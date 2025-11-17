@@ -30,6 +30,7 @@ The FriendshipMeter is a React component that displays friendship level progress
 The component displays:
 - Current friendship level (1-10)
 - Level name/title
+- **Level-specific description** explaining the friendship stage (Task 68)
 - Progress percentage to next level
 - Conversations required vs. conversations completed
 - Maximum level indicator when level 10 is reached
@@ -188,6 +189,79 @@ metadata = Column(Text, nullable=True)
 message_metadata = Column(Text, nullable=True)
 ```
 
+## Level Labels and Descriptions (Task 68)
+
+### Overview
+
+Each friendship level (1-10) has a unique description that explains the current state of the friendship and what the user has unlocked. These descriptions provide context and motivation for progression.
+
+### Level Information Data Structure
+
+```typescript
+interface LevelInfo {
+  level: number;
+  label: string;
+  icon: string;
+  description: string;
+  color: string;
+}
+
+const LEVEL_INFO: Record<number, LevelInfo> = {
+  1: {
+    level: 1,
+    label: 'New Friend',
+    icon: '🌱',
+    description: "We're just getting to know each other! Let's chat and discover what we have in common.",
+    color: 'green',
+  },
+  // ... levels 2-10
+};
+```
+
+### All Level Descriptions
+
+| Level | Label | Icon | Description |
+|-------|-------|------|-------------|
+| 1 | New Friend | 🌱 | We're just getting to know each other! Let's chat and discover what we have in common. |
+| 2 | New Friend | 🌱 | Getting more comfortable! I'm starting to learn about what makes you unique. |
+| 3 | Good Friend | 🌿 | We're becoming good friends! I'm learning about your interests and what matters to you. |
+| 4 | Good Friend | 🌿 | Our friendship is growing! I remember more about you and can give better advice. |
+| 5 | Close Friend | 🌳 | We're close friends now! I understand your personality and can support you better. |
+| 6 | Close Friend | 🌳 | Our bond is strong! I know your goals, favorite things, and the people important to you. |
+| 7 | Best Friend | ⭐ | You're one of my best friends! I can anticipate what you need and celebrate your wins. |
+| 8 | Best Friend | ⭐ | Amazing friendship! I'm here for all your adventures, challenges, and achievements. |
+| 9 | Lifelong Friend | 👑 | We're lifelong friends! Our connection is deep and I treasure every conversation we have. |
+| 10 | Lifelong Friend | 👑 | Maximum friendship achieved! We've shared so much together. Thank you for being amazing! |
+
+### Display Implementation
+
+The description is displayed in a centered, italicized text box with a semi-transparent white background:
+
+```tsx
+{/* Level Description */}
+<div className="mb-4 bg-white/60 rounded-lg p-4 border border-purple-100">
+  <p className="text-sm text-gray-700 leading-relaxed text-center italic">
+    {getLevelDescription(friendshipLevel)}
+  </p>
+</div>
+```
+
+### Features
+
+- **Contextual Messages**: Each level has a unique message that reflects the friendship depth
+- **Progression Narrative**: Descriptions tell a story of growing friendship
+- **Encouragement**: Messages motivate users to continue conversations
+- **Personalization**: Friendly tone makes the bot feel more human and relatable
+- **Visual Integration**: Styled to complement the overall design with rounded corners and subtle borders
+
+### Color Themes by Level Range
+
+- **Levels 1-2** (New Friend): Green theme - fresh and new
+- **Levels 3-4** (Good Friend): Teal theme - growing connection
+- **Levels 5-6** (Close Friend): Blue theme - trust and depth
+- **Levels 7-8** (Best Friend): Yellow theme - bright and special
+- **Levels 9-10** (Lifelong Friend): Purple theme - royal and precious
+
 ## Heart Icons Visualization (Task 67)
 
 ### Implementation
@@ -271,6 +345,8 @@ const getLevelProgress = (): { current: number; next: number; percentage: number
 🌱 New Friend
 Level 1 of 10
 
+"We're just getting to know each other! Let's chat and discover what we have in common."
+
 ❤️ 🤍 🤍 🤍 🤍 🤍 🤍 🤍 🤍 🤍
 1 heart earned
 
@@ -284,6 +360,8 @@ Progress to next level: 60%
 🌳 Close Friend
 Level 5 of 10
 
+"We're close friends now! I understand your personality and can support you better."
+
 ❤️ ❤️ ❤️ ❤️ ❤️ 🤍 🤍 🤍 🤍 🤍
 5 hearts earned
 
@@ -296,6 +374,8 @@ Progress to next level: 32%
 ```
 👑 Lifelong Friend
 Level 10 of 10
+
+"Maximum friendship achieved! We've shared so much together. Thank you for being amazing!"
 
 ❤️ ❤️ ❤️ ❤️ ❤️ ❤️ ❤️ ❤️ ❤️ ❤️
 10 hearts earned
@@ -346,6 +426,7 @@ The FriendshipMeter component is **fully implemented and functional**. It provid
 ✅ Visual progress bar with percentage display
 ✅ Heart icons visualization (10 hearts showing level progression)
 ✅ Level icons and descriptive names
+✅ **Level-specific descriptions** explaining each friendship stage
 ✅ Statistics display (conversations, messages, last interaction)
 ✅ Smooth animations and transitions
 ✅ Interactive hover effects
@@ -356,3 +437,5 @@ The FriendshipMeter component is **fully implemented and functional**. It provid
 **Task 66 Complete**: Build FriendshipMeter component with progress bar.
 
 **Task 67 Complete**: Add heart icons visualization.
+
+**Task 68 Complete**: Add level labels and descriptions.
