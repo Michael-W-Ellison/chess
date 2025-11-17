@@ -26,6 +26,7 @@ from services.profanity_detection_filter import ProfanityDetectionFilter
 from services.inappropriate_request_detector import inappropriate_request_detector
 from services.bullying_keyword_list import bullying_keyword_list
 from services.severity_scorer import severity_scorer
+from services.crisis_response_templates import crisis_response_templates
 
 logger = logging.getLogger("chatbot.safety_filter")
 
@@ -70,6 +71,7 @@ class SafetyFilter:
         self.word_list = profanity_word_list
         self.bullying_detector = bullying_keyword_list
         self.severity_scorer = severity_scorer
+        self.crisis_response_templates = crisis_response_templates
 
         logger.info("SafetyFilter initialized with all specialized services")
 
@@ -135,13 +137,13 @@ class SafetyFilter:
             crisis_category = self.crisis_detector.get_category(message)
             all_categories = self.crisis_detector.get_all_categories(message)
 
-            # Determine which flag to use based on category
+            # Determine which flag to use based on category and get category-specific response
             if crisis_category in ["suicide", "self_harm"]:
                 flags.append("crisis")
-                response_message = self.get_crisis_response()
+                response_message = self.crisis_response_templates.get_response(crisis_category)
             elif crisis_category in ["abuse_physical", "abuse_emotional", "abuse_sexual"]:
                 flags.append("abuse")
-                response_message = self.get_abuse_response()
+                response_message = self.crisis_response_templates.get_response(crisis_category)
             else:
                 # Fallback (shouldn't happen)
                 flags.append("crisis")
@@ -373,6 +375,7 @@ How about we talk about something more fun instead? I'd love to hear about your 
             "inappropriate_detector": self.inappropriate_detector.get_stats(),
             "bullying_keyword_list": self.bullying_detector.get_stats(),
             "severity_scorer": self.severity_scorer.get_stats(),
+            "crisis_response_templates": self.crisis_response_templates.get_stats(),
         }
         return stats
 

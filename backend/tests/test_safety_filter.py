@@ -22,6 +22,7 @@ class TestSafetyFilterIntegration:
         assert self.filter.word_list is not None
         assert self.filter.bullying_detector is not None
         assert self.filter.severity_scorer is not None
+        assert self.filter.crisis_response_templates is not None
         # Verify crisis detector has keyword lists
         assert len(self.filter.crisis_detector.suicide_keywords) > 0
         assert len(self.filter.crisis_detector.self_harm_keywords) > 0
@@ -203,6 +204,7 @@ class TestSafetyFilterIntegration:
         assert "inappropriate_detector" in stats
         assert "bullying_keyword_list" in stats
         assert "severity_scorer" in stats
+        assert "crisis_response_templates" in stats
 
         # Verify crisis keyword list stats
         crisis_stats = stats["crisis_keyword_list"]
