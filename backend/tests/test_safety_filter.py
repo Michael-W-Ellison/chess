@@ -21,6 +21,7 @@ class TestSafetyFilterIntegration:
         assert self.filter.inappropriate_detector is not None
         assert self.filter.word_list is not None
         assert self.filter.bullying_detector is not None
+        assert self.filter.severity_scorer is not None
         # Verify crisis detector has keyword lists
         assert len(self.filter.crisis_detector.suicide_keywords) > 0
         assert len(self.filter.crisis_detector.self_harm_keywords) > 0
@@ -201,6 +202,7 @@ class TestSafetyFilterIntegration:
         assert "profanity_filter" in stats
         assert "inappropriate_detector" in stats
         assert "bullying_keyword_list" in stats
+        assert "severity_scorer" in stats
 
         # Verify crisis keyword list stats
         crisis_stats = stats["crisis_keyword_list"]
@@ -215,6 +217,13 @@ class TestSafetyFilterIntegration:
         assert bullying_stats["verbal_bullying_keywords"] > 5
         assert bullying_stats["social_exclusion_keywords"] > 5
         assert bullying_stats["total_keywords"] > 30
+
+        # Verify severity scorer stats
+        severity_stats = stats["severity_scorer"]
+        assert "severity_levels" in severity_stats
+        assert "parent_notification_threshold" in severity_stats
+        assert "message_blocking_threshold" in severity_stats
+        assert len(severity_stats["severity_levels"]) == 5
 
     def test_reset_user_violations(self):
         """Test resetting user violations"""

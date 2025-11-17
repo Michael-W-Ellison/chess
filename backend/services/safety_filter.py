@@ -8,6 +8,7 @@ Integrates multiple specialized services:
 - ProfanityDetectionFilter: Profanity detection with educational responses
 - InappropriateRequestDetector: Pattern-based inappropriate request detection
 - BullyingKeywordList: Comprehensive bullying detection (physical, verbal, social, cyber)
+- SeverityScorer: Centralized severity scoring and classification
 """
 
 from typing import Dict, List, Optional
@@ -24,6 +25,7 @@ from services.profanity_word_list import profanity_word_list
 from services.profanity_detection_filter import ProfanityDetectionFilter
 from services.inappropriate_request_detector import inappropriate_request_detector
 from services.bullying_keyword_list import bullying_keyword_list
+from services.severity_scorer import severity_scorer
 
 logger = logging.getLogger("chatbot.safety_filter")
 
@@ -67,6 +69,7 @@ class SafetyFilter:
         self.inappropriate_detector = inappropriate_request_detector
         self.word_list = profanity_word_list
         self.bullying_detector = bullying_keyword_list
+        self.severity_scorer = severity_scorer
 
         logger.info("SafetyFilter initialized with all specialized services")
 
@@ -144,8 +147,9 @@ class SafetyFilter:
                 flags.append("crisis")
                 response_message = self.get_crisis_response()
 
-            severity = "critical"
-            action = "crisis_response"
+            # Score severity using SeverityScorer
+            severity = self.severity_scorer.score_crisis_detection(crisis_category)
+            action = self.severity_scorer.get_action_recommendation(severity)
             details["crisis"] = {
                 "detected": True,
                 "primary_category": crisis_category,
@@ -163,18 +167,13 @@ class SafetyFilter:
 
             if inappropriate_result["is_inappropriate"]:
                 flags.append("inappropriate_request")
-                # Map severity from detector to our severity levels
+                # Score severity using SeverityScorer
                 detector_severity = inappropriate_result["severity"]
-                if detector_severity == "critical":
-                    severity = "critical"
-                    action = "block_with_education"
-                elif detector_severity == "high":
-                    severity = "high"
-                    action = "block_with_education"
-                else:  # medium
-                    severity = "medium"
-                    action = "polite_decline"
-
+                detector_categories = inappropriate_result.get("categories", [])
+                severity = self.severity_scorer.score_inappropriate_request(
+                    detector_severity, detector_categories
+                )
+                action = self.severity_scorer.get_action_recommendation(severity)
                 response_message = inappropriate_result["response_message"]
 
             # ============================================================
@@ -189,15 +188,12 @@ class SafetyFilter:
 
                 if profanity_result["contains_profanity"]:
                     flags.append("profanity")
-                    # Map profanity severity to our severity levels
+                    # Score severity using SeverityScorer
                     profanity_severity = profanity_result["highest_severity"]
-                    if profanity_severity == "severe":
-                        severity = "high"  # Map severe profanity to high overall
-                    elif profanity_severity == "moderate":
-                        severity = "medium"
-                    else:  # mild
-                        severity = "low"
-
+                    violation_count = self.profanity_filter.user_violations.get(user_id, 1) if user_id else 1
+                    severity = self.severity_scorer.score_profanity_detection(
+                        profanity_severity, violation_count
+                    )
                     action = profanity_result["action"]
                     response_message = profanity_result["response_message"]
 
@@ -211,8 +207,11 @@ class SafetyFilter:
                 all_bullying_categories = self.bullying_detector.get_all_categories(message)
 
                 flags.append("bullying")
-                severity = "medium"
-                action = "supportive_response"
+                # Score severity using SeverityScorer
+                severity = self.severity_scorer.score_bullying_detection(
+                    bullying_category, len(all_bullying_categories)
+                )
+                action = self.severity_scorer.get_action_recommendation(severity)
                 response_message = self.get_bullying_response()
                 details["bullying"] = {
                     "detected": True,
@@ -221,11 +220,11 @@ class SafetyFilter:
                     "keywords_found": bullying_keywords_found,
                 }
 
-        # Determine if message is safe (allow through)
-        safe = severity not in ["critical", "high"]
+        # Determine if message is safe (allow through) using SeverityScorer
+        safe = self.severity_scorer.is_safe_message(severity)
 
-        # Determine if parent should be notified
-        notify_parent = self.should_notify_parent(severity)
+        # Determine if parent should be notified using SeverityScorer
+        notify_parent = self.severity_scorer.should_notify_parent(severity)
 
         return {
             "safe": safe,
@@ -357,8 +356,8 @@ How about we talk about something more fun instead? I'd love to hear about your 
         Returns:
             True if parent should be notified
         """
-        # Notify parent for critical and high severity events
-        return severity in ["critical", "high"]
+        # Delegate to SeverityScorer for consistent logic
+        return self.severity_scorer.should_notify_parent(severity)
 
     def get_service_stats(self) -> Dict:
         """
@@ -373,6 +372,7 @@ How about we talk about something more fun instead? I'd love to hear about your 
             "profanity_filter": self.profanity_filter.get_filter_stats(),
             "inappropriate_detector": self.inappropriate_detector.get_stats(),
             "bullying_keyword_list": self.bullying_detector.get_stats(),
+            "severity_scorer": self.severity_scorer.get_stats(),
         }
         return stats
 
