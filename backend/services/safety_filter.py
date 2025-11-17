@@ -3,10 +3,11 @@ Safety Filter Service
 Comprehensive content filtering and crisis detection for chatbot safety
 
 Integrates multiple specialized services:
+- CrisisKeywordList: Comprehensive crisis keyword detection (suicide, self-harm, abuse)
 - ProfanityWordList: Comprehensive profanity word database
 - ProfanityDetectionFilter: Profanity detection with educational responses
 - InappropriateRequestDetector: Pattern-based inappropriate request detection
-- Crisis/Abuse/Bullying detection: Direct keyword matching for critical issues
+- Bullying detection: Direct keyword matching for bullying situations
 """
 
 from typing import Dict, List, Optional
@@ -18,6 +19,7 @@ from models.safety import SafetyFlag
 from utils.config import settings
 
 # Import specialized safety services
+from services.crisis_keyword_list import crisis_keyword_list
 from services.profanity_word_list import profanity_word_list
 from services.profanity_detection_filter import ProfanityDetectionFilter
 from services.inappropriate_request_detector import inappropriate_request_detector
@@ -34,24 +36,21 @@ class SafetyFilter:
     It integrates multiple specialized services to provide comprehensive protection:
 
     1. Crisis Detection (HIGHEST PRIORITY - CRITICAL)
-       - Self-harm, suicide keywords
-       - Immediate crisis response with resources (988, Crisis Text Line)
+       - Suicide, self-harm, and abuse keywords via CrisisKeywordList service
+       - Categorized detection: suicide, self_harm, abuse_physical, abuse_emotional, abuse_sexual
+       - Immediate crisis response with resources (988, Crisis Text Line, Childhelp)
 
-    2. Abuse Detection (CRITICAL)
-       - Physical/emotional abuse indicators
-       - Immediate parent notification trigger
-
-    3. Inappropriate Request Detection (MEDIUM to CRITICAL)
+    2. Inappropriate Request Detection (MEDIUM to CRITICAL)
        - Violence, sexual content, illegal activities
        - Manipulation attempts, safety bypass attempts
        - Uses pattern matching with context awareness
 
-    4. Profanity Detection (LOW to SEVERE)
+    3. Profanity Detection (LOW to SEVERE)
        - Multi-level severity (mild, moderate, severe)
        - Educational responses with escalation
        - Violation tracking per user
 
-    5. Bullying Detection (MEDIUM)
+    4. Bullying Detection (MEDIUM)
        - Bullying indicators in user messages
        - Supportive responses with resources
 
@@ -62,28 +61,13 @@ class SafetyFilter:
         """Initialize SafetyFilter with all specialized services"""
 
         # Initialize specialized services
+        self.crisis_detector = crisis_keyword_list
         self.profanity_filter = ProfanityDetectionFilter()
         self.inappropriate_detector = inappropriate_request_detector
         self.word_list = profanity_word_list
 
-        # Crisis keywords (CRITICAL severity)
-        self.crisis_keywords = [
-            "kill myself",
-            "suicide",
-            "want to die",
-            "self harm",
-            "self-harm",
-            "cut myself",
-            "hurt myself",
-            "end it all",
-            "better off dead",
-            "no reason to live",
-            "don't want to be alive",
-            "wish i was dead",
-            "everyone would be better off",
-        ]
-
         # Bullying keywords (MEDIUM severity)
+        # Note: Crisis and abuse keywords are now managed by crisis_keyword_list service
         self.bullying_keywords = [
             "bully",
             "bullied",
@@ -98,22 +82,6 @@ class SafetyFilter:
             "everyone hates me",
             "no friends",
             "alone at school",
-        ]
-
-        # Abuse keywords (CRITICAL severity)
-        self.abuse_keywords = [
-            "hit me",
-            "hits me",
-            "hurt me",
-            "hurts me",
-            "touched me inappropriately",
-            "makes me scared",
-            "threatens me",
-            "afraid of",
-            "won't let me",
-            "locked me",
-            "won't let me eat",
-            "screams at me",
         ]
 
         logger.info("SafetyFilter initialized with all specialized services")
@@ -145,11 +113,10 @@ class SafetyFilter:
             }
 
         Check Priority (highest to lowest):
-        1. Crisis keywords (self-harm, suicide) -> CRITICAL
-        2. Abuse keywords -> CRITICAL
-        3. Inappropriate requests (violence, sexual, illegal) -> MEDIUM to CRITICAL
-        4. Profanity -> LOW to SEVERE
-        5. Bullying -> MEDIUM
+        1. Crisis keywords (suicide, self-harm, abuse) -> CRITICAL
+        2. Inappropriate requests (violence, sexual, illegal) -> MEDIUM to CRITICAL
+        3. Profanity -> LOW to SEVERE
+        4. Bullying -> MEDIUM
         """
         if not settings.ENABLE_SAFETY_FILTER:
             # Safety filter disabled (not recommended!)
@@ -175,37 +142,35 @@ class SafetyFilter:
         # ============================================================
         # PRIORITY 1: Crisis Detection (CRITICAL - HIGHEST PRIORITY)
         # ============================================================
-        if self._contains_any(message_lower, self.crisis_keywords):
-            flags.append("crisis")
+        # Check for crisis keywords using specialized detector
+        if self.crisis_detector.contains_crisis_keywords(message):
+            crisis_keywords_found = self.crisis_detector.find_crisis_keywords(message)
+            crisis_category = self.crisis_detector.get_category(message)
+            all_categories = self.crisis_detector.get_all_categories(message)
+
+            # Determine which flag to use based on category
+            if crisis_category in ["suicide", "self_harm"]:
+                flags.append("crisis")
+                response_message = self.get_crisis_response()
+            elif crisis_category in ["abuse_physical", "abuse_emotional", "abuse_sexual"]:
+                flags.append("abuse")
+                response_message = self.get_abuse_response()
+            else:
+                # Fallback (shouldn't happen)
+                flags.append("crisis")
+                response_message = self.get_crisis_response()
+
             severity = "critical"
             action = "crisis_response"
-            response_message = self.get_crisis_response()
             details["crisis"] = {
                 "detected": True,
-                "type": "self_harm_or_suicide",
-                "keywords_found": [
-                    kw for kw in self.crisis_keywords if kw in message_lower
-                ],
+                "primary_category": crisis_category,
+                "all_categories": all_categories,
+                "keywords_found": crisis_keywords_found,
             }
 
         # ============================================================
-        # PRIORITY 2: Abuse Detection (CRITICAL)
-        # ============================================================
-        elif self._contains_any(message_lower, self.abuse_keywords):
-            flags.append("abuse")
-            severity = "critical"
-            action = "crisis_response"
-            response_message = self.get_abuse_response()
-            details["abuse"] = {
-                "detected": True,
-                "type": "physical_or_emotional_abuse",
-                "keywords_found": [
-                    kw for kw in self.abuse_keywords if kw in message_lower
-                ],
-            }
-
-        # ============================================================
-        # PRIORITY 3: Inappropriate Request Detection (MEDIUM to CRITICAL)
+        # PRIORITY 2: Inappropriate Request Detection (MEDIUM to CRITICAL)
         # ============================================================
         else:
             # Check for inappropriate requests using specialized detector
@@ -229,7 +194,7 @@ class SafetyFilter:
                 response_message = inappropriate_result["response_message"]
 
             # ============================================================
-            # PRIORITY 4: Profanity Detection (LOW to SEVERE)
+            # PRIORITY 3: Profanity Detection (LOW to SEVERE)
             # ============================================================
             # Only check profanity if no inappropriate request found
             if not flags:
@@ -253,7 +218,7 @@ class SafetyFilter:
                     response_message = profanity_result["response_message"]
 
             # ============================================================
-            # PRIORITY 5: Bullying Detection (MEDIUM)
+            # PRIORITY 4: Bullying Detection (MEDIUM)
             # ============================================================
             # Check for bullying if no other issues found
             if not flags and self._contains_any(message_lower, self.bullying_keywords):
@@ -428,12 +393,11 @@ How about we talk about something more fun instead? I'd love to hear about your 
             Dictionary with stats from each service
         """
         stats = {
+            "crisis_keyword_list": self.crisis_detector.get_stats(),
             "profanity_word_list": self.word_list.get_stats(),
             "profanity_filter": self.profanity_filter.get_filter_stats(),
             "inappropriate_detector": self.inappropriate_detector.get_stats(),
-            "crisis_keywords_count": len(self.crisis_keywords),
             "bullying_keywords_count": len(self.bullying_keywords),
-            "abuse_keywords_count": len(self.abuse_keywords),
         }
         return stats
 
