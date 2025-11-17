@@ -11,6 +11,88 @@ interface FriendshipMeterProps {
   stats: PersonalityStats;
 }
 
+// Level information including labels and descriptions
+interface LevelInfo {
+  level: number;
+  label: string;
+  icon: string;
+  description: string;
+  color: string;
+}
+
+const LEVEL_INFO: Record<number, LevelInfo> = {
+  1: {
+    level: 1,
+    label: 'New Friend',
+    icon: '🌱',
+    description: "We're just getting to know each other! Let's chat and discover what we have in common.",
+    color: 'green',
+  },
+  2: {
+    level: 2,
+    label: 'New Friend',
+    icon: '🌱',
+    description: "Getting more comfortable! I'm starting to learn about what makes you unique.",
+    color: 'green',
+  },
+  3: {
+    level: 3,
+    label: 'Good Friend',
+    icon: '🌿',
+    description: "We're becoming good friends! I'm learning about your interests and what matters to you.",
+    color: 'teal',
+  },
+  4: {
+    level: 4,
+    label: 'Good Friend',
+    icon: '🌿',
+    description: "Our friendship is growing! I remember more about you and can give better advice.",
+    color: 'teal',
+  },
+  5: {
+    level: 5,
+    label: 'Close Friend',
+    icon: '🌳',
+    description: "We're close friends now! I understand your personality and can support you better.",
+    color: 'blue',
+  },
+  6: {
+    level: 6,
+    label: 'Close Friend',
+    icon: '🌳',
+    description: "Our bond is strong! I know your goals, favorite things, and the people important to you.",
+    color: 'blue',
+  },
+  7: {
+    level: 7,
+    label: 'Best Friend',
+    icon: '⭐',
+    description: "You're one of my best friends! I can anticipate what you need and celebrate your wins.",
+    color: 'yellow',
+  },
+  8: {
+    level: 8,
+    label: 'Best Friend',
+    icon: '⭐',
+    description: "Amazing friendship! I'm here for all your adventures, challenges, and achievements.",
+    color: 'yellow',
+  },
+  9: {
+    level: 9,
+    label: 'Lifelong Friend',
+    icon: '👑',
+    description: "We're lifelong friends! Our connection is deep and I treasure every conversation we have.",
+    color: 'purple',
+  },
+  10: {
+    level: 10,
+    label: 'Lifelong Friend',
+    icon: '👑',
+    description: "Maximum friendship achieved! We've shared so much together. Thank you for being amazing!",
+    color: 'purple',
+  },
+};
+
 export const FriendshipMeter: React.FC<FriendshipMeterProps> = ({
   friendshipLevel,
   stats,
@@ -50,22 +132,53 @@ export const FriendshipMeter: React.FC<FriendshipMeterProps> = ({
 
   const progress = getLevelProgress();
 
+  // Get current level information
+  const currentLevelInfo = LEVEL_INFO[friendshipLevel] || LEVEL_INFO[1];
+
   // Level emoji/icon
   const getLevelIcon = (level: number): string => {
-    if (level <= 2) return '🌱';
-    if (level <= 4) return '🌿';
-    if (level <= 6) return '🌳';
-    if (level <= 8) return '⭐';
-    return '👑';
+    return LEVEL_INFO[level]?.icon || '🌱';
   };
 
   // Level name
   const getLevelName = (level: number): string => {
-    if (level <= 2) return 'New Friend';
-    if (level <= 4) return 'Good Friend';
-    if (level <= 6) return 'Close Friend';
-    if (level <= 8) return 'Best Friend';
-    return 'Lifelong Friend';
+    return LEVEL_INFO[level]?.label || 'New Friend';
+  };
+
+  // Level description
+  const getLevelDescription = (level: number): string => {
+    return LEVEL_INFO[level]?.description || '';
+  };
+
+  // Generate heart icons for visual level display
+  const renderHearts = () => {
+    const hearts = [];
+    const totalLevels = 10;
+
+    for (let i = 1; i <= totalLevels; i++) {
+      const isFilled = i <= friendshipLevel;
+      hearts.push(
+        <div
+          key={i}
+          className={`transition-all duration-300 hover:scale-125 ${
+            isFilled ? 'scale-110' : 'scale-100 opacity-40'
+          }`}
+        >
+          <span
+            className={`text-2xl ${
+              isFilled
+                ? 'text-pink-500 drop-shadow-md'
+                : 'text-gray-300'
+            }`}
+            title={`Level ${i}${isFilled ? ' - Achieved!' : ''}`}
+          >
+            {isFilled ? '❤️' : '🤍'}
+          </span>
+        </div>
+      );
+    }
+
+    return hearts;
   };
 
   return (
@@ -84,6 +197,23 @@ export const FriendshipMeter: React.FC<FriendshipMeterProps> = ({
         <div className="text-right">
           <div className="text-2xl font-bold text-purple-600">{friendshipLevel}</div>
           <div className="text-xs text-gray-500">Friendship Level</div>
+        </div>
+      </div>
+
+      {/* Level Description */}
+      <div className="mb-4 bg-white/60 rounded-lg p-4 border border-purple-100">
+        <p className="text-sm text-gray-700 leading-relaxed text-center italic">
+          {getLevelDescription(friendshipLevel)}
+        </p>
+      </div>
+
+      {/* Heart icons visualization */}
+      <div className="mb-4 pb-4 border-b border-purple-200">
+        <div className="flex items-center justify-center gap-2 flex-wrap">
+          {renderHearts()}
+        </div>
+        <div className="text-xs text-gray-500 text-center mt-2">
+          {friendshipLevel} {friendshipLevel === 1 ? 'heart' : 'hearts'} earned
         </div>
       </div>
 

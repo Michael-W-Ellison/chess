@@ -78,6 +78,8 @@ def init_db() -> None:
         conversation,
         memory,
         safety,
+        level_up_event,
+        personality_drift,
     )
 
     # Create all tables
@@ -138,6 +140,8 @@ def reset_database() -> None:
         conversation,
         memory,
         safety,
+        level_up_event,
+        personality_drift,
     )
 
     # Drop all tables

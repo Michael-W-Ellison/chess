@@ -1385,6 +1385,436 @@ class MemoryManager:
 
         return score
 
+    # Memory Relevance Ranking Methods
+
+    def calculate_memory_relevance(
+        self,
+        memory: UserProfile,
+        strategy: str = "combined"
+    ) -> float:
+        """
+        Calculate overall relevance score for a memory
+
+        Args:
+            memory: UserProfile object
+            strategy: Ranking strategy - "recency", "frequency", "confidence", or "combined"
+
+        Returns:
+            Relevance score (0.0 to 100.0)
+        """
+        from datetime import datetime, timedelta
+
+        if strategy == "recency":
+            # Score based on how recently the memory was mentioned
+            if memory.last_mentioned:
+                days_ago = (datetime.now() - memory.last_mentioned).days
+                # Exponential decay: 100 for today, 50 for 7 days ago, etc.
+                score = 100 * (0.9 ** days_ago)
+                return min(100.0, max(0.0, score))
+            return 0.0
+
+        elif strategy == "frequency":
+            # Score based on mention count
+            # Log scale to prevent very high counts from dominating
+            import math
+            score = 20 * math.log(memory.mention_count + 1)
+            return min(100.0, max(0.0, score))
+
+        elif strategy == "confidence":
+            # Score based on confidence (already 0.0 to 1.0)
+            return memory.confidence * 100
+
+        elif strategy == "combined":
+            # Weighted combination of all factors
+            recency_score = self.calculate_memory_relevance(memory, "recency")
+            frequency_score = self.calculate_memory_relevance(memory, "frequency")
+            confidence_score = self.calculate_memory_relevance(memory, "confidence")
+
+            # Weights: recency 40%, frequency 30%, confidence 30%
+            combined_score = (
+                recency_score * 0.4 +
+                frequency_score * 0.3 +
+                confidence_score * 0.3
+            )
+            return combined_score
+
+        else:
+            raise ValueError(f"Unknown ranking strategy: {strategy}")
+
+    def get_top_memories(
+        self,
+        user_id: int,
+        db: Session,
+        limit: int = 10,
+        category: Optional[str] = None,
+        strategy: str = "combined"
+    ) -> List[UserProfile]:
+        """
+        Get top most relevant memories for a user
+
+        Args:
+            user_id: User ID
+            db: Database session
+            limit: Maximum number of memories to return (default 10)
+            category: Optional category filter
+            strategy: Ranking strategy - "recency", "frequency", "confidence", or "combined"
+
+        Returns:
+            List of UserProfile objects ranked by relevance
+        """
+        # Build query
+        query = db.query(UserProfile).filter(UserProfile.user_id == user_id)
+
+        if category:
+            query = query.filter(UserProfile.category == category)
+
+        # Get all memories
+        all_memories = query.all()
+
+        # Score and rank
+        scored_memories = []
+        for memory in all_memories:
+            score = self.calculate_memory_relevance(memory, strategy)
+            scored_memories.append((memory, score))
+
+        # Sort by score (descending) and limit
+        scored_memories.sort(key=lambda x: x[1], reverse=True)
+        results = [memory for memory, score in scored_memories[:limit]]
+
+        logger.info(
+            f"Retrieved {len(results)} top memories for user {user_id} "
+            f"using strategy '{strategy}'"
+        )
+        return results
+
+    def get_memory_importance_breakdown(
+        self,
+        user_id: int,
+        db: Session,
+        category: Optional[str] = None
+    ) -> Dict:
+        """
+        Get breakdown of memory importance metrics
+
+        Args:
+            user_id: User ID
+            db: Database session
+            category: Optional category filter
+
+        Returns:
+            Dictionary with importance metrics and top memories by different criteria
+        """
+        # Build query
+        query = db.query(UserProfile).filter(UserProfile.user_id == user_id)
+
+        if category:
+            query = query.filter(UserProfile.category == category)
+
+        memories = query.all()
+
+        if not memories:
+            return {
+                "total_memories": 0,
+                "top_by_recency": [],
+                "top_by_frequency": [],
+                "top_by_confidence": [],
+                "top_combined": []
+            }
+
+        # Get top 5 by each strategy
+        top_recency = self.get_top_memories(
+            user_id, db, limit=5, category=category, strategy="recency"
+        )
+        top_frequency = self.get_top_memories(
+            user_id, db, limit=5, category=category, strategy="frequency"
+        )
+        top_confidence = self.get_top_memories(
+            user_id, db, limit=5, category=category, strategy="confidence"
+        )
+        top_combined = self.get_top_memories(
+            user_id, db, limit=5, category=category, strategy="combined"
+        )
+
+        # Calculate average scores
+        avg_recency = sum(
+            self.calculate_memory_relevance(m, "recency") for m in memories
+        ) / len(memories)
+        avg_frequency = sum(
+            self.calculate_memory_relevance(m, "frequency") for m in memories
+        ) / len(memories)
+        avg_confidence = sum(
+            self.calculate_memory_relevance(m, "confidence") for m in memories
+        ) / len(memories)
+
+        return {
+            "total_memories": len(memories),
+            "average_scores": {
+                "recency": round(avg_recency, 2),
+                "frequency": round(avg_frequency, 2),
+                "confidence": round(avg_confidence, 2)
+            },
+            "top_by_recency": [
+                {
+                    "memory": m.to_dict(),
+                    "score": round(self.calculate_memory_relevance(m, "recency"), 2)
+                }
+                for m in top_recency
+            ],
+            "top_by_frequency": [
+                {
+                    "memory": m.to_dict(),
+                    "score": round(self.calculate_memory_relevance(m, "frequency"), 2)
+                }
+                for m in top_frequency
+            ],
+            "top_by_confidence": [
+                {
+                    "memory": m.to_dict(),
+                    "score": round(self.calculate_memory_relevance(m, "confidence"), 2)
+                }
+                for m in top_confidence
+            ],
+            "top_combined": [
+                {
+                    "memory": m.to_dict(),
+                    "score": round(self.calculate_memory_relevance(m, "combined"), 2)
+                }
+                for m in top_combined
+            ]
+        }
+
+    # Context Builder Methods
+
+    def build_context(
+        self,
+        user_id: int,
+        db: Session,
+        current_message: Optional[str] = None,
+        conversation_id: Optional[int] = None,
+        max_memories: int = 10,
+        include_recent_messages: bool = True,
+        include_top_memories: bool = True,
+        include_searched_memories: bool = True
+    ) -> Dict:
+        """
+        Build comprehensive context for bot responses
+
+        Args:
+            user_id: User ID
+            db: Database session
+            current_message: Current user message (for keyword extraction)
+            conversation_id: Current conversation ID (for recent messages)
+            max_memories: Maximum memories to include (default 10)
+            include_recent_messages: Include recent conversation history
+            include_top_memories: Include top ranked memories
+            include_searched_memories: Include keyword-searched memories
+
+        Returns:
+            Dictionary with context components
+        """
+        context = {
+            "user_id": user_id,
+            "recent_messages": [],
+            "top_memories": [],
+            "searched_memories": [],
+            "total_memories_count": 0
+        }
+
+        # Get recent conversation messages
+        if include_recent_messages and conversation_id:
+            from models.conversation import Message
+            recent_messages = (
+                db.query(Message)
+                .filter(Message.conversation_id == conversation_id)
+                .order_by(Message.timestamp.desc())
+                .limit(5)
+                .all()
+            )
+            recent_messages.reverse()  # Chronological order
+            context["recent_messages"] = [
+                {
+                    "role": msg.role,
+                    "content": msg.content,
+                    "timestamp": msg.timestamp.isoformat() if msg.timestamp else None
+                }
+                for msg in recent_messages
+            ]
+
+        # Get top ranked memories (overall most relevant)
+        if include_top_memories:
+            top_memories = self.get_top_memories(
+                user_id=user_id,
+                db=db,
+                limit=max_memories,
+                strategy="combined"
+            )
+            context["top_memories"] = [
+                {
+                    "memory": m.to_dict(),
+                    "relevance_score": round(
+                        self.calculate_memory_relevance(m, "combined"), 2
+                    )
+                }
+                for m in top_memories
+            ]
+
+        # Get keyword-searched memories (contextually relevant)
+        if include_searched_memories and current_message:
+            keywords = self._extract_keywords_from_message(current_message)
+            if keywords:
+                searched = self.search_memories(
+                    user_id=user_id,
+                    keywords=" ".join(keywords),
+                    db=db,
+                    limit=max_memories
+                )
+                context["searched_memories"] = [
+                    {
+                        "memory": m.to_dict(),
+                        "keywords_matched": keywords
+                    }
+                    for m in searched
+                ]
+
+        # Get total memory count
+        total = db.query(UserProfile).filter(UserProfile.user_id == user_id).count()
+        context["total_memories_count"] = total
+
+        logger.info(
+            f"Built context for user {user_id}: "
+            f"{len(context['recent_messages'])} recent messages, "
+            f"{len(context['top_memories'])} top memories, "
+            f"{len(context['searched_memories'])} searched memories"
+        )
+
+        return context
+
+    def format_context_for_llm(
+        self,
+        context: Dict,
+        include_recent_conversation: bool = True,
+        include_user_profile: bool = True,
+        include_relevant_memories: bool = True
+    ) -> str:
+        """
+        Format context dictionary into text suitable for LLM prompt
+
+        Args:
+            context: Context dictionary from build_context()
+            include_recent_conversation: Include recent messages
+            include_user_profile: Include top memories as profile
+            include_relevant_memories: Include searched/relevant memories
+
+        Returns:
+            Formatted context string
+        """
+        sections = []
+
+        # Recent conversation history
+        if include_recent_conversation and context.get("recent_messages"):
+            sections.append("## Recent Conversation")
+            for msg in context["recent_messages"]:
+                role = "User" if msg["role"] == "user" else "Assistant"
+                sections.append(f"{role}: {msg['content']}")
+
+        # User profile (top memories)
+        if include_user_profile and context.get("top_memories"):
+            sections.append("\n## What I Know About You")
+
+            # Group by category
+            by_category = {}
+            for item in context["top_memories"]:
+                mem = item["memory"]
+                cat = mem.get("category", "other")
+                if cat not in by_category:
+                    by_category[cat] = []
+                by_category[cat].append(mem)
+
+            # Format each category
+            for category, memories in by_category.items():
+                cat_name = category.capitalize() + "s"
+                sections.append(f"\n{cat_name}:")
+                for mem in memories[:5]:  # Limit per category
+                    sections.append(f"- {mem['key']}: {mem['value']}")
+
+        # Contextually relevant memories
+        if include_relevant_memories and context.get("searched_memories"):
+            # Deduplicate with top memories
+            top_ids = {
+                item["memory"]["id"]
+                for item in context.get("top_memories", [])
+            }
+            unique_searched = [
+                item for item in context["searched_memories"]
+                if item["memory"]["id"] not in top_ids
+            ]
+
+            if unique_searched:
+                sections.append("\n## Related Memories")
+                for item in unique_searched[:5]:  # Limit
+                    mem = item["memory"]
+                    sections.append(
+                        f"- {mem['category']}: {mem['key']} = {mem['value']}"
+                    )
+
+        return "\n".join(sections)
+
+    def _extract_keywords_from_message(self, message: str) -> List[str]:
+        """
+        Extract keywords from a message for memory search
+
+        Args:
+            message: User message
+
+        Returns:
+            List of keywords (lowercase, deduplicated)
+        """
+        if not message:
+            return []
+
+        # Simple keyword extraction
+        # Remove common stopwords and extract meaningful words
+        stopwords = {
+            "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you",
+            "your", "yours", "yourself", "yourselves", "he", "him", "his",
+            "himself", "she", "her", "hers", "herself", "it", "its", "itself",
+            "they", "them", "their", "theirs", "themselves", "what", "which",
+            "who", "whom", "this", "that", "these", "those", "am", "is", "are",
+            "was", "were", "be", "been", "being", "have", "has", "had", "having",
+            "do", "does", "did", "doing", "a", "an", "the", "and", "but", "if",
+            "or", "because", "as", "until", "while", "of", "at", "by", "for",
+            "with", "about", "against", "between", "into", "through", "during",
+            "before", "after", "above", "below", "to", "from", "up", "down",
+            "in", "out", "on", "off", "over", "under", "again", "further",
+            "then", "once", "here", "there", "when", "where", "why", "how",
+            "all", "both", "each", "few", "more", "most", "other", "some",
+            "such", "no", "nor", "not", "only", "own", "same", "so", "than",
+            "too", "very", "can", "will", "just", "should", "now", "want",
+            "like", "know", "think", "get", "make", "go", "see", "take",
+            "could", "would"
+        }
+
+        # Extract words
+        import re
+        words = re.findall(r'\b[a-z]+\b', message.lower())
+
+        # Filter stopwords and short words
+        keywords = [
+            w for w in words
+            if w not in stopwords and len(w) > 2
+        ]
+
+        # Deduplicate while preserving order
+        seen = set()
+        unique_keywords = []
+        for keyword in keywords:
+            if keyword not in seen:
+                seen.add(keyword)
+                unique_keywords.append(keyword)
+
+        # Limit to top 10 keywords
+        return unique_keywords[:10]
+
 
 # Global instance
 memory_manager = MemoryManager()

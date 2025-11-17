@@ -41,6 +41,7 @@ class BotPersonality(Base):
 
     # Friendship progression
     friendship_level = Column(Integer, default=1, nullable=False)     # 1-10
+    friendship_points = Column(Integer, default=0, nullable=False)    # Accumulated points
     total_conversations = Column(Integer, default=0, nullable=False)
 
     # Current state
@@ -100,6 +101,7 @@ class BotPersonality(Base):
                 "formality": self.formality,
             },
             "friendship_level": self.friendship_level,
+            "friendship_points": self.friendship_points,
             "total_conversations": self.total_conversations,
             "mood": self.mood,
             "quirks": self.get_quirks(),

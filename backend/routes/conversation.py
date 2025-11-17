@@ -11,6 +11,7 @@ import logging
 
 from database.database import get_db
 from services.conversation_manager import conversation_manager
+from services.conversation_tracker import conversation_tracker
 
 logger = logging.getLogger("chatbot.routes.conversation")
 
@@ -186,4 +187,93 @@ async def get_conversation(conversation_id: int, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Error retrieving conversation: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Conversation tracking endpoints
+@router.get("/conversation/stats")
+async def get_conversation_stats(user_id: int = 1, db: Session = Depends(get_db)):
+    """
+    Get conversation statistics for a user
+
+    Args:
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Conversation statistics including totals, averages, streaks
+    """
+    try:
+        stats = conversation_tracker.get_conversation_stats(user_id, db)
+
+        return {
+            "success": True,
+            "stats": stats,
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting conversation stats: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/conversation/recent")
+async def get_recent_conversations(
+    user_id: int = 1,
+    limit: int = 10,
+    db: Session = Depends(get_db)
+):
+    """
+    Get recent conversations
+
+    Args:
+        user_id: User ID
+        limit: Maximum number of conversations (default 10)
+        db: Database session
+
+    Returns:
+        List of recent conversations
+    """
+    try:
+        if limit > 50:
+            limit = 50  # Cap at 50
+
+        conversations = conversation_tracker.get_recent_conversations(
+            user_id, db, limit
+        )
+
+        return {
+            "success": True,
+            "conversations": conversations,
+            "count": len(conversations),
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting recent conversations: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/conversation/streak")
+async def get_conversation_streak(user_id: int = 1, db: Session = Depends(get_db)):
+    """
+    Get conversation streak information
+
+    Args:
+        user_id: User ID
+        db: Database session
+
+    Returns:
+        Current streak and longest streak
+    """
+    try:
+        current_streak = conversation_tracker.calculate_streak(user_id, db)
+        longest_streak = conversation_tracker.get_longest_streak(user_id, db)
+
+        return {
+            "success": True,
+            "current_streak": current_streak,
+            "longest_streak": longest_streak,
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting streak info: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
