@@ -12,6 +12,7 @@ from sqlalchemy import func
 from models.personality import BotPersonality
 from models.personality_drift import PersonalityDrift
 from models.conversation import Conversation, Message
+from services.drift_rate_limiter import drift_rate_limiter
 
 logger = logging.getLogger("chatbot.personality_drift")
 
@@ -368,11 +369,25 @@ class PersonalityDriftCalculator:
         Returns:
             PersonalityDrift object created
         """
+        # Apply rate limits to drift amount
+        rate_limited_drift, limit_messages = drift_rate_limiter.apply_rate_limits(
+            personality,
+            trait_name,
+            drift_amount,
+            db,
+            conversation_id,
+            enforce_cooldown=True
+        )
+
+        # Add rate limit messages to reasons
+        if limit_messages:
+            reasons = reasons + [f"Rate limit: {msg}" for msg in limit_messages]
+
         # Get current value
         old_value = getattr(personality, trait_name)
 
         # Calculate new value (bounded)
-        new_value = old_value + drift_amount
+        new_value = old_value + rate_limited_drift
         new_value = max(self.TRAIT_MIN, min(self.TRAIT_MAX, new_value))
 
         # Calculate actual change (may be less if bounded)
@@ -394,8 +409,11 @@ class PersonalityDriftCalculator:
         drift_event.set_trigger_details({
             "reasons": reasons,
             "requested_change": drift_amount,
+            "rate_limited_change": rate_limited_drift,
             "actual_change": actual_change,
-            "bounded": abs(actual_change) < abs(drift_amount),
+            "rate_limited": abs(rate_limited_drift) < abs(drift_amount),
+            "bounded": abs(actual_change) < abs(rate_limited_drift),
+            "limit_messages": limit_messages,
         })
 
         # Apply change to personality
@@ -403,6 +421,12 @@ class PersonalityDriftCalculator:
 
         # Add to database
         db.add(drift_event)
+
+        if abs(rate_limited_drift) < abs(drift_amount):
+            logger.info(
+                f"Rate limit applied: {trait_name} drift reduced from "
+                f"{drift_amount:+.3f} to {rate_limited_drift:+.3f}"
+            )
 
         logger.debug(
             f"Drift applied: {trait_name} {old_value:.3f} -> {new_value:.3f} "

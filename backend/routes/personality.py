@@ -18,6 +18,7 @@ from services.feature_unlock_manager import feature_unlock_manager
 from services.feature_gates import check_feature_access, get_feature_gate_message
 from services.personality_drift_calculator import personality_drift_calculator
 from services.trait_adjuster import trait_adjuster
+from services.drift_rate_limiter import drift_rate_limiter
 
 logger = logging.getLogger("chatbot.routes.personality")
 
@@ -1504,4 +1505,240 @@ async def validate_traits(user_id: int = 1, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Error validating traits: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Drift Rate Limiting Endpoints
+# ============================================================================
+
+
+@router.get("/drift/rate-limits/allowance/{trait_name}")
+async def get_drift_allowance(
+    trait_name: str,
+    user_id: int = 1,
+    period_days: int = 30,
+    db: Session = Depends(get_db)
+):
+    """
+    Get drift allowance for a specific trait and time period
+
+    Args:
+        trait_name: Trait name (humor, energy, curiosity, formality)
+        user_id: User ID (default 1)
+        period_days: Time period in days (default 30)
+        db: Database session
+
+    Returns:
+        Drift allowance information
+    """
+    try:
+        # Get personality
+        personality = db.query(BotPersonality).filter(
+            BotPersonality.user_id == user_id
+        ).first()
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        # Validate trait name
+        valid_traits = ["humor", "energy", "curiosity", "formality"]
+        if trait_name not in valid_traits:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid trait name. Must be one of: {', '.join(valid_traits)}"
+            )
+
+        # Get allowance
+        allowance = drift_rate_limiter.get_drift_allowance(
+            personality, trait_name, db, period_days
+        )
+
+        return {
+            "success": True,
+            "user_id": user_id,
+            "trait_name": trait_name,
+            "allowance": allowance,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting drift allowance: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/drift/rate-limits/all-allowances/{trait_name}")
+async def get_all_allowances(
+    trait_name: str,
+    user_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """
+    Get drift allowances for all time periods for a trait
+
+    Args:
+        trait_name: Trait name
+        user_id: User ID (default 1)
+        db: Database session
+
+    Returns:
+        Allowances for daily, weekly, monthly periods
+    """
+    try:
+        # Get personality
+        personality = db.query(BotPersonality).filter(
+            BotPersonality.user_id == user_id
+        ).first()
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        # Validate trait name
+        valid_traits = ["humor", "energy", "curiosity", "formality"]
+        if trait_name not in valid_traits:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid trait name. Must be one of: {', '.join(valid_traits)}"
+            )
+
+        # Get all allowances
+        allowances = drift_rate_limiter.get_all_allowances(
+            personality, trait_name, db
+        )
+
+        return {
+            "success": True,
+            "user_id": user_id,
+            "allowances": allowances,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting all allowances: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/drift/rate-limits/stats")
+async def get_drift_rate_stats(
+    user_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """
+    Get comprehensive drift rate statistics for all traits
+
+    Args:
+        user_id: User ID (default 1)
+        db: Database session
+
+    Returns:
+        Drift rate statistics for all traits
+    """
+    try:
+        # Get personality
+        personality = db.query(BotPersonality).filter(
+            BotPersonality.user_id == user_id
+        ).first()
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        # Get stats
+        stats = drift_rate_limiter.get_drift_rate_stats(personality, db)
+
+        return {
+            "success": True,
+            "stats": stats,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting drift rate stats: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/drift/rate-limits/cooldown/{trait_name}")
+async def check_cooldown(
+    trait_name: str,
+    user_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """
+    Check if a trait is in cooldown period
+
+    Args:
+        trait_name: Trait name
+        user_id: User ID (default 1)
+        db: Database session
+
+    Returns:
+        Cooldown status and information
+    """
+    try:
+        # Get personality
+        personality = db.query(BotPersonality).filter(
+            BotPersonality.user_id == user_id
+        ).first()
+
+        if not personality:
+            raise HTTPException(status_code=404, detail="Personality not found")
+
+        # Validate trait name
+        valid_traits = ["humor", "energy", "curiosity", "formality"]
+        if trait_name not in valid_traits:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid trait name. Must be one of: {', '.join(valid_traits)}"
+            )
+
+        # Check cooldown
+        in_cooldown, cooldown_until, message = drift_rate_limiter.check_cooldown(
+            personality, trait_name, db
+        )
+
+        return {
+            "success": True,
+            "user_id": user_id,
+            "trait_name": trait_name,
+            "in_cooldown": in_cooldown,
+            "cooldown_until": cooldown_until.isoformat() if cooldown_until else None,
+            "message": message,
+            "cooldown_hours": drift_rate_limiter.COOLDOWN_AFTER_LARGE_DRIFT.total_seconds() / 3600,
+            "large_drift_threshold": drift_rate_limiter.LARGE_DRIFT_THRESHOLD,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking cooldown: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/drift/rate-limits/config")
+async def get_rate_limit_config():
+    """
+    Get drift rate limit configuration
+
+    Returns:
+        Current rate limit configuration
+    """
+    try:
+        config = {
+            "max_drift_per_conversation": drift_rate_limiter.MAX_DRIFT_PER_CONVERSATION,
+            "max_drift_per_day": drift_rate_limiter.MAX_DRIFT_PER_DAY,
+            "max_drift_per_week": drift_rate_limiter.MAX_DRIFT_PER_WEEK,
+            "max_drift_per_month": drift_rate_limiter.MAX_DRIFT_PER_MONTH,
+            "cooldown_after_large_drift_hours": drift_rate_limiter.COOLDOWN_AFTER_LARGE_DRIFT.total_seconds() / 3600,
+            "large_drift_threshold": drift_rate_limiter.LARGE_DRIFT_THRESHOLD,
+        }
+
+        return {
+            "success": True,
+            "config": config,
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting rate limit config: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
