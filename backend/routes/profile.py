@@ -1197,3 +1197,122 @@ async def get_memory_importance(
     except Exception as e:
         logger.error(f"Error getting memory importance breakdown: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Context Builder Endpoints
+
+
+@router.post("/profile/build-context")
+async def build_context(
+    user_id: int = 1,
+    current_message: Optional[str] = None,
+    conversation_id: Optional[int] = None,
+    max_memories: int = 10,
+    include_recent_messages: bool = True,
+    include_top_memories: bool = True,
+    include_searched_memories: bool = True,
+    db: Session = Depends(get_db)
+):
+    """
+    Build comprehensive context for bot responses
+
+    Args:
+        user_id: User ID
+        current_message: Current user message (for keyword extraction)
+        conversation_id: Current conversation ID (for recent messages)
+        max_memories: Maximum memories to include (default 10, max 50)
+        include_recent_messages: Include recent conversation history
+        include_top_memories: Include top ranked memories
+        include_searched_memories: Include keyword-searched memories
+        db: Database session
+
+    Returns:
+        Context dictionary with all components
+    """
+    try:
+        # Validate parameters
+        if max_memories > 50:
+            max_memories = 50
+        if max_memories < 1:
+            max_memories = 10
+
+        # Build context
+        context = memory_manager.build_context(
+            user_id=user_id,
+            db=db,
+            current_message=current_message,
+            conversation_id=conversation_id,
+            max_memories=max_memories,
+            include_recent_messages=include_recent_messages,
+            include_top_memories=include_top_memories,
+            include_searched_memories=include_searched_memories
+        )
+
+        return context
+
+    except Exception as e:
+        logger.error(f"Error building context: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/profile/format-context")
+async def format_context(
+    user_id: int = 1,
+    current_message: Optional[str] = None,
+    conversation_id: Optional[int] = None,
+    max_memories: int = 10,
+    include_recent_conversation: bool = True,
+    include_user_profile: bool = True,
+    include_relevant_memories: bool = True,
+    db: Session = Depends(get_db)
+):
+    """
+    Build and format context for LLM prompts
+
+    Args:
+        user_id: User ID
+        current_message: Current user message
+        conversation_id: Current conversation ID
+        max_memories: Maximum memories to include
+        include_recent_conversation: Include recent messages in formatted output
+        include_user_profile: Include top memories as profile in formatted output
+        include_relevant_memories: Include searched memories in formatted output
+        db: Database session
+
+    Returns:
+        Formatted context string ready for LLM
+    """
+    try:
+        # Build context
+        context = memory_manager.build_context(
+            user_id=user_id,
+            db=db,
+            current_message=current_message,
+            conversation_id=conversation_id,
+            max_memories=max_memories,
+            include_recent_messages=include_recent_conversation,
+            include_top_memories=include_user_profile,
+            include_searched_memories=include_relevant_memories
+        )
+
+        # Format for LLM
+        formatted = memory_manager.format_context_for_llm(
+            context=context,
+            include_recent_conversation=include_recent_conversation,
+            include_user_profile=include_user_profile,
+            include_relevant_memories=include_relevant_memories
+        )
+
+        return {
+            "formatted_context": formatted,
+            "context_metadata": {
+                "recent_messages_count": len(context.get("recent_messages", [])),
+                "top_memories_count": len(context.get("top_memories", [])),
+                "searched_memories_count": len(context.get("searched_memories", [])),
+                "total_memories_count": context.get("total_memories_count", 0)
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Error formatting context: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
