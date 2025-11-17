@@ -6,11 +6,13 @@ Extracts and manages user memories and profile information
 from typing import List, Dict, Optional
 import logging
 from datetime import datetime
+import json
 
 from sqlalchemy.orm import Session
 from models.user import User
 from models.memory import UserProfile
 from models.conversation import Message
+from services.prompts import MemoryExtractionPrompt
 
 logger = logging.getLogger("chatbot.memory_manager")
 
@@ -28,9 +30,10 @@ class MemoryManager:
 
     def __init__(self):
         self.extraction_enabled = True
+        self.use_llm_extraction = True  # Enable LLM-based extraction by default
 
     def extract_and_store_memories(
-        self, user_message: str, user_id: int, db: Session, use_llm: bool = False
+        self, user_message: str, user_id: int, db: Session, use_llm: bool = None
     ) -> List[UserProfile]:
         """
         Extract memories from a user message and store them
@@ -39,7 +42,7 @@ class MemoryManager:
             user_message: The user's message
             user_id: User ID
             db: Database session
-            use_llm: Whether to use LLM for extraction (future enhancement)
+            use_llm: Whether to use LLM for extraction (None = use instance setting)
 
         Returns:
             List of created/updated UserProfile objects
@@ -49,9 +52,16 @@ class MemoryManager:
 
         memories = []
 
-        # For now, use simple keyword-based extraction
-        # TODO: Enhance with LLM-based extraction for better accuracy
-        extracted = self._simple_keyword_extraction(user_message)
+        # Use instance setting if not specified
+        if use_llm is None:
+            use_llm = self.use_llm_extraction
+
+        # Choose extraction method
+        if use_llm:
+            extracted = self._llm_based_extraction(user_message)
+        else:
+            # Fallback to simple keyword-based extraction
+            extracted = self._simple_keyword_extraction(user_message)
 
         for category, key, value in extracted:
             # Check if this memory already exists
@@ -166,6 +176,92 @@ class MemoryManager:
                         extracted.append(("goal", key, goal_text[:100]))
 
         return extracted
+
+    def _llm_based_extraction(self, message: str) -> List[tuple]:
+        """
+        LLM-based memory extraction using structured prompts
+
+        Args:
+            message: User message
+
+        Returns:
+            List of tuples: (category, key, value)
+        """
+        from services.llm_service import llm_service
+
+        # Check if LLM is available
+        if not llm_service.is_loaded:
+            logger.warning("LLM not loaded, falling back to keyword extraction")
+            return self._simple_keyword_extraction(message)
+
+        try:
+            # Format the extraction prompt
+            prompt = MemoryExtractionPrompt.format_prompt(message)
+
+            # Generate extraction using LLM
+            response = llm_service.generate(
+                prompt,
+                max_tokens=300,
+                temperature=0.3,  # Low temperature for more consistent extraction
+                stop=None,
+            )
+
+            # Parse JSON response
+            response_clean = response.strip()
+
+            # Handle potential markdown code blocks
+            if response_clean.startswith("```json"):
+                response_clean = response_clean[7:]
+            if response_clean.startswith("```"):
+                response_clean = response_clean[3:]
+            if response_clean.endswith("```"):
+                response_clean = response_clean[:-3]
+
+            response_clean = response_clean.strip()
+
+            # Parse JSON
+            try:
+                extractions = json.loads(response_clean)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse LLM extraction response: {response_clean}")
+                logger.error(f"JSON error: {e}")
+                # Fallback to keyword extraction
+                return self._simple_keyword_extraction(message)
+
+            # Validate and convert to tuple format
+            extracted = []
+            for item in extractions:
+                if not isinstance(item, dict):
+                    continue
+
+                category = item.get("category")
+                key = item.get("key")
+                value = item.get("value")
+                confidence = item.get("confidence", 0.8)
+
+                # Validate required fields
+                if not all([category, key, value]):
+                    logger.debug(f"Skipping incomplete extraction: {item}")
+                    continue
+
+                # Validate category
+                valid_categories = ["favorite", "dislike", "person", "goal", "achievement", "basic"]
+                if category not in valid_categories:
+                    logger.debug(f"Skipping invalid category: {category}")
+                    continue
+
+                # Only include high-confidence extractions
+                if confidence >= 0.7:
+                    extracted.append((category, key, str(value)))
+                    logger.debug(f"Extracted: {category}/{key} = {value} (confidence: {confidence})")
+
+            logger.info(f"LLM extracted {len(extracted)} memories from message")
+            return extracted
+
+        except Exception as e:
+            logger.error(f"Error in LLM-based extraction: {e}", exc_info=True)
+            # Fallback to keyword extraction
+            return self._simple_keyword_extraction(message)
 
     def get_relevant_memories(
         self, user_id: int, keywords: List[str], db: Session, limit: int = 5
