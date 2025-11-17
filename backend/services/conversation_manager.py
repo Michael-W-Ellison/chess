@@ -3,7 +3,7 @@ Conversation Manager Service
 Orchestrates the conversation flow and message processing
 """
 
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import logging
 from datetime import datetime, timedelta
 
@@ -289,25 +289,15 @@ class ConversationManager:
         personality: BotPersonality,
         db: Session,
     ) -> Dict:
-        """Build conversation context"""
+        """Build conversation context with short-term memory from last 3 conversations"""
         # Extract keywords from user message
         keywords = memory_manager.extract_keywords(user_message)
 
         # Get relevant memories
         memories = memory_manager.get_relevant_memories(user_id, keywords, db, limit=5)
 
-        # Get recent messages
-        if self.current_conversation_id:
-            recent_messages = (
-                db.query(Message)
-                .filter(Message.conversation_id == self.current_conversation_id)
-                .order_by(Message.timestamp.desc())
-                .limit(10)
-                .all()
-            )
-            recent_messages.reverse()  # Chronological order
-        else:
-            recent_messages = []
+        # Get recent messages from last 3 conversations (short-term memory)
+        recent_messages = self._get_short_term_memory(user_id, db)
 
         # Detect user mood (simple)
         detected_mood = self._detect_user_mood(user_message)
@@ -319,6 +309,50 @@ class ConversationManager:
             "recent_messages": recent_messages,
             "detected_mood": detected_mood,
         }
+
+    def _get_short_term_memory(self, user_id: int, db: Session) -> List[Message]:
+        """
+        Get messages from the last 3 conversations for short-term memory context
+
+        Args:
+            user_id: User ID
+            db: Database session
+
+        Returns:
+            List of messages from last 3 conversations in chronological order
+        """
+        # Get the last 3 conversations for this user
+        last_3_conversations = (
+            db.query(Conversation)
+            .filter(Conversation.user_id == user_id)
+            .order_by(Conversation.timestamp.desc())
+            .limit(3)
+            .all()
+        )
+
+        if not last_3_conversations:
+            return []
+
+        # Get conversation IDs
+        conversation_ids = [conv.id for conv in last_3_conversations]
+
+        # Get messages from these conversations
+        # Limit to ~5 messages per conversation (15 total max)
+        messages_per_conversation = 5
+        all_messages = []
+
+        for conv_id in reversed(conversation_ids):  # Oldest to newest conversation
+            messages = (
+                db.query(Message)
+                .filter(Message.conversation_id == conv_id)
+                .order_by(Message.timestamp.desc())
+                .limit(messages_per_conversation)
+                .all()
+            )
+            messages.reverse()  # Chronological order within conversation
+            all_messages.extend(messages)
+
+        return all_messages
 
     def _build_prompt(
         self, context: Dict, user_message: str, personality: BotPersonality
