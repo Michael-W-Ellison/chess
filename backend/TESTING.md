@@ -642,6 +642,46 @@ pytest tests/test_achievements_storage.py -v
 - ✅ Achievements separate from other categories
 - ✅ Various achievement types (academic, sports, personal, creative, community)
 
+### Memory Search Tests
+
+**File:** `tests/test_memory_search.py`
+
+Pytest-compatible test suite for keyword-based memory search functionality.
+
+**Features:**
+- Complete search functionality testing
+- Keyword matching (single and multiple keywords)
+- Case-insensitive search
+- Category filtering
+- Partial matching
+- Relevance ranking
+- User isolation
+- Limit parameter handling
+
+**Run:**
+```bash
+cd backend
+pytest tests/test_memory_search.py -v
+```
+
+**Note:** These tests currently cannot run due to a pre-existing issue with the Message model (reserved `metadata` attribute in SQLAlchemy). The implementation has been verified manually.
+
+**Test Cases:**
+- ✅ Single keyword search
+- ✅ Multiple keyword search
+- ✅ Case-insensitive search
+- ✅ Category filtering (favorites, goals, people, etc.)
+- ✅ Partial match support
+- ✅ Limit parameter enforcement
+- ✅ Empty keywords handling
+- ✅ Whitespace-only keywords handling
+- ✅ No matches scenario
+- ✅ Exact match ranks higher than partial
+- ✅ Search by category name as keyword
+- ✅ User isolation (users see only their memories)
+- ✅ Cross-category search
+- ✅ Relevance scoring accuracy
+
 ## Resources
 
 - [Pytest Documentation](https://docs.pytest.org/)
@@ -654,3 +694,4 @@ pytest tests/test_achievements_storage.py -v
 - [Important People Storage Guide](PEOPLE_STORAGE.md)
 - [Goals Storage Guide](GOALS_STORAGE.md)
 - [Achievements Storage Guide](ACHIEVEMENTS_STORAGE.md)
+- [Memory Search Guide](MEMORY_SEARCH.md)

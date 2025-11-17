@@ -1286,6 +1286,105 @@ class MemoryManager:
         logger.info(f"Deleted achievement {achievement_id} for user {user_id}")
         return True
 
+    # Memory Search Methods
+
+    def search_memories(
+        self,
+        user_id: int,
+        keywords: str,
+        db: Session,
+        category: Optional[str] = None,
+        limit: Optional[int] = 20
+    ) -> List[UserProfile]:
+        """
+        Search memories by keywords
+
+        Args:
+            user_id: User ID
+            keywords: Search keywords (space-separated)
+            db: Database session
+            category: Optional category filter (e.g., 'favorite', 'goal', 'person')
+            limit: Maximum number of results (default 20)
+
+        Returns:
+            List of UserProfile objects ranked by relevance
+        """
+        if not keywords or not keywords.strip():
+            logger.warning("Empty search keywords provided")
+            return []
+
+        # Parse keywords
+        keyword_list = [k.lower().strip() for k in keywords.split() if k.strip()]
+
+        if not keyword_list:
+            return []
+
+        # Build base query
+        query = db.query(UserProfile).filter(UserProfile.user_id == user_id)
+
+        # Apply category filter if provided
+        if category:
+            query = query.filter(UserProfile.category == category)
+
+        # Get all memories for this user (with category filter if applicable)
+        all_memories = query.all()
+
+        # Score each memory based on keyword matches
+        scored_memories = []
+        for memory in all_memories:
+            score = self._calculate_relevance_score(memory, keyword_list)
+            if score > 0:
+                scored_memories.append((memory, score))
+
+        # Sort by score (descending) and limit results
+        scored_memories.sort(key=lambda x: x[1], reverse=True)
+        results = [memory for memory, score in scored_memories[:limit]]
+
+        logger.info(f"Search for '{keywords}' returned {len(results)} results for user {user_id}")
+        return results
+
+    def _calculate_relevance_score(self, memory: UserProfile, keywords: List[str]) -> int:
+        """
+        Calculate relevance score for a memory based on keyword matches
+
+        Args:
+            memory: UserProfile object
+            keywords: List of lowercase keywords
+
+        Returns:
+            Relevance score (higher is more relevant)
+        """
+        score = 0
+
+        # Convert memory fields to lowercase for case-insensitive matching
+        key_lower = (memory.key or "").lower()
+        value_lower = (memory.value or "").lower()
+        category_lower = (memory.category or "").lower()
+
+        for keyword in keywords:
+            # Exact match in key gets high score
+            if keyword == key_lower:
+                score += 10
+            # Partial match in key
+            elif keyword in key_lower:
+                score += 5
+
+            # Exact word match in value gets high score
+            value_words = value_lower.split()
+            if keyword in value_words:
+                score += 8
+            # Partial match in value
+            elif keyword in value_lower:
+                score += 3
+
+            # Category match
+            if keyword == category_lower:
+                score += 7
+            elif keyword in category_lower:
+                score += 2
+
+        return score
+
 
 # Global instance
 memory_manager = MemoryManager()

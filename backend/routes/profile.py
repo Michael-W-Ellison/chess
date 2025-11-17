@@ -1044,3 +1044,55 @@ async def delete_achievement(
     except Exception as e:
         logger.error(f"Error deleting achievement: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Memory Search Endpoint
+
+
+@router.get("/profile/search")
+async def search_memories(
+    keywords: str,
+    user_id: int = 1,
+    category: Optional[str] = None,
+    limit: int = 20,
+    db: Session = Depends(get_db)
+):
+    """
+    Search memories by keywords
+
+    Args:
+        keywords: Search keywords (space-separated)
+        user_id: User ID
+        category: Optional category filter (favorite, dislike, person, goal, achievement)
+        limit: Maximum number of results (default 20, max 100)
+        db: Database session
+
+    Returns:
+        List of matching memories ranked by relevance
+    """
+    try:
+        # Validate limit
+        if limit > 100:
+            limit = 100
+        if limit < 1:
+            limit = 20
+
+        # Perform search
+        results = memory_manager.search_memories(
+            user_id=user_id,
+            keywords=keywords,
+            db=db,
+            category=category,
+            limit=limit
+        )
+
+        return {
+            "results": [memory.to_dict() for memory in results],
+            "count": len(results),
+            "keywords": keywords,
+            "category": category
+        }
+
+    except Exception as e:
+        logger.error(f"Error searching memories: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
