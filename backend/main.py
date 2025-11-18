@@ -16,6 +16,8 @@ from utils.logging_config import setup_logging
 from database.database import init_db, close_db
 from services.llm_service import llm_service
 from services.report_scheduler import report_scheduler
+from utils.cache import cache_cleanup_scheduler
+from utils.memory_profiler import memory_profiler, get_memory_info, force_gc, log_memory
 
 # Import routes
 from routes import conversation, personality, profile, parent
@@ -33,6 +35,10 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Tamagotchi Chatbot Backend...")
     logger.info(f"Environment: {'Development' if settings.DEBUG else 'Production'}")
+
+    # Set memory baseline for monitoring
+    memory_profiler.set_baseline()
+    log_memory("Application startup")
 
     # Initialize database
     init_db()
@@ -79,6 +85,13 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Report scheduler disabled (ENABLE_WEEKLY_REPORTS or ENABLE_PARENT_NOTIFICATIONS is False)")
 
+    # Start cache cleanup scheduler
+    cache_cleanup_scheduler.start()
+    logger.info("✓ Cache cleanup scheduler started - will clean expired entries every 5 minutes")
+
+    # Log final memory state
+    log_memory("Startup complete")
+
     logger.info(f"Backend ready at http://{settings.HOST}:{settings.PORT}")
 
     yield
@@ -86,14 +99,26 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down Tamagotchi Chatbot Backend...")
 
+    # Log memory before shutdown
+    log_memory("Before shutdown")
+
     # Stop report scheduler
     report_scheduler.stop()
     logger.info("Report scheduler stopped")
+
+    # Stop cache cleanup scheduler
+    cache_cleanup_scheduler.stop()
+    logger.info("Cache cleanup scheduler stopped")
 
     # Unload LLM model
     llm_service.unload_model()
 
     close_db()
+
+    # Force garbage collection before exit
+    gc_stats = force_gc()
+    logger.info(f"Final GC: freed {gc_stats['memory_freed_mb']:.2f} MB")
+
     logger.info("Shutdown complete")
 
 
@@ -178,6 +203,27 @@ async def get_cache_stats():
     return {
         "success": True,
         "cache_stats": llm_service.get_cache_stats(),
+    }
+
+
+@app.get("/api/memory/info")
+async def get_memory_info_endpoint():
+    """Get current memory usage information"""
+    return {
+        "success": True,
+        "memory": get_memory_info(),
+    }
+
+
+@app.post("/api/memory/gc")
+async def force_garbage_collection():
+    """Force garbage collection to free memory"""
+    stats = force_gc()
+    logger.info("Garbage collection triggered via API")
+    return {
+        "success": True,
+        "message": "Garbage collection completed",
+        "gc_stats": stats,
     }
 
 

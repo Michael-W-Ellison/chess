@@ -259,3 +259,80 @@ llm_response_cache = TTLCache(default_ttl=3600, max_size=500)  # 1 hour, 500 res
 personality_cache = TTLCache(default_ttl=60, max_size=100)     # 1 minute, 100 personalities
 profile_cache = TTLCache(default_ttl=300, max_size=100)        # 5 minutes, 100 profiles
 template_cache = LRUCache(max_size=1000)                       # No expiration, 1000 templates
+
+
+class CacheCleanupScheduler:
+    """
+    Periodic cleanup scheduler for TTL caches
+    Runs background thread to clean up expired entries
+    """
+
+    def __init__(self, interval_seconds: int = 300):
+        """
+        Initialize cache cleanup scheduler
+
+        Args:
+            interval_seconds: How often to run cleanup (default: 5 minutes)
+        """
+        import threading
+
+        self.interval = interval_seconds
+        self._running = False
+        self._thread = None
+        self._caches = []
+
+    def register_cache(self, cache: TTLCache) -> None:
+        """Register a cache for periodic cleanup"""
+        if cache not in self._caches:
+            self._caches.append(cache)
+            logger.debug(f"Registered cache for periodic cleanup")
+
+    def start(self) -> None:
+        """Start the cleanup scheduler"""
+        if self._running:
+            logger.warning("Cache cleanup scheduler already running")
+            return
+
+        import threading
+
+        self._running = True
+        self._thread = threading.Thread(target=self._cleanup_loop, daemon=True)
+        self._thread.start()
+        logger.info(f"Cache cleanup scheduler started (interval: {self.interval}s)")
+
+    def stop(self) -> None:
+        """Stop the cleanup scheduler"""
+        if not self._running:
+            return
+
+        self._running = False
+        if self._thread:
+            self._thread.join(timeout=5)
+        logger.info("Cache cleanup scheduler stopped")
+
+    def _cleanup_loop(self) -> None:
+        """Background loop that periodically cleans up caches"""
+        import time
+
+        while self._running:
+            try:
+                time.sleep(self.interval)
+
+                if not self._running:
+                    break
+
+                # Clean up all registered caches
+                total_removed = 0
+                for cache in self._caches:
+                    removed = cache.cleanup_expired()
+                    total_removed += removed
+
+                if total_removed > 0:
+                    logger.info(f"Periodic cache cleanup: removed {total_removed} expired entries")
+
+            except Exception as e:
+                logger.error(f"Error in cache cleanup loop: {e}", exc_info=True)
+
+
+# Global cleanup scheduler
+cache_cleanup_scheduler = CacheCleanupScheduler(interval_seconds=300)  # 5 minutes

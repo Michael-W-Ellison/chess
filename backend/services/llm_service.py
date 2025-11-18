@@ -12,7 +12,7 @@ import time
 import hashlib
 
 from utils.config import settings
-from utils.cache import TTLCache, generate_cache_key
+from utils.cache import TTLCache, generate_cache_key, cache_cleanup_scheduler
 
 logger = logging.getLogger("chatbot.llm_service")
 
@@ -50,6 +50,9 @@ class LLMService:
         cache_max_size = getattr(settings, 'CACHE_MAX_SIZE', 500)
         self._response_cache = TTLCache(default_ttl=cache_ttl, max_size=cache_max_size)
         self._cache_enabled = getattr(settings, 'ENABLE_RESPONSE_CACHE', True)
+
+        # Register cache for periodic cleanup
+        cache_cleanup_scheduler.register_cache(self._response_cache)
 
     def load_model(self, blocking: bool = True, use_mmap: bool = True) -> bool:
         """

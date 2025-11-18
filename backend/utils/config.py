@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     ENABLE_WEEKLY_REPORTS: bool = True
     AUTO_GENERATE_SUMMARIES: bool = True  # Auto-generate LLM summaries on conversation end
 
+    # Memory Optimization
+    MAX_CONVERSATION_HISTORY: int = 50  # Maximum messages to include in context
+    MAX_MEMORY_ITEMS_PER_CATEGORY: int = 20  # Maximum memory items per category
+
     # Security & Authentication
     PARENT_DASHBOARD_REQUIRE_PASSWORD: bool = True
     PARENT_DASHBOARD_PASSWORD: Optional[str] = None  # Hashed password stored in .env
