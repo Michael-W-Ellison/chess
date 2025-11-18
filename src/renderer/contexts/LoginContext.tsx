@@ -4,6 +4,11 @@
  */
 
 import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import {
+  calculateCurrentStreak,
+  calculateLongestStreak,
+  getTodayISO,
+} from '../../shared/streakUtils';
 
 const LOGIN_STORAGE_KEY = 'user_login_history';
 
@@ -51,13 +56,6 @@ interface LoginProviderProps {
 export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
   const [stats, setStats] = useState<LoginStats>(DEFAULT_STATS);
 
-  /**
-   * Get today's date in ISO format (YYYY-MM-DD)
-   */
-  const getTodayDate = useCallback((): string => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  }, []);
 
   /**
    * Load login history from localStorage
@@ -97,42 +95,13 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     // Sort by date descending
     const sortedHistory = [...history].sort((a, b) => b.date.localeCompare(a.date));
 
-    // Calculate current streak
-    let currentStreak = 0;
-    const today = getTodayDate();
-    const todayTime = new Date(today).getTime();
-
-    for (let i = 0; i < sortedHistory.length; i++) {
-      const expectedDate = new Date(todayTime - i * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split('T')[0];
-
-      if (sortedHistory[i].date === expectedDate) {
-        currentStreak++;
-      } else {
-        break;
-      }
-    }
-
-    // Calculate longest streak
-    let longestStreak = 0;
-    let tempStreak = 1;
-
-    for (let i = 1; i < sortedHistory.length; i++) {
-      const prevDate = new Date(sortedHistory[i - 1].date).getTime();
-      const currDate = new Date(sortedHistory[i].date).getTime();
-      const dayDiff = (prevDate - currDate) / (24 * 60 * 60 * 1000);
-
-      if (dayDiff === 1) {
-        tempStreak++;
-        longestStreak = Math.max(longestStreak, tempStreak);
-      } else {
-        tempStreak = 1;
-      }
-    }
-    longestStreak = Math.max(longestStreak, tempStreak);
+    // Use centralized streak calculation utilities
+    const currentStreak = calculateCurrentStreak(history);
+    const longestStreak = calculateLongestStreak(history);
 
     // Calculate this week's logins
+    const today = getTodayISO();
+    const todayTime = new Date(today).getTime();
     const weekAgo = new Date(todayTime - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const thisWeekLogins = sortedHistory.filter((record) => record.date >= weekAgo).length;
 
@@ -151,21 +120,21 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
       thisWeekLogins,
       thisMonthLogins,
     };
-  }, [getTodayDate]);
+  }, []);
 
   /**
    * Check if user has logged in today
    */
   const hasLoggedInToday = useCallback((): boolean => {
-    const today = getTodayDate();
+    const today = getTodayISO();
     return stats.loginHistory.some((record) => record.date === today);
-  }, [stats.loginHistory, getTodayDate]);
+  }, [stats.loginHistory]);
 
   /**
    * Record a login for today
    */
   const recordLogin = useCallback(() => {
-    const today = getTodayDate();
+    const today = getTodayISO();
     const now = Date.now();
 
     let updatedHistory = [...stats.loginHistory];
@@ -196,7 +165,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     setStats(newStats);
 
     console.log(`📅 Login recorded for ${today}. Current streak: ${newStats.currentStreak} days`);
-  }, [stats.loginHistory, getTodayDate, saveLoginHistory, calculateStats]);
+  }, [stats.loginHistory, saveLoginHistory, calculateStats]);
 
   /**
    * Get login history for the last N days
