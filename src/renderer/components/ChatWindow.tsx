@@ -8,6 +8,9 @@ import { useChat } from '../hooks/useChat';
 import { MessageBubble } from './MessageBubble';
 import { InputArea } from './InputArea';
 import { TwentyQuestionsGame } from './TwentyQuestionsGame';
+import { WordAssociationGame } from './WordAssociationGame';
+
+type GameMode = 'twenty-questions' | 'word-association' | null;
 
 export const ChatWindow: React.FC = () => {
   const {
@@ -23,7 +26,8 @@ export const ChatWindow: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const [showGame, setShowGame] = useState(false);
+  const [gameMode, setGameMode] = useState<GameMode>(null);
+  const [showGameMenu, setShowGameMenu] = useState(false);
 
   /**
    * Auto-scroll to bottom when new messages arrive
@@ -56,35 +60,86 @@ export const ChatWindow: React.FC = () => {
           {/* Bot info */}
           <div>
             <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-              {showGame ? '20 Questions ♟️' : (personality?.name || 'Loading...')}
+              {gameMode === 'twenty-questions' && '20 Questions ♟️'}
+              {gameMode === 'word-association' && 'Word Association 🧠'}
+              {!gameMode && (personality?.name || 'Loading...')}
             </h2>
-            {personality && !showGame && (
+            {personality && !gameMode && (
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Mood: {personality.mood} • Level {personality.friendshipLevel}
               </p>
             )}
-            {showGame && (
+            {gameMode && (
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Chess guessing game
+                {gameMode === 'twenty-questions' && 'Chess guessing game'}
+                {gameMode === 'word-association' && 'Type related words quickly'}
               </p>
             )}
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 relative">
           <button
-            onClick={() => setShowGame(!showGame)}
+            onClick={() => {
+              if (gameMode) {
+                setGameMode(null);
+                setShowGameMenu(false);
+              } else {
+                setShowGameMenu(!showGameMenu);
+              }
+            }}
             className="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg font-medium transition-colors shadow-sm"
           >
-            {showGame ? '💬 Chat' : '🎮 Play Game'}
+            {gameMode ? '💬 Back to Chat' : '🎮 Games'}
           </button>
-          {!showGame && conversationId && (
+
+          {/* Game Selection Menu */}
+          {showGameMenu && !gameMode && (
+            <div className="absolute top-full right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 min-w-[200px]">
+              <button
+                onClick={() => {
+                  setGameMode('twenty-questions');
+                  setShowGameMenu(false);
+                }}
+                className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-3 border-b border-gray-200 dark:border-gray-700"
+              >
+                <span className="text-2xl">♟️</span>
+                <div>
+                  <div className="font-semibold text-gray-900 dark:text-gray-100">
+                    20 Questions
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Guess the chess item
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  setGameMode('word-association');
+                  setShowGameMenu(false);
+                }}
+                className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-3"
+              >
+                <span className="text-2xl">🧠</span>
+                <div>
+                  <div className="font-semibold text-gray-900 dark:text-gray-100">
+                    Word Association
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Type related words
+                  </div>
+                </div>
+              </button>
+            </div>
+          )}
+
+          {!gameMode && conversationId && (
             <span className="text-xs text-gray-500 dark:text-gray-400">
               ID: {conversationId}
             </span>
           )}
-          {!showGame && isLoading && (
+          {!gameMode && isLoading && (
             <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
               <div className="animate-pulse">●</div>
               <span>Thinking...</span>
@@ -94,9 +149,10 @@ export const ChatWindow: React.FC = () => {
       </div>
 
       {/* Game Mode */}
-      {showGame ? (
+      {gameMode ? (
         <div className="flex-1 overflow-y-auto">
-          <TwentyQuestionsGame />
+          {gameMode === 'twenty-questions' && <TwentyQuestionsGame />}
+          {gameMode === 'word-association' && <WordAssociationGame />}
         </div>
       ) : (
         <>
