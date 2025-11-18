@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from models.safety import SafetyFlag
 from models.conversation import Message
 from models.user import User
+from services.email_service import email_service
 
 logger = logging.getLogger("chatbot.parent_notification")
 
@@ -300,10 +301,7 @@ This notification was generated automatically by the safety monitoring system. Y
         db: Session
     ) -> Dict:
         """
-        Send notification to parent (implementation stub)
-
-        This is a placeholder for actual notification delivery.
-        In production, this would send email, SMS, push notification, etc.
+        Send notification to parent via email
 
         Args:
             user_id: User ID
@@ -315,27 +313,101 @@ This notification was generated automatically by the safety monitoring system. Y
         Returns:
             Dictionary with send result
         """
-        # TODO: Implement actual notification delivery
-        # Options:
-        # - Email via SMTP/SendGrid/AWS SES
-        # - SMS via Twilio/AWS SNS
-        # - Push notification via Firebase/OneSignal
-        # - In-app notification flag
+        # Get user to retrieve parent email
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user or not user.parent_email:
+            logger.warning(
+                f"Cannot send email notification - no parent email for user {user_id}"
+            )
+            # Log the notification even if we can't send email
+            logger.critical(
+                f"PARENT NOTIFICATION (NO EMAIL):\n"
+                f"User ID: {user_id}\n"
+                f"Category: {category}\n"
+                f"Severity: {severity}\n"
+                f"Message:\n{message}"
+            )
+            return {
+                "sent": False,
+                "notification_id": f"notif_{user_id}_{datetime.now().timestamp()}",
+                "delivery_method": "logged",
+                "error": "No parent email configured"
+            }
 
-        # For now, just log it
-        logger.critical(
-            f"PARENT NOTIFICATION READY TO SEND:\n"
-            f"User ID: {user_id}\n"
-            f"Category: {category}\n"
-            f"Severity: {severity}\n"
-            f"Message:\n{message}"
-        )
+        # Check if email service is configured
+        if not email_service.is_configured():
+            logger.warning("Email service not configured - logging notification only")
+            logger.critical(
+                f"PARENT NOTIFICATION (EMAIL NOT CONFIGURED):\n"
+                f"User ID: {user_id}\n"
+                f"Category: {category}\n"
+                f"Severity: {severity}\n"
+                f"Message:\n{message}"
+            )
+            return {
+                "sent": False,
+                "notification_id": f"notif_{user_id}_{datetime.now().timestamp()}",
+                "delivery_method": "logged",
+                "error": "Email service not configured"
+            }
 
-        return {
-            "sent": True,  # Would be False if delivery failed
-            "notification_id": f"notif_{user_id}_{datetime.now().timestamp()}",
-            "delivery_method": "logged",  # Would be "email", "sms", etc.
-        }
+        # Send email notification
+        try:
+            # Extract subject from message (first line)
+            lines = message.strip().split('\n')
+            subject = lines[0] if lines else "Safety Alert"
+
+            email_result = email_service.send_email(
+                to_email=user.parent_email,
+                subject=subject,
+                body=message
+            )
+
+            if email_result.get("sent"):
+                logger.info(
+                    f"Email notification sent to {user.parent_email} for user {user_id}"
+                )
+                return {
+                    "sent": True,
+                    "notification_id": f"notif_{user_id}_{datetime.now().timestamp()}",
+                    "delivery_method": "email",
+                    "to_email": user.parent_email
+                }
+            else:
+                logger.error(
+                    f"Failed to send email notification: {email_result.get('error')}"
+                )
+                # Still log the notification
+                logger.critical(
+                    f"PARENT NOTIFICATION (EMAIL FAILED):\n"
+                    f"User ID: {user_id}\n"
+                    f"Category: {category}\n"
+                    f"Severity: {severity}\n"
+                    f"Message:\n{message}"
+                )
+                return {
+                    "sent": False,
+                    "notification_id": f"notif_{user_id}_{datetime.now().timestamp()}",
+                    "delivery_method": "logged",
+                    "error": email_result.get("error", "Email send failed")
+                }
+
+        except Exception as e:
+            logger.error(f"Exception sending email notification: {e}", exc_info=True)
+            # Log the notification as fallback
+            logger.critical(
+                f"PARENT NOTIFICATION (EXCEPTION):\n"
+                f"User ID: {user_id}\n"
+                f"Category: {category}\n"
+                f"Severity: {severity}\n"
+                f"Message:\n{message}"
+            )
+            return {
+                "sent": False,
+                "notification_id": f"notif_{user_id}_{datetime.now().timestamp()}",
+                "delivery_method": "logged",
+                "error": str(e)
+            }
 
     def _log_parent_notification(
         self,
