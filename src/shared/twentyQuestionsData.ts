@@ -1,9 +1,19 @@
 /**
  * Twenty Questions Game Data
- * Chess-themed items for the guessing game
+ * Diverse items for the guessing game
  */
 
-export type GameCategory = 'piece' | 'opening' | 'player' | 'term' | 'position';
+export type GameCategory =
+  | 'animal'
+  | 'food'
+  | 'sport'
+  | 'movie'
+  | 'place'
+  | 'technology'
+  | 'book'
+  | 'music'
+  | 'person'
+  | 'other';
 
 export interface GameItem {
   id: string;
@@ -11,316 +21,574 @@ export interface GameItem {
   category: GameCategory;
   properties: {
     // General properties
-    isWhite?: boolean;
-    isBlack?: boolean;
-    isPiece?: boolean;
-    isOpening?: boolean;
+    isAnimal?: boolean;
+    isFood?: boolean;
+    isSport?: boolean;
+    isMovie?: boolean;
+    isPlace?: boolean;
+    isTechnology?: boolean;
+    isBook?: boolean;
+    isMusic?: boolean;
     isPerson?: boolean;
-    isTerm?: boolean;
-    isPosition?: boolean;
 
-    // Piece properties
-    canMoveForward?: boolean;
-    canMoveBackward?: boolean;
-    canMoveDiagonally?: boolean;
-    canMoveHorizontally?: boolean;
-    canMoveVertically?: boolean;
-    canJump?: boolean;
-    isRoyal?: boolean;
-    isPawn?: boolean;
+    // Animal properties
+    hasFur?: boolean;
+    hasFeathers?: boolean;
+    hasScales?: boolean;
+    canFly?: boolean;
+    canSwim?: boolean;
+    isPet?: boolean;
+    isWild?: boolean;
+    isDangerous?: boolean;
 
-    // Opening properties
-    isKingsideOpening?: boolean;
-    isQueensideOpening?: boolean;
-    isAggressive?: boolean;
-    isDefensive?: boolean;
+    // Food properties
+    isFruit?: boolean;
+    isVegetable?: boolean;
+    isDessert?: boolean;
+    isSweet?: boolean;
+    isSavory?: boolean;
+    isHealthy?: boolean;
+    needsCooking?: boolean;
+
+    // Sport properties
+    usesBall?: boolean;
+    isTeamSport?: boolean;
+    isIndoorSport?: boolean;
+    isOutdoorSport?: boolean;
+    isOlympicSport?: boolean;
+
+    // Entertainment properties
     isPopular?: boolean;
+    isOld?: boolean;
+    isNew?: boolean;
+    isForKids?: boolean;
 
-    // Player properties
-    isWorldChampion?: boolean;
-    isActive?: boolean;
+    // Place properties
+    isCountry?: boolean;
+    isCity?: boolean;
+    isNaturalPlace?: boolean;
+    isFamous?: boolean;
+
+    // Technology properties
+    hasScreen?: boolean;
+    isPortable?: boolean;
+    needsElectricity?: boolean;
+    isForGaming?: boolean;
+
+    // Person properties
     isMale?: boolean;
     isFemale?: boolean;
-    isHistorical?: boolean;
+    isAthlete?: boolean;
+    isActor?: boolean;
+    isMusicArtist?: boolean;
 
-    // Term properties
-    isCheckmate?: boolean;
-    isStalemate?: boolean;
-    isTactic?: boolean;
-    isEndgame?: boolean;
-
-    // Position properties
-    isWinning?: boolean;
-    isDrawn?: boolean;
-    isComplex?: boolean;
+    // Misc properties
+    isExpensive?: boolean;
+    isFun?: boolean;
+    isCommon?: boolean;
   };
   hints?: string[];
   difficulty?: 'easy' | 'medium' | 'hard';
 }
 
 export const GAME_ITEMS: GameItem[] = [
-  // Chess Pieces
+  // Animals - Easy
   {
-    id: 'white_king',
-    name: 'White King',
-    category: 'piece',
+    id: 'dog',
+    name: 'Dog',
+    category: 'animal',
     difficulty: 'easy',
     properties: {
-      isWhite: true,
-      isPiece: true,
-      canMoveForward: true,
-      canMoveBackward: true,
-      canMoveDiagonally: true,
-      canMoveHorizontally: true,
-      canMoveVertically: true,
-      isRoyal: true,
+      isAnimal: true,
+      hasFur: true,
+      isPet: true,
+      isCommon: true,
     },
-    hints: ['The most important piece in chess', 'Must be protected at all costs'],
+    hints: ["A popular pet", "Known as man's best friend"],
   },
   {
-    id: 'black_queen',
-    name: 'Black Queen',
-    category: 'piece',
+    id: 'cat',
+    name: 'Cat',
+    category: 'animal',
     difficulty: 'easy',
     properties: {
-      isBlack: true,
-      isPiece: true,
-      canMoveForward: true,
-      canMoveBackward: true,
-      canMoveDiagonally: true,
-      canMoveHorizontally: true,
-      canMoveVertically: true,
+      isAnimal: true,
+      hasFur: true,
+      isPet: true,
+      isCommon: true,
     },
-    hints: ['The most powerful piece', 'Can move in all directions'],
+    hints: ['Says meow', 'Likes to purr'],
   },
   {
-    id: 'knight',
-    name: 'Knight',
-    category: 'piece',
+    id: 'fish',
+    name: 'Fish',
+    category: 'animal',
     difficulty: 'easy',
     properties: {
-      isPiece: true,
-      canJump: true,
+      isAnimal: true,
+      hasScales: true,
+      canSwim: true,
+      isPet: true,
     },
-    hints: ['Moves in an L-shape', 'Can jump over other pieces'],
+    hints: ['Lives in water', 'Can be kept in a tank'],
   },
   {
-    id: 'rook',
-    name: 'Rook',
-    category: 'piece',
+    id: 'bird',
+    name: 'Bird',
+    category: 'animal',
     difficulty: 'easy',
     properties: {
-      isPiece: true,
-      canMoveForward: true,
-      canMoveBackward: true,
-      canMoveHorizontally: true,
-      canMoveVertically: true,
+      isAnimal: true,
+      hasFeathers: true,
+      canFly: true,
     },
-    hints: ['Moves in straight lines', 'Important for castling'],
+    hints: ['Has wings', 'Can sing'],
   },
   {
-    id: 'bishop',
-    name: 'Bishop',
-    category: 'piece',
+    id: 'elephant',
+    name: 'Elephant',
+    category: 'animal',
     difficulty: 'easy',
     properties: {
-      isPiece: true,
-      canMoveDiagonally: true,
+      isAnimal: true,
+      isWild: true,
+      isFamous: true,
     },
-    hints: ['Moves diagonally', 'Always stays on the same color squares'],
+    hints: ['Has a trunk', 'Largest land animal'],
   },
   {
-    id: 'pawn',
-    name: 'Pawn',
-    category: 'piece',
-    difficulty: 'easy',
+    id: 'dolphin',
+    name: 'Dolphin',
+    category: 'animal',
+    difficulty: 'medium',
     properties: {
-      isPiece: true,
-      canMoveForward: true,
-      isPawn: true,
+      isAnimal: true,
+      canSwim: true,
+      isWild: true,
+      isFamous: true,
     },
-    hints: ['The most numerous piece', 'Can promote when reaching the end'],
+    hints: ['Very intelligent', 'Lives in the ocean'],
+  },
+  {
+    id: 'lion',
+    name: 'Lion',
+    category: 'animal',
+    difficulty: 'medium',
+    properties: {
+      isAnimal: true,
+      hasFur: true,
+      isWild: true,
+      isDangerous: true,
+    },
+    hints: ['King of the jungle', 'Has a mane'],
   },
 
-  // Chess Openings
+  // Foods - Easy
   {
-    id: 'italian_game',
-    name: 'Italian Game',
-    category: 'opening',
-    difficulty: 'medium',
-    properties: {
-      isOpening: true,
-      isKingsideOpening: true,
-      isPopular: true,
-      isAggressive: true,
-    },
-    hints: ['One of the oldest openings', 'Starts with 1.e4 e5 2.Nf3 Nc6 3.Bc4'],
-  },
-  {
-    id: 'sicilian_defense',
-    name: 'Sicilian Defense',
-    category: 'opening',
-    difficulty: 'medium',
-    properties: {
-      isOpening: true,
-      isPopular: true,
-      isAggressive: true,
-    },
-    hints: ['Most popular response to 1.e4', 'Starts with 1.e4 c5'],
-  },
-  {
-    id: 'queens_gambit',
-    name: "Queen's Gambit",
-    category: 'opening',
-    difficulty: 'medium',
-    properties: {
-      isOpening: true,
-      isQueensideOpening: true,
-      isPopular: true,
-    },
-    hints: ['Famous Netflix series', 'Starts with 1.d4 d5 2.c4'],
-  },
-  {
-    id: 'ruy_lopez',
-    name: 'Ruy Lopez',
-    category: 'opening',
-    difficulty: 'medium',
-    properties: {
-      isOpening: true,
-      isKingsideOpening: true,
-      isPopular: true,
-    },
-    hints: ['Named after a Spanish priest', 'Starts with 1.e4 e5 2.Nf3 Nc6 3.Bb5'],
-  },
-
-  // Famous Players
-  {
-    id: 'magnus_carlsen',
-    name: 'Magnus Carlsen',
-    category: 'player',
+    id: 'pizza',
+    name: 'Pizza',
+    category: 'food',
     difficulty: 'easy',
     properties: {
-      isPerson: true,
-      isWorldChampion: true,
-      isActive: true,
-      isMale: true,
+      isFood: true,
+      isSavory: true,
+      needsCooking: true,
+      isPopular: true,
     },
-    hints: ['Current world champion', 'From Norway'],
+    hints: ['Comes in slices', 'Often has cheese and sauce'],
   },
   {
-    id: 'garry_kasparov',
-    name: 'Garry Kasparov',
-    category: 'player',
+    id: 'apple',
+    name: 'Apple',
+    category: 'food',
+    difficulty: 'easy',
+    properties: {
+      isFood: true,
+      isFruit: true,
+      isHealthy: true,
+      isCommon: true,
+    },
+    hints: ['A day keeps the doctor away', 'Can be red, green, or yellow'],
+  },
+  {
+    id: 'ice_cream',
+    name: 'Ice Cream',
+    category: 'food',
+    difficulty: 'easy',
+    properties: {
+      isFood: true,
+      isDessert: true,
+      isSweet: true,
+      isPopular: true,
+    },
+    hints: ['Cold and sweet', 'Melts in the sun'],
+  },
+  {
+    id: 'banana',
+    name: 'Banana',
+    category: 'food',
+    difficulty: 'easy',
+    properties: {
+      isFood: true,
+      isFruit: true,
+      isHealthy: true,
+      isCommon: true,
+    },
+    hints: ['Yellow fruit', 'Monkeys love it'],
+  },
+  {
+    id: 'chocolate',
+    name: 'Chocolate',
+    category: 'food',
+    difficulty: 'easy',
+    properties: {
+      isFood: true,
+      isDessert: true,
+      isSweet: true,
+      isPopular: true,
+    },
+    hints: ['Sweet treat', 'Can be dark, milk, or white'],
+  },
+  {
+    id: 'carrot',
+    name: 'Carrot',
+    category: 'food',
+    difficulty: 'easy',
+    properties: {
+      isFood: true,
+      isVegetable: true,
+      isHealthy: true,
+    },
+    hints: ['Orange vegetable', 'Good for your eyes'],
+  },
+
+  // Sports - Easy
+  {
+    id: 'soccer',
+    name: 'Soccer',
+    category: 'sport',
+    difficulty: 'easy',
+    properties: {
+      isSport: true,
+      usesBall: true,
+      isTeamSport: true,
+      isOutdoorSport: true,
+      isOlympicSport: true,
+      isPopular: true,
+    },
+    hints: ['Most popular sport in the world', 'Use your feet mainly'],
+  },
+  {
+    id: 'basketball',
+    name: 'Basketball',
+    category: 'sport',
+    difficulty: 'easy',
+    properties: {
+      isSport: true,
+      usesBall: true,
+      isTeamSport: true,
+      isIndoorSport: true,
+      isOlympicSport: true,
+    },
+    hints: ['Played with a hoop', 'Dribble and shoot'],
+  },
+  {
+    id: 'swimming',
+    name: 'Swimming',
+    category: 'sport',
+    difficulty: 'easy',
+    properties: {
+      isSport: true,
+      isOlympicSport: true,
+      isOutdoorSport: true,
+      isIndoorSport: true,
+    },
+    hints: ['Done in water', 'Different strokes'],
+  },
+  {
+    id: 'baseball',
+    name: 'Baseball',
+    category: 'sport',
+    difficulty: 'easy',
+    properties: {
+      isSport: true,
+      usesBall: true,
+      isTeamSport: true,
+      isOutdoorSport: true,
+    },
+    hints: ['Use a bat', 'Run the bases'],
+  },
+  {
+    id: 'tennis',
+    name: 'Tennis',
+    category: 'sport',
     difficulty: 'medium',
     properties: {
-      isPerson: true,
-      isWorldChampion: true,
-      isMale: true,
-      isHistorical: true,
+      isSport: true,
+      usesBall: true,
+      isOlympicSport: true,
+      isOutdoorSport: true,
     },
-    hints: ['Played against Deep Blue', 'World champion from 1985-2000'],
+    hints: ['Played with a racket', 'Wimbledon is famous for this'],
+  },
+
+  // Movies/Shows - Easy
+  {
+    id: 'frozen',
+    name: 'Frozen',
+    category: 'movie',
+    difficulty: 'easy',
+    properties: {
+      isMovie: true,
+      isPopular: true,
+      isForKids: true,
+    },
+    hints: ['Disney movie', '"Let It Go" is from this'],
   },
   {
-    id: 'bobby_fischer',
-    name: 'Bobby Fischer',
-    category: 'player',
+    id: 'harry_potter',
+    name: 'Harry Potter',
+    category: 'movie',
+    difficulty: 'easy',
+    properties: {
+      isMovie: true,
+      isBook: true,
+      isPopular: true,
+      isFamous: true,
+    },
+    hints: ['Boy wizard', 'Hogwarts school'],
+  },
+  {
+    id: 'toy_story',
+    name: 'Toy Story',
+    category: 'movie',
+    difficulty: 'easy',
+    properties: {
+      isMovie: true,
+      isPopular: true,
+      isForKids: true,
+    },
+    hints: ['Woody and Buzz', 'Toys come to life'],
+  },
+  {
+    id: 'minecraft',
+    name: 'Minecraft',
+    category: 'technology',
+    difficulty: 'easy',
+    properties: {
+      isTechnology: true,
+      isForGaming: true,
+      isPopular: true,
+      isFun: true,
+    },
+    hints: ['Build with blocks', 'Very popular game'],
+  },
+
+  // Places - Easy
+  {
+    id: 'paris',
+    name: 'Paris',
+    category: 'place',
     difficulty: 'medium',
     properties: {
-      isPerson: true,
-      isWorldChampion: true,
-      isMale: true,
-      isHistorical: true,
+      isPlace: true,
+      isCity: true,
+      isFamous: true,
     },
-    hints: ['American world champion', 'Won in 1972 against Spassky'],
+    hints: ['Eiffel Tower is here', 'Capital of France'],
   },
   {
-    id: 'judit_polgar',
-    name: 'Judit Polgar',
-    category: 'player',
-    difficulty: 'hard',
+    id: 'beach',
+    name: 'Beach',
+    category: 'place',
+    difficulty: 'easy',
+    properties: {
+      isPlace: true,
+      isNaturalPlace: true,
+      isCommon: true,
+    },
+    hints: ['Has sand and water', 'People swim here'],
+  },
+  {
+    id: 'mountain',
+    name: 'Mountain',
+    category: 'place',
+    difficulty: 'easy',
+    properties: {
+      isPlace: true,
+      isNaturalPlace: true,
+    },
+    hints: ['Very tall', 'People climb these'],
+  },
+  {
+    id: 'disney_world',
+    name: 'Disney World',
+    category: 'place',
+    difficulty: 'easy',
+    properties: {
+      isPlace: true,
+      isFamous: true,
+      isFun: true,
+      isExpensive: true,
+    },
+    hints: ['Theme park', 'In Florida'],
+  },
+
+  // Technology - Easy
+  {
+    id: 'smartphone',
+    name: 'Smartphone',
+    category: 'technology',
+    difficulty: 'easy',
+    properties: {
+      isTechnology: true,
+      hasScreen: true,
+      isPortable: true,
+      needsElectricity: true,
+      isCommon: true,
+    },
+    hints: ['Make calls and use apps', 'Most people have one'],
+  },
+  {
+    id: 'computer',
+    name: 'Computer',
+    category: 'technology',
+    difficulty: 'easy',
+    properties: {
+      isTechnology: true,
+      hasScreen: true,
+      needsElectricity: true,
+      isCommon: true,
+    },
+    hints: ['Has a keyboard', 'For work and games'],
+  },
+  {
+    id: 'tablet',
+    name: 'Tablet',
+    category: 'technology',
+    difficulty: 'easy',
+    properties: {
+      isTechnology: true,
+      hasScreen: true,
+      isPortable: true,
+      needsElectricity: true,
+    },
+    hints: ['Like a big phone', 'Touch screen'],
+  },
+  {
+    id: 'video_game_console',
+    name: 'Video Game Console',
+    category: 'technology',
+    difficulty: 'medium',
+    properties: {
+      isTechnology: true,
+      isForGaming: true,
+      needsElectricity: true,
+      isFun: true,
+    },
+    hints: ['PlayStation or Xbox', 'For playing video games'],
+  },
+
+  // Music - Medium
+  {
+    id: 'piano',
+    name: 'Piano',
+    category: 'music',
+    difficulty: 'easy',
+    properties: {
+      isMusic: true,
+      isExpensive: true,
+    },
+    hints: ['Musical instrument', 'Has black and white keys'],
+  },
+  {
+    id: 'guitar',
+    name: 'Guitar',
+    category: 'music',
+    difficulty: 'easy',
+    properties: {
+      isMusic: true,
+      isPopular: true,
+    },
+    hints: ['Has strings', 'Rock music uses this'],
+  },
+  {
+    id: 'drums',
+    name: 'Drums',
+    category: 'music',
+    difficulty: 'easy',
+    properties: {
+      isMusic: true,
+    },
+    hints: ['You hit them', 'Keep the beat'],
+  },
+
+  // Books/Characters - Medium
+  {
+    id: 'percy_jackson',
+    name: 'Percy Jackson',
+    category: 'book',
+    difficulty: 'medium',
+    properties: {
+      isBook: true,
+      isPerson: true,
+      isPopular: true,
+    },
+    hints: ['Half-god character', 'Son of Poseidon'],
+  },
+  {
+    id: 'diary_wimpy_kid',
+    name: 'Diary of a Wimpy Kid',
+    category: 'book',
+    difficulty: 'easy',
+    properties: {
+      isBook: true,
+      isPopular: true,
+      isForKids: true,
+    },
+    hints: ['Funny book series', 'About Greg Heffley'],
+  },
+
+  // Famous People - Medium
+  {
+    id: 'taylor_swift',
+    name: 'Taylor Swift',
+    category: 'person',
+    difficulty: 'easy',
     properties: {
       isPerson: true,
       isFemale: true,
-      isHistorical: true,
+      isMusicArtist: true,
+      isPopular: true,
+      isFamous: true,
     },
-    hints: ['Strongest female player ever', 'Beat Kasparov in 2002'],
+    hints: ['Pop singer', 'Writes her own songs'],
   },
-
-  // Chess Terms
   {
-    id: 'checkmate',
-    name: 'Checkmate',
-    category: 'term',
+    id: 'lebron_james',
+    name: 'LeBron James',
+    category: 'person',
     difficulty: 'easy',
     properties: {
-      isTerm: true,
-      isCheckmate: true,
+      isPerson: true,
+      isMale: true,
+      isAthlete: true,
+      isFamous: true,
     },
-    hints: ['The goal of chess', 'King cannot escape attack'],
+    hints: ['Basketball player', 'Plays in the NBA'],
   },
   {
-    id: 'stalemate',
-    name: 'Stalemate',
-    category: 'term',
+    id: 'serena_williams',
+    name: 'Serena Williams',
+    category: 'person',
     difficulty: 'medium',
     properties: {
-      isTerm: true,
-      isStalemate: true,
+      isPerson: true,
+      isFemale: true,
+      isAthlete: true,
+      isFamous: true,
     },
-    hints: ['A draw condition', 'No legal moves but not in check'],
-  },
-  {
-    id: 'fork',
-    name: 'Fork',
-    category: 'term',
-    difficulty: 'medium',
-    properties: {
-      isTerm: true,
-      isTactic: true,
-    },
-    hints: ['A tactical motif', 'Attacking two pieces at once'],
-  },
-  {
-    id: 'pin',
-    name: 'Pin',
-    category: 'term',
-    difficulty: 'medium',
-    properties: {
-      isTerm: true,
-      isTactic: true,
-    },
-    hints: ['A tactical motif', 'Piece cannot move without exposing a more valuable piece'],
-  },
-  {
-    id: 'endgame',
-    name: 'Endgame',
-    category: 'term',
-    difficulty: 'easy',
-    properties: {
-      isTerm: true,
-      isEndgame: true,
-    },
-    hints: ['Final phase of the game', 'Few pieces remaining'],
-  },
-  {
-    id: 'castling',
-    name: 'Castling',
-    category: 'term',
-    difficulty: 'easy',
-    properties: {
-      isTerm: true,
-    },
-    hints: ['Special move involving king and rook', 'Can only be done once'],
-  },
-  {
-    id: 'en_passant',
-    name: 'En Passant',
-    category: 'term',
-    difficulty: 'hard',
-    properties: {
-      isTerm: true,
-    },
-    hints: ['Special pawn capture', 'French term meaning "in passing"'],
+    hints: ['Tennis champion', 'Won many Grand Slams'],
   },
 ];
 
@@ -342,27 +610,70 @@ export function getRandomItem(difficulty?: 'easy' | 'medium' | 'hard'): GameItem
  * Get all available questions
  */
 export const QUESTIONS = [
-  { question: 'Is it a chess piece?', property: 'isPiece' },
-  { question: 'Is it white?', property: 'isWhite' },
-  { question: 'Is it black?', property: 'isBlack' },
-  { question: 'Can it move diagonally?', property: 'canMoveDiagonally' },
-  { question: 'Can it move horizontally?', property: 'canMoveHorizontally' },
-  { question: 'Can it move vertically?', property: 'canMoveVertically' },
-  { question: 'Can it jump over other pieces?', property: 'canJump' },
-  { question: 'Is it a royal piece?', property: 'isRoyal' },
-  { question: 'Is it a pawn?', property: 'isPawn' },
-  { question: 'Is it an opening?', property: 'isOpening' },
-  { question: 'Is it a kingside opening?', property: 'isKingsideOpening' },
-  { question: 'Is it a queenside opening?', property: 'isQueensideOpening' },
-  { question: 'Is it aggressive?', property: 'isAggressive' },
-  { question: 'Is it popular?', property: 'isPopular' },
+  // Category questions
+  { question: 'Is it an animal?', property: 'isAnimal' },
+  { question: 'Is it food?', property: 'isFood' },
+  { question: 'Is it a sport?', property: 'isSport' },
+  { question: 'Is it a movie or TV show?', property: 'isMovie' },
+  { question: 'Is it a place?', property: 'isPlace' },
+  { question: 'Is it technology?', property: 'isTechnology' },
+  { question: 'Is it related to music?', property: 'isMusic' },
+  { question: 'Is it a book or book character?', property: 'isBook' },
   { question: 'Is it a person?', property: 'isPerson' },
-  { question: 'Is it a world champion?', property: 'isWorldChampion' },
-  { question: 'Is this person active today?', property: 'isActive' },
+
+  // Animal questions
+  { question: 'Does it have fur?', property: 'hasFur' },
+  { question: 'Does it have feathers?', property: 'hasFeathers' },
+  { question: 'Does it have scales?', property: 'hasScales' },
+  { question: 'Can it fly?', property: 'canFly' },
+  { question: 'Can it swim?', property: 'canSwim' },
+  { question: 'Is it a pet?', property: 'isPet' },
+  { question: 'Is it wild?', property: 'isWild' },
+  { question: 'Is it dangerous?', property: 'isDangerous' },
+
+  // Food questions
+  { question: 'Is it a fruit?', property: 'isFruit' },
+  { question: 'Is it a vegetable?', property: 'isVegetable' },
+  { question: 'Is it a dessert?', property: 'isDessert' },
+  { question: 'Is it sweet?', property: 'isSweet' },
+  { question: 'Is it savory?', property: 'isSavory' },
+  { question: 'Is it healthy?', property: 'isHealthy' },
+  { question: 'Does it need cooking?', property: 'needsCooking' },
+
+  // Sport questions
+  { question: 'Does it use a ball?', property: 'usesBall' },
+  { question: 'Is it a team sport?', property: 'isTeamSport' },
+  { question: 'Is it an indoor sport?', property: 'isIndoorSport' },
+  { question: 'Is it an outdoor sport?', property: 'isOutdoorSport' },
+  { question: 'Is it an Olympic sport?', property: 'isOlympicSport' },
+
+  // Entertainment questions
+  { question: 'Is it popular?', property: 'isPopular' },
+  { question: 'Is it old/classic?', property: 'isOld' },
+  { question: 'Is it new/recent?', property: 'isNew' },
+  { question: 'Is it for kids?', property: 'isForKids' },
+
+  // Place questions
+  { question: 'Is it a country?', property: 'isCountry' },
+  { question: 'Is it a city?', property: 'isCity' },
+  { question: 'Is it a natural place?', property: 'isNaturalPlace' },
+  { question: 'Is it famous?', property: 'isFamous' },
+
+  // Technology questions
+  { question: 'Does it have a screen?', property: 'hasScreen' },
+  { question: 'Is it portable?', property: 'isPortable' },
+  { question: 'Does it need electricity?', property: 'needsElectricity' },
+  { question: 'Is it for gaming?', property: 'isForGaming' },
+
+  // Person questions
   { question: 'Is this person male?', property: 'isMale' },
   { question: 'Is this person female?', property: 'isFemale' },
-  { question: 'Is it a chess term?', property: 'isTerm' },
-  { question: 'Is it checkmate?', property: 'isCheckmate' },
-  { question: 'Is it a tactic?', property: 'isTactic' },
-  { question: 'Is it related to the endgame?', property: 'isEndgame' },
+  { question: 'Is this person an athlete?', property: 'isAthlete' },
+  { question: 'Is this person an actor?', property: 'isActor' },
+  { question: 'Is this person a music artist?', property: 'isMusicArtist' },
+
+  // General questions
+  { question: 'Is it expensive?', property: 'isExpensive' },
+  { question: 'Is it fun?', property: 'isFun' },
+  { question: 'Is it common?', property: 'isCommon' },
 ];
