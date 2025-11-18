@@ -128,6 +128,50 @@ code {
   }
 }
 
+/* Typing bubble pulse */
+@keyframes typingBubblePulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* Typing bubble shimmer effect */
+@keyframes typingBubbleShimmer {
+  0% {
+    background-position: -100% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Typing indicator entrance */
+@keyframes typingIndicatorEnter {
+  from {
+    transform: translateX(-10px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Enhanced typing dot with scale */
+@keyframes typingDotScale {
+  0%, 60%, 100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  30% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+}
+
 @keyframes pulse {
   0%, 100% {
     opacity: 1;
@@ -173,6 +217,38 @@ code {
 
 .typing-dot:nth-child(3) {
   animation-delay: 0.4s;
+}
+
+/* Typing indicator container */
+.typing-indicator-container {
+  animation: typingIndicatorEnter 0.3s ease-out;
+}
+
+/* Typing bubble animation */
+.typing-bubble {
+  animation: typingBubblePulse 2s ease-in-out infinite;
+}
+
+/* Typing bubble with shimmer */
+.typing-bubble-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(229, 231, 235, 1) 0%,
+    rgba(243, 244, 246, 1) 50%,
+    rgba(229, 231, 235, 1) 100%
+  );
+  background-size: 200% 100%;
+  animation: typingBubbleShimmer 3s ease-in-out infinite, typingBubblePulse 2s ease-in-out infinite;
+}
+
+.dark .typing-bubble-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(55, 65, 81, 1) 0%,
+    rgba(75, 85, 99, 1) 50%,
+    rgba(55, 65, 81, 1) 100%
+  );
+  background-size: 200% 100%;
 }
 
 /* Pulse animation for waiting states */

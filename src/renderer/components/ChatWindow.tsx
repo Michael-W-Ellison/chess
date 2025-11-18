@@ -161,9 +161,13 @@ export const ChatWindow: React.FC = () => {
             </span>
           )}
           {!gameMode && isLoading && (
-            <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
-              <div className="animate-pulse">●</div>
-              <span>Thinking...</span>
+            <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 animate-fade-in">
+              <div className="flex items-center gap-0.5">
+                <div className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full typing-dot"></div>
+                <div className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full typing-dot"></div>
+                <div className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full typing-dot"></div>
+              </div>
+              <span className="font-medium">Thinking...</span>
             </div>
           )}
         </div>
