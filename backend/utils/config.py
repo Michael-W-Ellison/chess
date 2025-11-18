@@ -48,8 +48,12 @@ class Settings(BaseSettings):
     ENABLE_WEEKLY_REPORTS: bool = True
     AUTO_GENERATE_SUMMARIES: bool = True  # Auto-generate LLM summaries on conversation end
 
-    # Security
+    # Security & Authentication
     PARENT_DASHBOARD_REQUIRE_PASSWORD: bool = True
+    PARENT_DASHBOARD_PASSWORD: Optional[str] = None  # Hashed password stored in .env
+    JWT_SECRET_KEY: Optional[str] = None  # Secret key for JWT tokens
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 hours
 
     model_config = SettingsConfigDict(
         env_file=".env",

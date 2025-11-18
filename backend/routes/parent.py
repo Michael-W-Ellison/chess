@@ -1,6 +1,15 @@
 """
 Parent Dashboard API Routes
 Endpoints for parents to monitor child safety and view safety flags
+
+Authentication:
+    These routes support JWT-based authentication. When PARENT_DASHBOARD_REQUIRE_PASSWORD
+    is enabled, endpoints require a valid JWT token in the Authorization header.
+
+    To protect an endpoint, add the RequireAuth dependency:
+        async def my_endpoint(..., current_user: dict = RequireAuth):
+
+    See docs/AUTHENTICATION_SETUP.md for complete setup instructions.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -20,10 +29,149 @@ from services.parent_preferences_service import parent_preferences_service
 from services.conversation_summary_service import conversation_summary_service
 from services.weekly_report_service import weekly_report_service
 from services.report_scheduler import report_scheduler
+from services.auth_service import auth_service
+from utils.auth_dependencies import get_current_user, RequireAuth
+from utils.config import settings
 
 logger = logging.getLogger("chatbot.routes.parent")
 
 router = APIRouter()
+
+
+# ============================================================================
+# Authentication Endpoints
+# ============================================================================
+
+
+class LoginRequest(BaseModel):
+    """Login request"""
+    password: str
+
+
+class LoginResponse(BaseModel):
+    """Login response"""
+    access_token: str
+    token_type: str
+    expires_in: int
+
+
+class AuthStatusResponse(BaseModel):
+    """Authentication status"""
+    authenticated: bool
+    required: bool
+    configured: bool
+
+
+@router.post("/auth/login", response_model=LoginResponse)
+async def login(request: LoginRequest):
+    """
+    Login to parent dashboard
+
+    Authenticates the user with a password and returns a JWT access token.
+    The token should be included in the Authorization header for subsequent
+    requests as: Authorization: Bearer <token>
+
+    Args:
+        request: Login request with password
+
+    Returns:
+        Access token and metadata
+
+    Raises:
+        HTTPException: 401 if authentication fails
+        HTTPException: 403 if authentication not configured
+    """
+    try:
+        # Check if password protection is enabled
+        if not settings.PARENT_DASHBOARD_REQUIRE_PASSWORD:
+            logger.info("Password protection disabled - generating unrestricted token")
+            token = auth_service.create_access_token(
+                data={"sub": "parent", "access": "unrestricted"}
+            )
+            return LoginResponse(
+                access_token=token,
+                token_type="bearer",
+                expires_in=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
+            )
+
+        # Check if authentication is configured
+        if not auth_service.is_configured:
+            logger.error("Authentication required but not configured")
+            raise HTTPException(
+                status_code=403,
+                detail="Authentication not properly configured. Please set PARENT_DASHBOARD_PASSWORD and JWT_SECRET_KEY."
+            )
+
+        # Authenticate
+        if not auth_service.authenticate(request.password):
+            logger.warning("Login attempt failed - invalid password")
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid password"
+            )
+
+        # Create access token
+        token = auth_service.create_access_token(
+            data={"sub": "parent", "authenticated": True}
+        )
+
+        logger.info("Parent dashboard login successful")
+
+        return LoginResponse(
+            access_token=token,
+            token_type="bearer",
+            expires_in=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error during login: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/auth/status", response_model=AuthStatusResponse)
+async def auth_status():
+    """
+    Check authentication status
+
+    Returns information about whether authentication is required and configured.
+    This endpoint does not require authentication.
+
+    Returns:
+        Authentication status information
+    """
+    return AuthStatusResponse(
+        authenticated=False,  # Cannot determine without token
+        required=settings.PARENT_DASHBOARD_REQUIRE_PASSWORD,
+        configured=auth_service.is_configured
+    )
+
+
+@router.get("/auth/verify")
+async def verify_auth(current_user: dict = RequireAuth):
+    """
+    Verify authentication token
+
+    This endpoint requires a valid JWT token.
+    Use this to check if a token is still valid.
+
+    Args:
+        current_user: Current user from token (injected by dependency)
+
+    Returns:
+        Token verification status
+    """
+    return {
+        "authenticated": True,
+        "user": current_user.get("sub"),
+        "message": "Token is valid"
+    }
+
+
+# ============================================================================
+# Response models
+# ============================================================================
 
 
 # Response models
@@ -75,7 +223,8 @@ class NotificationHistoryResponse(BaseModel):
 @router.get("/dashboard/overview", response_model=UserSafetySummaryResponse)
 async def get_parent_dashboard_overview(
     user_id: int = Query(..., description="Child's user ID"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = RequireAuth
 ):
     """
     Get parent dashboard overview for a child
