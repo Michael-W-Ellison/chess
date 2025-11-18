@@ -23,6 +23,8 @@ from services.emoji_quirk_service import emoji_quirk_service
 from services.pun_quirk_service import pun_quirk_service
 from services.fact_quirk_service import fact_quirk_service
 from services.advice_category_detector import advice_category_detector
+from services.conversation_summary_service import conversation_summary_service
+from utils.config import settings
 
 logger = logging.getLogger("chatbot.conversation_manager")
 
@@ -242,18 +244,30 @@ class ConversationManager:
 
         conversation.message_count = self.message_count
 
-        # Generate summary (simplified for now)
-        messages = (
-            db.query(Message)
-            .filter(Message.conversation_id == conversation_id, Message.role == "user")
-            .all()
-        )
-
-        if messages:
-            # Extract keywords from all messages
-            all_text = " ".join([m.content for m in messages])
-            keywords = memory_manager.extract_keywords(all_text)
-            conversation.conversation_summary = f"Discussed: {', '.join(keywords[:5])}"
+        # Generate conversation summary using LLM (if enabled and messages exist)
+        if settings.AUTO_GENERATE_SUMMARIES and conversation.messages:
+            try:
+                logger.info(f"Generating LLM summary for conversation {conversation_id}")
+                summary_data = conversation_summary_service.generate_summary(
+                    conversation_id, db
+                )
+                logger.info(
+                    f"Summary generated - Topics: {summary_data.get('topics', [])}, "
+                    f"Mood: {summary_data.get('mood', 'unknown')}"
+                )
+            except Exception as e:
+                # Don't block conversation end if summary fails
+                logger.error(f"Failed to generate summary for conversation {conversation_id}: {e}")
+                # Fallback to simple summary
+                messages = (
+                    db.query(Message)
+                    .filter(Message.conversation_id == conversation_id, Message.role == "user")
+                    .all()
+                )
+                if messages:
+                    all_text = " ".join([m.content for m in messages])
+                    keywords = memory_manager.extract_keywords(all_text)
+                    conversation.conversation_summary = f"Discussed: {', '.join(keywords[:5])}"
 
         # Update personality
         personality = (

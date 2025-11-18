@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     # Feature Flags
     ENABLE_VECTOR_MEMORY: bool = False  # ChromaDB for semantic search
     ENABLE_WEEKLY_REPORTS: bool = True
+    AUTO_GENERATE_SUMMARIES: bool = True  # Auto-generate LLM summaries on conversation end
 
     # Security
     PARENT_DASHBOARD_REQUIRE_PASSWORD: bool = True
