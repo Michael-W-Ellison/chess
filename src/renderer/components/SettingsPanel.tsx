@@ -19,6 +19,7 @@ import { RecentAchievements } from './RecentAchievements';
 import { LoginStats } from './LoginStats';
 import { LoginCalendar } from './LoginCalendar';
 import { StreakDisplay } from './StreakDisplay';
+import { MemoryExport } from './MemoryExport';
 import { calculateTotalPoints, getAchievementProgress } from '../../shared/achievements';
 
 export const SettingsPanel: React.FC = () => {
@@ -478,28 +479,9 @@ export const SettingsPanel: React.FC = () => {
             </div>
           </div>
 
-          {/* Advanced Settings */}
+          {/* Memory Export */}
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-              <span>⚙️</span>
-              <span>Advanced</span>
-            </h3>
-
-            <div className="space-y-3">
-              <button className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 transition-colors">
-                View conversation history
-              </button>
-              <button className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 transition-colors">
-                Export memory book (PDF)
-              </button>
-              <button className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 transition-colors">
-                Clear all conversation data
-              </button>
-            </div>
-
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
-              Note: Advanced features are coming soon!
-            </p>
+            <MemoryExport />
           </div>
         </div>
       </div>
