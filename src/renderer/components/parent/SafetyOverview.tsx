@@ -5,6 +5,8 @@
 
 import React from 'react';
 import { useSafetyOverview } from '../../hooks/useSafetyOverview';
+import { SeverityDistribution } from './SeverityDistribution';
+import { SeverityBadge } from '../common/SeverityBadge';
 
 interface SafetyOverviewProps {
   userId: number;
@@ -85,15 +87,21 @@ export const SafetyOverview: React.FC<SafetyOverviewProps> = ({ userId }) => {
         </div>
 
         {/* Critical Flags */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className={`bg-white rounded-lg border p-6 ${criticalCount > 0 ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-gray-600 text-sm font-medium">Critical</span>
-            <span className="text-2xl">🚨</span>
+            <span className="text-2xl">{criticalCount > 0 ? '🚨' : '✅'}</span>
           </div>
-          <div className={`text-3xl font-bold ${criticalCount > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+          <div className={`text-3xl font-bold ${criticalCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
             {criticalCount}
           </div>
-          <p className="text-xs text-gray-500 mt-1">High priority</p>
+          <div className="mt-2">
+            {criticalCount > 0 ? (
+              <SeverityBadge severity="critical" size="sm" />
+            ) : (
+              <p className="text-xs text-green-600 font-medium">All clear</p>
+            )}
+          </div>
         </div>
 
         {/* Most Common Type */}
@@ -109,32 +117,38 @@ export const SafetyOverview: React.FC<SafetyOverviewProps> = ({ userId }) => {
         </div>
       </div>
 
-      {/* Last Event */}
-      {overview?.last_flag_timestamp && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-800 mb-3">Last Safety Event</h3>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-              <span className="text-lg">🕐</span>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">
-                {new Date(overview.last_flag_timestamp).toLocaleString()}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                {(() => {
-                  const diff = Date.now() - new Date(overview.last_flag_timestamp).getTime();
-                  const hours = Math.floor(diff / (1000 * 60 * 60));
-                  const days = Math.floor(hours / 24);
-                  if (days > 0) return `${days} day${days === 1 ? '' : 's'} ago`;
-                  if (hours > 0) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
-                  return 'Less than an hour ago';
-                })()}
-              </p>
+      {/* Severity Distribution and Last Event */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Severity Distribution */}
+        <SeverityDistribution userId={userId} sinceDays={30} />
+
+        {/* Last Event */}
+        {overview?.last_flag_timestamp && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="font-semibold text-gray-800 mb-3">Last Safety Event</h3>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-lg">🕐</span>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">
+                  {new Date(overview.last_flag_timestamp).toLocaleString()}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {(() => {
+                    const diff = Date.now() - new Date(overview.last_flag_timestamp).getTime();
+                    const hours = Math.floor(diff / (1000 * 60 * 60));
+                    const days = Math.floor(hours / 24);
+                    if (days > 0) return `${days} day${days === 1 ? '' : 's'} ago`;
+                    if (hours > 0) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+                    return 'Less than an hour ago';
+                  })()}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Quick Actions */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">

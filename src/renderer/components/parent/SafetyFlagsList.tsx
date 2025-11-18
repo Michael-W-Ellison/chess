@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { useSafetyFlags } from '../../hooks/useSafetyFlags';
+import { SeverityBadge } from '../common/SeverityBadge';
 
 interface SafetyFlagsListProps {
   userId: number;
@@ -278,13 +279,10 @@ export const SafetyFlagsList: React.FC<SafetyFlagsListProps> = ({ userId }) => {
                 <div className="flex-1">
                   {/* Header */}
                   <div className="flex items-center gap-3 mb-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold border ${getSeverityColor(
-                        flag.severity
-                      )}`}
-                    >
-                      {flag.severity.toUpperCase()}
-                    </span>
+                    <SeverityBadge
+                      severity={flag.severity.toLowerCase() as 'critical' | 'high' | 'medium' | 'low'}
+                      size="sm"
+                    />
                     <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
                       {flag.flag_type.replace(/_/g, ' ')}
                     </span>
