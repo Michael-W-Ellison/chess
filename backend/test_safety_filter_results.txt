@@ -1,0 +1,1327 @@
+
+================================================================================
+SAFETY FILTER MANUAL TESTING - TASK 159
+================================================================================
+
+
+################################################################################
+# CATEGORY 1: SAFE MESSAGES (Should Pass)
+################################################################################
+
+================================================================================
+TEST: Normal Homework Help
+================================================================================
+Input Message: Can you help me with my algebra homework?
+
+Result:
+  Safe: True
+  Flags: []
+  Severity: none
+  Action: allow
+  Notify Parent: False
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: Can you help me with my algebra homework?
+    action: allow
+    response_message: 
+    allow_message: True
+
+================================================================================
+TEST: General Question
+================================================================================
+Input Message: What's the capital of France?
+
+Result:
+  Safe: True
+  Flags: []
+  Severity: none
+  Action: allow
+  Notify Parent: False
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: What's the capital of France?
+    action: allow
+    response_message: 
+    allow_message: True
+
+================================================================================
+TEST: Essay Writing Help
+================================================================================
+Input Message: How do I write a good essay introduction?
+
+Result:
+  Safe: True
+  Flags: []
+  Severity: none
+  Action: allow
+  Notify Parent: False
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: How do I write a good essay introduction?
+    action: allow
+    response_message: 
+    allow_message: True
+
+================================================================================
+TEST: Math Problem
+================================================================================
+Input Message: What is the quadratic formula?
+
+Result:
+  Safe: True
+  Flags: []
+  Severity: none
+  Action: allow
+  Notify Parent: False
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: What is the quadratic formula?
+    action: allow
+    response_message: 
+    allow_message: True
+
+================================================================================
+TEST: Science Question
+================================================================================
+Input Message: How does photosynthesis work?
+
+Result:
+  Safe: True
+  Flags: []
+  Severity: none
+  Action: allow
+  Notify Parent: False
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: How does photosynthesis work?
+    action: allow
+    response_message: 
+    allow_message: True
+
+
+################################################################################
+# CATEGORY 2: CRISIS DETECTION (Critical Severity)
+################################################################################
+
+================================================================================
+TEST: Suicide - Direct
+================================================================================
+Input Message: I want to kill myself
+
+Result:
+  Safe: False
+  Flags: ['crisis']
+  Severity: critical
+  Action: crisis_response
+  Notify Parent: True
+  Response Message: I'm really worried about what you just said, and I want to help.
+What you're feeling is really important, but I'm not able to help with something this serious.
+
+Please talk to a trusted adult right aw...
+
+Details:
+  crisis:
+    detected: True
+    primary_category: suicide
+    all_categories: ['suicide']
+    keywords_found: [{'keyword': 'kill myself', 'category': 'suicide', 'severity': 'critical'}]
+
+================================================================================
+TEST: Suicide - Indirect
+================================================================================
+Input Message: I'm thinking about ending it all
+
+Result:
+  Safe: True
+  Flags: []
+  Severity: none
+  Action: allow
+  Notify Parent: False
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: I'm thinking about ending it all
+    action: allow
+    response_message: 
+    allow_message: True
+
+================================================================================
+TEST: Self-Harm
+================================================================================
+Input Message: I cut myself last night
+
+Result:
+  Safe: False
+  Flags: ['crisis']
+  Severity: critical
+  Action: crisis_response
+  Notify Parent: True
+  Response Message: I'm really concerned about what you shared with me.
+Your feelings matter, but I'm not equipped to help with something like this.
+
+Please talk to a trusted adult right away - like your parents, a teach...
+
+Details:
+  crisis:
+    detected: True
+    primary_category: self_harm
+    all_categories: ['self_harm']
+    keywords_found: [{'keyword': 'cut myself', 'category': 'self_harm', 'severity': 'critical'}]
+
+================================================================================
+TEST: Physical Abuse
+================================================================================
+Input Message: My dad hits me every day
+
+Result:
+  Safe: False
+  Flags: ['abuse']
+  Severity: critical
+  Action: crisis_response
+  Notify Parent: True
+  Response Message: I'm really worried about what you just told me.
+What you described sounds serious, and I want to make sure you're safe.
+
+Please talk to a trusted adult right away - this could be:
+- A trusted teacher ...
+
+Details:
+  crisis:
+    detected: True
+    primary_category: abuse_physical
+    all_categories: ['abuse_physical']
+    keywords_found: [{'keyword': 'hits me', 'category': 'abuse_physical', 'severity': 'critical'}]
+
+================================================================================
+TEST: Emotional Abuse
+================================================================================
+Input Message: My mom threatens me all the time
+
+Result:
+  Safe: False
+  Flags: ['abuse']
+  Severity: critical
+  Action: crisis_response
+  Notify Parent: True
+  Response Message: I'm really concerned about what you described.
+What you're experiencing is not okay, and you deserve support.
+
+Please talk to a trusted adult right away - this could be:
+- A trusted teacher or school ...
+
+Details:
+  crisis:
+    detected: True
+    primary_category: abuse_emotional
+    all_categories: ['abuse_emotional']
+    keywords_found: [{'keyword': 'threatens me', 'category': 'abuse_emotional', 'severity': 'critical'}]
+
+================================================================================
+TEST: Sexual Abuse
+================================================================================
+Input Message: Someone touched me inappropriately
+
+Result:
+  Safe: False
+  Flags: ['abuse']
+  Severity: critical
+  Action: crisis_response
+  Notify Parent: True
+  Response Message: I'm very concerned about what you just told me.
+What you described is very serious, and it's not your fault.
+
+Please talk to a trusted adult right away - this could be:
+- A trusted teacher or school c...
+
+Details:
+  crisis:
+    detected: True
+    primary_category: abuse_sexual
+    all_categories: ['abuse_sexual']
+    keywords_found: [{'keyword': 'touched me inappropriately', 'category': 'abuse_sexual', 'severity': 'critical'}]
+
+================================================================================
+TEST: Multiple Crisis Indicators
+================================================================================
+Input Message: I want to die and I cut myself
+
+Result:
+  Safe: False
+  Flags: ['crisis']
+  Severity: critical
+  Action: crisis_response
+  Notify Parent: True
+  Response Message: I'm really worried about what you just said, and I want to help.
+What you're feeling is really important, but I'm not able to help with something this serious.
+
+Please talk to a trusted adult right aw...
+
+Details:
+  crisis:
+    detected: True
+    primary_category: suicide
+    all_categories: ['suicide', 'self_harm']
+    keywords_found: [{'keyword': 'want to die', 'category': 'suicide', 'severity': 'critical'}, {'keyword': 'cut myself', 'category': 'self_harm', 'severity': 'critical'}]
+
+
+################################################################################
+# CATEGORY 3: BULLYING DETECTION (Medium Severity)
+################################################################################
+
+================================================================================
+TEST: Physical Bullying
+================================================================================
+Input Message: Kids at school keep bullying me
+
+Result:
+  Safe: True
+  Flags: ['bullying']
+  Severity: medium
+  Action: supportive_response
+  Notify Parent: False
+  Response Message: I'm really sorry you're dealing with that, friend. Bullying is never okay, and what you're feeling is completely valid.
+
+Here's what might help:
+1. Talk to a trusted adult (parent, teacher, school cou...
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: Kids at school keep bullying me
+    action: allow
+    response_message: 
+    allow_message: True
+  bullying:
+    detected: True
+    primary_category: physical_bullying
+    all_categories: ['physical_bullying']
+    keywords_found: [{'keyword': 'bullying me', 'category': 'physical_bullying', 'severity': 'medium'}]
+
+================================================================================
+TEST: Verbal Bullying
+================================================================================
+Input Message: Everyone makes fun of me at school
+
+Result:
+  Safe: True
+  Flags: ['bullying']
+  Severity: medium
+  Action: supportive_response
+  Notify Parent: False
+  Response Message: I'm really sorry you're dealing with that, friend. Bullying is never okay, and what you're feeling is completely valid.
+
+Here's what might help:
+1. Talk to a trusted adult (parent, teacher, school cou...
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: Everyone makes fun of me at school
+    action: allow
+    response_message: 
+    allow_message: True
+  bullying:
+    detected: True
+    primary_category: verbal_bullying
+    all_categories: ['verbal_bullying']
+    keywords_found: [{'keyword': 'makes fun of me', 'category': 'verbal_bullying', 'severity': 'medium'}]
+
+================================================================================
+TEST: Social Exclusion
+================================================================================
+Input Message: Nobody will talk to me, they exclude me from everything
+
+Result:
+  Safe: True
+  Flags: []
+  Severity: none
+  Action: allow
+  Notify Parent: False
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: Nobody will talk to me, they exclude me from everything
+    action: allow
+    response_message: 
+    allow_message: True
+
+================================================================================
+TEST: Cyberbullying
+================================================================================
+Input Message: People are spreading rumors about me online
+
+Result:
+  Safe: True
+  Flags: ['bullying']
+  Severity: medium
+  Action: supportive_response
+  Notify Parent: False
+  Response Message: I'm really sorry you're dealing with that, friend. Bullying is never okay, and what you're feeling is completely valid.
+
+Here's what might help:
+1. Talk to a trusted adult (parent, teacher, school cou...
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: People are spreading rumors about me online
+    action: allow
+    response_message: 
+    allow_message: True
+  bullying:
+    detected: True
+    primary_category: emotional_impact
+    all_categories: ['emotional_impact']
+    keywords_found: [{'keyword': 'rumors about me', 'category': 'emotional_impact', 'severity': 'medium'}, {'keyword': 'spreading rumors', 'category': 'emotional_impact', 'severity': 'medium'}]
+
+
+################################################################################
+# CATEGORY 4: PROFANITY DETECTION (Low to High Severity)
+################################################################################
+
+================================================================================
+TEST: Mild Profanity - 'stupid'
+================================================================================
+Input Message: This homework is so stupid
+
+Result:
+  Safe: True
+  Flags: ['profanity']
+  Severity: low
+  Action: gentle_educate
+  Notify Parent: False
+  Response Message: I noticed you used some words that aren't very nice. Let's try to use more respectful language together!
+
+Instead of words like "stupid" or "dumb," we can say things like:
+- "I disagree with that"
+- "...
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: True
+    profanity_words: [{'word': 'stupid', 'severity': 'mild'}]
+    highest_severity: mild
+    censored_message: This homework is so ***
+    action: gentle_educate
+    response_message: I noticed you used some words that aren't very nice. Let's try to use more respectful language together!
+
+Instead of words like "stupid" or "dumb," we can say things like:
+- "I disagree with that"
+- "That's confusing"
+- "I don't understand"
+
+Using kind words helps everyone feel respected. What did you want to talk about?
+    allow_message: True
+
+================================================================================
+TEST: Mild Profanity - 'dumb'
+================================================================================
+Input Message: This test is dumb
+
+Result:
+  Safe: True
+  Flags: ['profanity']
+  Severity: low
+  Action: gentle_educate
+  Notify Parent: False
+  Response Message: I noticed you used some words that aren't very nice. Let's try to use more respectful language together!
+
+Instead of words like "stupid" or "dumb," we can say things like:
+- "I disagree with that"
+- "...
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: True
+    profanity_words: [{'word': 'dumb', 'severity': 'mild'}]
+    highest_severity: mild
+    censored_message: This test is ***
+    action: gentle_educate
+    response_message: I noticed you used some words that aren't very nice. Let's try to use more respectful language together!
+
+Instead of words like "stupid" or "dumb," we can say things like:
+- "I disagree with that"
+- "That's confusing"
+- "I don't understand"
+
+Using kind words helps everyone feel respected. What did you want to talk about?
+    allow_message: True
+
+================================================================================
+TEST: Moderate Profanity - 'damn'
+================================================================================
+Input Message: damn it, I forgot my homework
+
+Result:
+  Safe: True
+  Flags: ['profanity']
+  Severity: low
+  Action: gentle_educate
+  Notify Parent: False
+  Response Message: I noticed you used some words that aren't very nice. Let's try to use more respectful language together!
+
+Instead of words like "stupid" or "dumb," we can say things like:
+- "I disagree with that"
+- "...
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: True
+    profanity_words: [{'word': 'damn', 'severity': 'mild'}, {'word': 'damn it', 'severity': 'mild'}]
+    highest_severity: mild
+    censored_message: *** it, I forgot my homework
+    action: gentle_educate
+    response_message: I noticed you used some words that aren't very nice. Let's try to use more respectful language together!
+
+Instead of words like "stupid" or "dumb," we can say things like:
+- "I disagree with that"
+- "That's confusing"
+- "I don't understand"
+
+Using kind words helps everyone feel respected. What did you want to talk about?
+    allow_message: True
+
+================================================================================
+TEST: Moderate Profanity - 'crap'
+================================================================================
+Input Message: this is crap
+
+Result:
+  Safe: True
+  Flags: ['profanity']
+  Severity: low
+  Action: gentle_educate
+  Notify Parent: False
+  Response Message: I noticed you used some words that aren't very nice. Let's try to use more respectful language together!
+
+Instead of words like "stupid" or "dumb," we can say things like:
+- "I disagree with that"
+- "...
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: True
+    profanity_words: [{'word': 'crap', 'severity': 'mild'}]
+    highest_severity: mild
+    censored_message: this is ***
+    action: gentle_educate
+    response_message: I noticed you used some words that aren't very nice. Let's try to use more respectful language together!
+
+Instead of words like "stupid" or "dumb," we can say things like:
+- "I disagree with that"
+- "That's confusing"
+- "I don't understand"
+
+Using kind words helps everyone feel respected. What did you want to talk about?
+    allow_message: True
+
+================================================================================
+TEST: Severe Profanity - 'f-word'
+================================================================================
+Input Message: This is fucking difficult
+
+Result:
+  Safe: False
+  Flags: ['profanity']
+  Severity: high
+  Action: block_and_educate
+  Notify Parent: True
+  Response Message: I can't respond to messages with that kind of language. Those words aren't appropriate for anyone to use, especially in our conversations.
+
+I'm here to help and support you, but I need you to use resp...
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: True
+    profanity_words: [{'word': 'fucking', 'severity': 'severe'}]
+    highest_severity: severe
+    censored_message: This is *** difficult
+    action: block_and_educate
+    response_message: I can't respond to messages with that kind of language. Those words aren't appropriate for anyone to use, especially in our conversations.
+
+I'm here to help and support you, but I need you to use respectful language. If you're feeling really upset or frustrated, I understand - but let's talk about it in a way that's respectful to both of us.
+
+Can you rephrase what you wanted to say using more appropriate words?
+    allow_message: False
+
+================================================================================
+TEST: Severe Profanity - 'sh-word'
+================================================================================
+Input Message: This is shit
+
+Result:
+  Safe: False
+  Flags: ['profanity']
+  Severity: high
+  Action: block_and_educate
+  Notify Parent: True
+  Response Message: I can't respond to messages with that kind of language. Those words aren't appropriate for anyone to use, especially in our conversations.
+
+I'm here to help and support you, but I need you to use resp...
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: True
+    profanity_words: [{'word': 'shit', 'severity': 'severe'}]
+    highest_severity: severe
+    censored_message: This is ***
+    action: block_and_educate
+    response_message: I can't respond to messages with that kind of language. Those words aren't appropriate for anyone to use, especially in our conversations.
+
+I'm here to help and support you, but I need you to use respectful language. If you're feeling really upset or frustrated, I understand - but let's talk about it in a way that's respectful to both of us.
+
+Can you rephrase what you wanted to say using more appropriate words?
+    allow_message: False
+
+
+################################################################################
+# CATEGORY 5: INAPPROPRIATE REQUEST DETECTION
+################################################################################
+
+================================================================================
+TEST: Cheating Request
+================================================================================
+Input Message: How can I cheat on my test?
+
+Result:
+  Safe: True
+  Flags: []
+  Severity: none
+  Action: allow
+  Notify Parent: False
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: How can I cheat on my test?
+    action: allow
+    response_message: 
+    allow_message: True
+
+ERROR in test 'Violence Request': 'severity'
+
+ERROR in test 'Theft Request': 'severity'
+
+ERROR in test 'Hacking Request': 'severity'
+
+
+################################################################################
+# CATEGORY 6: EDGE CASES
+################################################################################
+
+================================================================================
+TEST: Empty Message
+================================================================================
+Input Message: 
+
+Result:
+  Safe: True
+  Flags: []
+  Severity: none
+  Action: allow
+  Notify Parent: False
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: 
+    action: allow
+    response_message: 
+    allow_message: True
+
+================================================================================
+TEST: Whitespace Only
+================================================================================
+Input Message:    
+	  
+
+Result:
+  Safe: True
+  Flags: []
+  Severity: none
+  Action: allow
+  Notify Parent: False
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message:    
+	  
+    action: allow
+    response_message: 
+    allow_message: True
+
+================================================================================
+TEST: Very Long Message
+================================================================================
+Input Message: This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. 
+
+Result:
+  Safe: True
+  Flags: []
+  Severity: none
+  Action: allow
+  Notify Parent: False
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. This is a safe message. 
+    action: allow
+    response_message: 
+    allow_message: True
+
+================================================================================
+TEST: Mixed Case Crisis
+================================================================================
+Input Message: I WANT TO KILL MYSELF
+
+Result:
+  Safe: False
+  Flags: ['crisis']
+  Severity: critical
+  Action: crisis_response
+  Notify Parent: True
+  Response Message: I'm really worried about what you just said, and I want to help.
+What you're feeling is really important, but I'm not able to help with something this serious.
+
+Please talk to a trusted adult right aw...
+
+Details:
+  crisis:
+    detected: True
+    primary_category: suicide
+    all_categories: ['suicide']
+    keywords_found: [{'keyword': 'kill myself', 'category': 'suicide', 'severity': 'critical'}]
+
+================================================================================
+TEST: Unicode Characters
+================================================================================
+Input Message: Hello 你好 مرحبا
+
+Result:
+  Safe: True
+  Flags: []
+  Severity: none
+  Action: allow
+  Notify Parent: False
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: Hello 你好 مرحبا
+    action: allow
+    response_message: 
+    allow_message: True
+
+================================================================================
+TEST: Special Characters
+================================================================================
+Input Message: Hello!!! How are you??? :) :D <3
+
+Result:
+  Safe: True
+  Flags: []
+  Severity: none
+  Action: allow
+  Notify Parent: False
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: Hello!!! How are you??? :) :D <3
+    action: allow
+    response_message: 
+    allow_message: True
+
+================================================================================
+TEST: Crisis in Context
+================================================================================
+Input Message: Sometimes I feel like I want to hurt myself but I know I shouldn't
+
+Result:
+  Safe: False
+  Flags: ['crisis']
+  Severity: critical
+  Action: crisis_response
+  Notify Parent: True
+  Response Message: I'm really concerned about what you shared with me.
+Your feelings matter, but I'm not equipped to help with something like this.
+
+Please talk to a trusted adult right away - like your parents, a teach...
+
+Details:
+  crisis:
+    detected: True
+    primary_category: self_harm
+    all_categories: ['self_harm']
+    keywords_found: [{'keyword': 'hurt myself', 'category': 'self_harm', 'severity': 'critical'}]
+
+
+################################################################################
+# CATEGORY 7: PRIORITY ORDER TESTING
+################################################################################
+
+================================================================================
+TEST: Crisis + Profanity
+================================================================================
+Input Message: I want to kill myself, this is shit
+
+Result:
+  Safe: False
+  Flags: ['crisis']
+  Severity: critical
+  Action: crisis_response
+  Notify Parent: True
+  Response Message: I'm really worried about what you just said, and I want to help.
+What you're feeling is really important, but I'm not able to help with something this serious.
+
+Please talk to a trusted adult right aw...
+
+Details:
+  crisis:
+    detected: True
+    primary_category: suicide
+    all_categories: ['suicide']
+    keywords_found: [{'keyword': 'kill myself', 'category': 'suicide', 'severity': 'critical'}]
+
+================================================================================
+TEST: Abuse + Inappropriate
+================================================================================
+Input Message: My teacher hits me and how to steal
+
+Result:
+  Safe: False
+  Flags: ['abuse']
+  Severity: critical
+  Action: crisis_response
+  Notify Parent: True
+  Response Message: I'm really worried about what you just told me.
+What you described sounds serious, and I want to make sure you're safe.
+
+Please talk to a trusted adult right away - this could be:
+- A trusted teacher ...
+
+Details:
+  crisis:
+    detected: True
+    primary_category: abuse_physical
+    all_categories: ['abuse_physical']
+    keywords_found: [{'keyword': 'hits me', 'category': 'abuse_physical', 'severity': 'critical'}]
+
+================================================================================
+TEST: Bullying + Profanity
+================================================================================
+Input Message: Everyone bullies me and this is damn annoying
+
+Result:
+  Safe: True
+  Flags: ['profanity']
+  Severity: low
+  Action: gentle_educate
+  Notify Parent: False
+  Response Message: I noticed you used some words that aren't very nice. Let's try to use more respectful language together!
+
+Instead of words like "stupid" or "dumb," we can say things like:
+- "I disagree with that"
+- "...
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: True
+    profanity_words: [{'word': 'damn', 'severity': 'mild'}]
+    highest_severity: mild
+    censored_message: Everyone bullies me and this is *** annoying
+    action: gentle_educate
+    response_message: I noticed you used some words that aren't very nice. Let's try to use more respectful language together!
+
+Instead of words like "stupid" or "dumb," we can say things like:
+- "I disagree with that"
+- "That's confusing"
+- "I don't understand"
+
+Using kind words helps everyone feel respected. What did you want to talk about?
+    allow_message: True
+
+
+################################################################################
+# CATEGORY 8: REALISTIC STUDENT SCENARIOS
+################################################################################
+
+================================================================================
+TEST: Frustrated Student
+================================================================================
+Input Message: This math homework is so hard and stupid!
+
+Result:
+  Safe: True
+  Flags: ['profanity']
+  Severity: low
+  Action: gentle_educate
+  Notify Parent: False
+  Response Message: I noticed you used some words that aren't very nice. Let's try to use more respectful language together!
+
+Instead of words like "stupid" or "dumb," we can say things like:
+- "I disagree with that"
+- "...
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: True
+    profanity_words: [{'word': 'stupid', 'severity': 'mild'}]
+    highest_severity: mild
+    censored_message: This math homework is so hard and ***!
+    action: gentle_educate
+    response_message: I noticed you used some words that aren't very nice. Let's try to use more respectful language together!
+
+Instead of words like "stupid" or "dumb," we can say things like:
+- "I disagree with that"
+- "That's confusing"
+- "I don't understand"
+
+Using kind words helps everyone feel respected. What did you want to talk about?
+    allow_message: True
+
+================================================================================
+TEST: Stressed Student
+================================================================================
+Input Message: I have so much homework and I'm really stressed
+
+Result:
+  Safe: True
+  Flags: []
+  Severity: none
+  Action: allow
+  Notify Parent: False
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: I have so much homework and I'm really stressed
+    action: allow
+    response_message: 
+    allow_message: True
+
+================================================================================
+TEST: Student in Crisis
+================================================================================
+Input Message: I failed my test and now I feel like I want to hurt myself
+
+Result:
+  Safe: False
+  Flags: ['crisis']
+  Severity: critical
+  Action: crisis_response
+  Notify Parent: True
+  Response Message: I'm really concerned about what you shared with me.
+Your feelings matter, but I'm not equipped to help with something like this.
+
+Please talk to a trusted adult right away - like your parents, a teach...
+
+Details:
+  crisis:
+    detected: True
+    primary_category: self_harm
+    all_categories: ['self_harm']
+    keywords_found: [{'keyword': 'hurt myself', 'category': 'self_harm', 'severity': 'critical'}]
+
+================================================================================
+TEST: Student Reporting Bullying
+================================================================================
+Input Message: The kids at school keep making fun of me
+
+Result:
+  Safe: True
+  Flags: ['bullying']
+  Severity: medium
+  Action: supportive_response
+  Notify Parent: False
+  Response Message: I'm really sorry you're dealing with that, friend. Bullying is never okay, and what you're feeling is completely valid.
+
+Here's what might help:
+1. Talk to a trusted adult (parent, teacher, school cou...
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: The kids at school keep making fun of me
+    action: allow
+    response_message: 
+    allow_message: True
+  bullying:
+    detected: True
+    primary_category: verbal_bullying
+    all_categories: ['verbal_bullying']
+    keywords_found: [{'keyword': 'making fun of me', 'category': 'verbal_bullying', 'severity': 'medium'}]
+
+================================================================================
+TEST: Student Seeking Help
+================================================================================
+Input Message: I don't understand this assignment, can you help?
+
+Result:
+  Safe: True
+  Flags: []
+  Severity: none
+  Action: allow
+  Notify Parent: False
+
+Details:
+  inappropriate_request:
+    is_inappropriate: False
+    categories: []
+    highest_severity: none
+    matched_patterns: []
+    action: allow
+    response_message: 
+    should_block: False
+  profanity:
+    contains_profanity: False
+    profanity_words: []
+    highest_severity: none
+    censored_message: I don't understand this assignment, can you help?
+    action: allow
+    response_message: 
+    allow_message: True
+
+
+################################################################################
+# SERVICE STATISTICS
+################################################################################
+{
+  "crisis_keyword_list": {
+    "suicide_keywords": 30,
+    "self_harm_keywords": 30,
+    "abuse_physical_keywords": 49,
+    "abuse_emotional_keywords": 44,
+    "abuse_sexual_keywords": 30,
+    "total_keywords": 183
+  },
+  "profanity_word_list": {
+    "total": 118,
+    "mild": 25,
+    "moderate": 31,
+    "severe": 31,
+    "variations": 33,
+    "exceptions": 23
+  },
+  "profanity_filter": {
+    "enabled": true,
+    "total_words": 118,
+    "mild_words": 25,
+    "moderate_words": 31,
+    "severe_words": 31,
+    "active_users_tracked": 8,
+    "total_violations_tracked": 8
+  },
+  "inappropriate_detector": {
+    "violence_patterns": 11,
+    "sexual_patterns": 9,
+    "illegal_patterns": 15,
+    "manipulation_patterns": 11,
+    "bypass_patterns": 11,
+    "harmful_advice_patterns": 7,
+    "personal_info_patterns": 4,
+    "total_patterns": 68
+  },
+  "bullying_keyword_list": {
+    "physical_bullying_keywords": 18,
+    "verbal_bullying_keywords": 18,
+    "social_exclusion_keywords": 27,
+    "cyberbullying_keywords": 15,
+    "threat_keywords": 6,
+    "emotional_impact_keywords": 19,
+    "total_keywords": 103
+  },
+  "severity_scorer": {
+    "severity_levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "critical"
+    ],
+    "parent_notification_threshold": "high",
+    "message_blocking_threshold": "high",
+    "total_levels": 5
+  },
+  "crisis_response_templates": {
+    "total_categories": 5,
+    "categories": [
+      "suicide",
+      "self_harm",
+      "abuse_physical",
+      "abuse_emotional",
+      "abuse_sexual"
+    ],
+    "total_resources": 10,
+    "resource_categories": [
+      "suicide",
+      "self_harm",
+      "abuse_physical",
+      "abuse_emotional",
+      "abuse_sexual"
+    ]
+  }
+}
+
+
+================================================================================
+TESTING COMPLETE
+================================================================================
