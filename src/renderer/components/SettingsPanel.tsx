@@ -6,12 +6,15 @@
 import React, { useState } from 'react';
 import { useProfile } from '../hooks/useProfile';
 import { useAvatar } from '../hooks/useAvatar';
+import { useTheme } from '../hooks/useTheme';
 import { AvatarSelector } from './AvatarSelector';
 import { AvatarDisplay } from './AvatarDisplay';
+import { ThemeToggle } from './ThemeToggle';
 
 export const SettingsPanel: React.FC = () => {
   const { profile, updateProfile, isLoading } = useProfile();
   const { avatarId, updateAvatar } = useAvatar();
+  const { theme } = useTheme();
 
   // Local state for form
   const [formData, setFormData] = useState({
@@ -61,19 +64,19 @@ export const SettingsPanel: React.FC = () => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 pb-16">
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 pb-16">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <h2 className="text-2xl font-bold text-gray-800">Settings</h2>
-        <p className="text-sm text-gray-600 mt-1">Manage your profile and preferences</p>
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Settings</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Manage your profile and preferences</p>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-2xl mx-auto space-y-6">
           {/* Avatar Selection */}
-          <div className="bg-white rounded-lg p-6 border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
               <span>🎨</span>
               <span>Avatar</span>
             </h3>
@@ -83,12 +86,12 @@ export const SettingsPanel: React.FC = () => {
               <AvatarDisplay avatarId={avatarId} size="xlarge" showBorder />
 
               <div className="flex-1">
-                <p className="text-sm text-gray-600 mb-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                   Choose an avatar to personalize your profile
                 </p>
                 <button
                   onClick={() => setShowAvatarSelector(!showAvatarSelector)}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+                  className="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors text-sm font-medium"
                 >
                   {showAvatarSelector ? 'Hide Avatar Selector' : 'Change Avatar'}
                 </button>
@@ -107,9 +110,29 @@ export const SettingsPanel: React.FC = () => {
             )}
           </div>
 
+          {/* Theme Settings */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
+              <span>🌓</span>
+              <span>Appearance</span>
+            </h3>
+
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Theme
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Choose between light and dark mode
+                </p>
+              </div>
+              <ThemeToggle showLabels={true} />
+            </div>
+          </div>
+
           {/* Profile Information */}
-          <div className="bg-white rounded-lg p-6 border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
               <span>👤</span>
               <span>Profile Information</span>
             </h3>
@@ -117,7 +140,7 @@ export const SettingsPanel: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Your Name
                 </label>
                 <input
@@ -125,14 +148,14 @@ export const SettingsPanel: React.FC = () => {
                   value={formData.name}
                   onChange={(e) => handleChange('name', e.target.value)}
                   placeholder="Enter your name"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                   maxLength={50}
                 />
               </div>
 
               {/* Age */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Age</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Age</label>
                 <input
                   type="number"
                   value={formData.age}
@@ -140,19 +163,19 @@ export const SettingsPanel: React.FC = () => {
                   placeholder="Enter your age"
                   min={1}
                   max={120}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                 />
               </div>
 
               {/* Grade */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Grade
                 </label>
                 <select
                   value={formData.grade}
                   onChange={(e) => handleChange('grade', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                 >
                   <option value="">Select grade</option>
                   <option value="1">1st Grade</option>
@@ -175,20 +198,20 @@ export const SettingsPanel: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isLoading || saveStatus === 'saving'}
-                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                  className="px-6 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
                 >
                   {saveStatus === 'saving' ? 'Saving...' : 'Save Changes'}
                 </button>
 
                 {/* Save status */}
                 {saveStatus === 'success' && (
-                  <span className="text-sm text-green-600 flex items-center gap-1">
+                  <span className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
                     <span>✓</span>
                     <span>Saved successfully!</span>
                   </span>
                 )}
                 {saveStatus === 'error' && (
-                  <span className="text-sm text-red-600 flex items-center gap-1">
+                  <span className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
                     <span>✗</span>
                     <span>Failed to save</span>
                   </span>
@@ -198,21 +221,21 @@ export const SettingsPanel: React.FC = () => {
           </div>
 
           {/* Privacy & Data */}
-          <div className="bg-white rounded-lg p-6 border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
               <span>🔒</span>
               <span>Privacy & Data</span>
             </h3>
 
             <div className="space-y-4">
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
                 <div className="flex items-start gap-3">
                   <span className="text-2xl">✓</span>
                   <div>
-                    <div className="font-medium text-green-800 mb-1">
+                    <div className="font-medium text-green-800 dark:text-green-300 mb-1">
                       All data stored locally
                     </div>
-                    <p className="text-sm text-green-700">
+                    <p className="text-sm text-green-700 dark:text-green-400">
                       Your conversations and data are stored only on your computer. Nothing
                       is sent to the cloud or shared with third parties.
                     </p>
@@ -220,14 +243,14 @@ export const SettingsPanel: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <div className="flex items-start gap-3">
                   <span className="text-2xl">🤖</span>
                   <div>
-                    <div className="font-medium text-blue-800 mb-1">
+                    <div className="font-medium text-blue-800 dark:text-blue-300 mb-1">
                       Local AI processing
                     </div>
-                    <p className="text-sm text-blue-700">
+                    <p className="text-sm text-blue-700 dark:text-blue-400">
                       The AI model runs entirely on your device. No internet connection
                       required for chatting.
                     </p>
@@ -238,32 +261,32 @@ export const SettingsPanel: React.FC = () => {
           </div>
 
           {/* About */}
-          <div className="bg-white rounded-lg p-6 border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
               <span>ℹ️</span>
               <span>About</span>
             </h3>
 
-            <div className="space-y-3 text-sm text-gray-600">
+            <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
               <div className="flex items-center justify-between">
                 <span>Version</span>
-                <span className="font-medium text-gray-800">0.1.0</span>
+                <span className="font-medium text-gray-800 dark:text-gray-200">0.1.0</span>
               </div>
               <div className="flex items-center justify-between">
                 <span>Backend Status</span>
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  <span className="font-medium text-green-600">Connected</span>
+                  <span className="w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full"></span>
+                  <span className="font-medium text-green-600 dark:text-green-400">Connected</span>
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span>Database</span>
-                <span className="font-medium text-gray-800">SQLite (Local)</span>
+                <span className="font-medium text-gray-800 dark:text-gray-200">SQLite (Local)</span>
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <p className="text-xs text-gray-500 text-center">
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
                 Chatbot Friend is a safe, private companion for preteens.
                 <br />
                 Designed with safety and privacy in mind.
@@ -272,25 +295,25 @@ export const SettingsPanel: React.FC = () => {
           </div>
 
           {/* Advanced Settings */}
-          <div className="bg-white rounded-lg p-6 border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
               <span>⚙️</span>
               <span>Advanced</span>
             </h3>
 
             <div className="space-y-3">
-              <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors">
+              <button className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 transition-colors">
                 View conversation history
               </button>
-              <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors">
+              <button className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 transition-colors">
                 Export memory book (PDF)
               </button>
-              <button className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors">
+              <button className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 transition-colors">
                 Clear all conversation data
               </button>
             </div>
 
-            <p className="text-xs text-gray-500 mt-4">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
               Note: Advanced features are coming soon!
             </p>
           </div>

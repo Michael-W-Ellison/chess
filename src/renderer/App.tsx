@@ -12,7 +12,7 @@ function App() {
   const [currentView, setCurrentView] = useState<'chat' | 'profile' | 'settings' | 'parent'>('chat');
 
   return (
-    <div className="app h-screen flex flex-col bg-gray-50">
+    <div className="app h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
       {/* Render appropriate view */}
       {currentView === 'chat' && <ChatWindow />}
       {currentView === 'profile' && <ProfilePanel />}
@@ -20,14 +20,14 @@ function App() {
       {currentView === 'parent' && <ParentDashboard />}
 
       {/* Global navigation overlay (bottom) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg transition-colors">
         <nav className="flex items-center justify-around max-w-2xl mx-auto px-4 py-3">
           <button
             onClick={() => setCurrentView('chat')}
             className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
               currentView === 'chat'
-                ? 'text-blue-600 bg-blue-50'
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/50 dark:text-blue-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
             <span className="text-2xl">💬</span>
@@ -37,8 +37,8 @@ function App() {
             onClick={() => setCurrentView('profile')}
             className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
               currentView === 'profile'
-                ? 'text-blue-600 bg-blue-50'
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/50 dark:text-blue-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
             <span className="text-2xl">🤖</span>
@@ -48,8 +48,8 @@ function App() {
             onClick={() => setCurrentView('settings')}
             className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
               currentView === 'settings'
-                ? 'text-blue-600 bg-blue-50'
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/50 dark:text-blue-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
             <span className="text-2xl">⚙️</span>
@@ -59,8 +59,8 @@ function App() {
             onClick={() => setCurrentView('parent')}
             className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
               currentView === 'parent'
-                ? 'text-blue-600 bg-blue-50'
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/50 dark:text-blue-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
             <span className="text-2xl">👨‍👩‍👧</span>
