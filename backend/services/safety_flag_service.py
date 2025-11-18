@@ -97,7 +97,8 @@ class SafetyFlagService:
         db: Session,
         user_id: int,
         limit: Optional[int] = None,
-        offset: int = 0
+        offset: int = 0,
+        since_date: Optional[datetime] = None
     ) -> List[SafetyFlag]:
         """
         Get all safety flags for a user
@@ -107,13 +108,19 @@ class SafetyFlagService:
             user_id: User ID
             limit: Optional limit on number of results
             offset: Number of results to skip
+            since_date: Optional date filter (flags after this date)
 
         Returns:
             List of SafetyFlag objects ordered by timestamp (newest first)
         """
         query = db.query(SafetyFlag).filter(
             SafetyFlag.user_id == user_id
-        ).order_by(SafetyFlag.timestamp.desc())
+        )
+
+        if since_date:
+            query = query.filter(SafetyFlag.timestamp >= since_date)
+
+        query = query.order_by(SafetyFlag.timestamp.desc())
 
         if limit:
             query = query.limit(limit).offset(offset)

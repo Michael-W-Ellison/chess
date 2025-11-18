@@ -21,30 +21,34 @@ export const useSafetyStatistics = (userId: number, sinceDays: number | null) =>
 
   useEffect(() => {
     const fetchStatistics = async () => {
-      try {
+      try:
         setIsLoading(true);
         setError(null);
 
-        // TODO: Replace with actual API call
-        // const url = sinceDays
-        //   ? `http://localhost:8000/api/parent/statistics?user_id=${userId}&since_days=${sinceDays}`
-        //   : `http://localhost:8000/api/parent/statistics?user_id=${userId}`;
-        // const response = await fetch(url);
-        // const data = await response.json();
+        const baseUrl = 'http://localhost:8000/api/parent/safety-flags/stats';
+        const url = sinceDays
+          ? `${baseUrl}?user_id=${userId}&since_days=${sinceDays}`
+          : `${baseUrl}?user_id=${userId}`;
 
-        // Mock data for now
-        const mockData: Statistics = {
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch statistics: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        setStatistics(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch statistics');
+        // Set default statistics on error
+        setStatistics({
           total_flags: 0,
           by_severity: { critical: 0, high: 0, medium: 0, low: 0 },
           by_type: {},
           parent_notified: 0,
           parent_unnotified: 0,
           last_24_hours: 0,
-        };
-
-        setStatistics(mockData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch statistics');
+        });
       } finally {
         setIsLoading(false);
       }

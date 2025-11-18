@@ -418,6 +418,99 @@ async def get_recent_safety_flags(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/safety-flags/stats", response_model=SafetyStatsResponse)
+async def get_safety_flags_statistics(
+    user_id: int = Query(..., description="Child's user ID"),
+    since_days: Optional[int] = Query(None, ge=1, le=365, description="Calculate stats from last N days"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get safety flags statistics for a child
+
+    Provides aggregate statistics including:
+    - Total number of flags
+    - Breakdown by severity
+    - Breakdown by type
+    - Count of flags where parent was notified vs not notified
+    - Flags from last 24 hours
+
+    Args:
+        user_id: Child's user ID
+        since_days: Optional - only calculate stats from last N days
+        db: Database session
+
+    Returns:
+        Safety flags statistics
+    """
+    try:
+        since_date = None
+        if since_days:
+            since_date = datetime.now() - timedelta(days=since_days)
+
+        # Get all flags for the user (optionally filtered by date)
+        all_flags = safety_flag_service.get_by_user(
+            db,
+            user_id,
+            limit=1000,  # Large limit to get all
+            since_date=since_date
+        )
+
+        # Calculate statistics
+        total_flags = len(all_flags)
+
+        # By severity
+        by_severity = {
+            "critical": 0,
+            "high": 0,
+            "medium": 0,
+            "low": 0
+        }
+
+        # By type
+        by_type = {}
+
+        # Notification counts
+        parent_notified = 0
+        parent_unnotified = 0
+
+        # Last 24 hours
+        last_24_hours = 0
+        cutoff_time = datetime.now() - timedelta(hours=24)
+
+        for flag in all_flags:
+            # Severity
+            severity = flag.severity.lower()
+            if severity in by_severity:
+                by_severity[severity] += 1
+
+            # Type
+            flag_type = flag.flag_type
+            by_type[flag_type] = by_type.get(flag_type, 0) + 1
+
+            # Notification status
+            if flag.parent_notified:
+                parent_notified += 1
+            else:
+                parent_unnotified += 1
+
+            # Last 24 hours
+            if flag.timestamp and flag.timestamp >= cutoff_time:
+                last_24_hours += 1
+
+        return SafetyStatsResponse(
+            total_flags=total_flags,
+            by_severity=by_severity,
+            by_type=by_type,
+            parent_notified=parent_notified,
+            parent_unnotified=parent_unnotified,
+            last_24_hours=last_24_hours
+        )
+
+    except Exception as e:
+        logger.error(f"Error getting safety flags statistics: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/safety-flags/{flag_id}", response_model=SafetyFlagResponse)
 async def get_safety_flag_detail(
     flag_id: int,

@@ -17,7 +17,7 @@ export const SafetyFlagsList: React.FC<SafetyFlagsListProps> = ({ userId }) => {
   const [filter, setFilter] = useState<FilterType>('all');
   const [sort, setSort] = useState<SortType>('newest');
   const [selectedFlag, setSelectedFlag] = useState<number | null>(null);
-  const { flags, isLoading, error } = useSafetyFlags(userId, filter);
+  const { flags, isLoading, error, refetch } = useSafetyFlags(userId, filter);
 
   const filters = [
     { id: 'all' as FilterType, label: 'All Flags', icon: '📋' },
@@ -31,15 +31,23 @@ export const SafetyFlagsList: React.FC<SafetyFlagsListProps> = ({ userId }) => {
 
   const handleMarkAsReviewed = async (flagId: number) => {
     try {
-      // TODO: Replace with actual API call
-      // await fetch(`http://localhost:8000/api/parent/safety-flags/${flagId}/mark-notified`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      // });
-      console.log(`Marked flag ${flagId} as reviewed`);
-      // Refresh flags list
+      const response = await fetch(
+        `http://localhost:8000/api/parent/safety-flags/${flagId}/acknowledge?user_id=${userId}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to mark flag as reviewed: ${response.statusText}`);
+      }
+
+      // Refresh flags list to reflect the change
+      refetch();
     } catch (err) {
       console.error('Failed to mark flag as reviewed:', err);
+      alert('Failed to mark flag as reviewed. Please try again.');
     }
   };
 
