@@ -8,8 +8,9 @@ import { SafetyOverview } from './parent/SafetyOverview';
 import { SafetyFlagsList } from './parent/SafetyFlagsList';
 import { SafetyStatistics } from './parent/SafetyStatistics';
 import { NotificationPreferences } from './parent/NotificationPreferences';
+import { ConversationStatistics } from './parent/ConversationStatistics';
 
-type DashboardTab = 'overview' | 'flags' | 'statistics' | 'preferences';
+type DashboardTab = 'overview' | 'flags' | 'statistics' | 'conversations' | 'preferences';
 
 export const ParentDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
@@ -19,6 +20,7 @@ export const ParentDashboard: React.FC = () => {
     { id: 'overview' as DashboardTab, label: 'Overview', icon: '📊' },
     { id: 'flags' as DashboardTab, label: 'Safety Flags', icon: '🚩' },
     { id: 'statistics' as DashboardTab, label: 'Statistics', icon: '📈' },
+    { id: 'conversations' as DashboardTab, label: 'Conversations', icon: '💬' },
     { id: 'preferences' as DashboardTab, label: 'Preferences', icon: '⚙️' },
   ];
 
@@ -67,6 +69,7 @@ export const ParentDashboard: React.FC = () => {
         {activeTab === 'overview' && <SafetyOverview userId={userId} />}
         {activeTab === 'flags' && <SafetyFlagsList userId={userId} />}
         {activeTab === 'statistics' && <SafetyStatistics userId={userId} />}
+        {activeTab === 'conversations' && <ConversationStatistics userId={userId} />}
         {activeTab === 'preferences' && <NotificationPreferences userId={userId} />}
       </div>
     </div>
