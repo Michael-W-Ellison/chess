@@ -6,6 +6,7 @@
 import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { Achievement, ACHIEVEMENTS, getAchievementById } from '../../shared/achievements';
 import { AchievementNotification } from '../components/AchievementNotification';
+import { useLogin } from '../hooks/useLogin';
 
 const ACHIEVEMENT_STORAGE_KEY = 'user_achievements';
 const STATS_STORAGE_KEY = 'user_stats';
@@ -85,6 +86,7 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
   const [recentAchievements, setRecentAchievements] = useState<RecentAchievement[]>([]);
   const [stats, setStats] = useState<UserStats>(DEFAULT_STATS);
   const [notificationQueue, setNotificationQueue] = useState<Achievement[]>([]);
+  const loginContext = useLogin();
 
   /**
    * Load achievements and stats from localStorage
@@ -108,6 +110,19 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
       console.error('Failed to load achievement data:', error);
     }
   }, []);
+
+  /**
+   * Check login streak achievements when login stats change
+   */
+  useEffect(() => {
+    if (loginContext.stats.currentStreak > 0) {
+      // Delay to ensure login stats are persisted
+      const timer = setTimeout(() => {
+        checkAndUnlockAchievements();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [loginContext.stats.currentStreak, checkAndUnlockAchievements]);
 
   /**
    * Save achievements to localStorage
@@ -163,6 +178,9 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
         case 'daily_streak':
           currentValue = stats.dailyStreak;
           break;
+        case 'login_streak':
+          currentValue = loginContext.stats.currentStreak;
+          break;
         case 'session_length':
           currentValue = stats.longestSessionMinutes;
           break;
@@ -194,7 +212,7 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
       const progress = Math.min((currentValue / condition.value) * 100, 100);
       return Math.round(progress);
     },
-    [stats, isUnlocked]
+    [stats, loginContext.stats, isUnlocked]
   );
 
   /**
@@ -261,6 +279,9 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
         case 'daily_streak':
           shouldUnlock = stats.dailyStreak >= condition.value;
           break;
+        case 'login_streak':
+          shouldUnlock = loginContext.stats.currentStreak >= condition.value;
+          break;
         case 'session_length':
           shouldUnlock = stats.longestSessionMinutes >= condition.value;
           break;
@@ -305,7 +326,7 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
         unlockAchievement(achievement.id);
       }
     });
-  }, [stats, isUnlocked, unlockAchievement]);
+  }, [stats, loginContext.stats.currentStreak, isUnlocked, unlockAchievement]);
 
   /**
    * Update stats

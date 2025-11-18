@@ -18,6 +18,7 @@ export interface UnlockCondition {
     | 'message_count' // Total messages sent
     | 'conversation_count' // Total conversations
     | 'daily_streak' // Consecutive days chatting
+    | 'login_streak' // Consecutive days logging in
     | 'session_length' // Minutes in a single session
     | 'word_count' // Total words exchanged
     | 'topic_diversity' // Number of different topics discussed
@@ -491,6 +492,97 @@ export const ACHIEVEMENTS: Achievement[] = [
     condition: { type: 'daily_streak', value: 7 },
     points: 100,
     rarity: 'epic',
+  },
+
+  // LOGIN STREAK ACHIEVEMENTS
+  {
+    id: 'login_streak_3',
+    name: 'Committed Learner',
+    description: 'Log in for 3 days in a row',
+    emoji: '📚',
+    category: 'milestones',
+    tier: 'bronze',
+    condition: { type: 'login_streak', value: 3 },
+    points: 25,
+    rarity: 'common',
+  },
+  {
+    id: 'login_streak_5',
+    name: 'Dedicated Student',
+    description: 'Log in for 5 days in a row',
+    emoji: '🎯',
+    category: 'milestones',
+    tier: 'bronze',
+    condition: { type: 'login_streak', value: 5 },
+    points: 35,
+    rarity: 'uncommon',
+  },
+  {
+    id: 'login_streak_7',
+    name: 'Weekly Warrior',
+    description: 'Log in for 7 days straight',
+    emoji: '⚡',
+    category: 'milestones',
+    tier: 'silver',
+    condition: { type: 'login_streak', value: 7 },
+    points: 50,
+    rarity: 'uncommon',
+  },
+  {
+    id: 'login_streak_14',
+    name: 'Two Week Champion',
+    description: 'Log in for 14 days in a row',
+    emoji: '💪',
+    category: 'milestones',
+    tier: 'silver',
+    condition: { type: 'login_streak', value: 14 },
+    points: 75,
+    rarity: 'rare',
+  },
+  {
+    id: 'login_streak_30',
+    name: 'Monthly Master',
+    description: 'Log in for 30 consecutive days',
+    emoji: '🏅',
+    category: 'milestones',
+    tier: 'gold',
+    condition: { type: 'login_streak', value: 30 },
+    points: 150,
+    rarity: 'rare',
+  },
+  {
+    id: 'login_streak_60',
+    name: 'Consistency King',
+    description: 'Log in for 60 days straight',
+    emoji: '👑',
+    category: 'milestones',
+    tier: 'platinum',
+    condition: { type: 'login_streak', value: 60 },
+    points: 250,
+    rarity: 'epic',
+  },
+  {
+    id: 'login_streak_100',
+    name: 'Centurion',
+    description: 'Achieve 100-day login streak',
+    emoji: '🎖️',
+    category: 'milestones',
+    tier: 'diamond',
+    condition: { type: 'login_streak', value: 100 },
+    points: 500,
+    rarity: 'legendary',
+  },
+  {
+    id: 'login_streak_365',
+    name: 'Year-Round Champion',
+    description: 'Log in every day for an entire year',
+    emoji: '🌟',
+    category: 'milestones',
+    tier: 'diamond',
+    condition: { type: 'login_streak', value: 365 },
+    points: 1000,
+    rarity: 'legendary',
+    hidden: true,
   },
 ];
 

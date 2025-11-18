@@ -9,11 +9,14 @@ import { useAvatar } from '../hooks/useAvatar';
 import { useTheme } from '../hooks/useTheme';
 import { useColor } from '../hooks/useColor';
 import { useAchievements } from '../hooks/useAchievements';
+import { useLogin } from '../hooks/useLogin';
 import { AvatarSelector } from './AvatarSelector';
 import { AvatarDisplay } from './AvatarDisplay';
 import { ThemeToggle } from './ThemeToggle';
 import { ColorSelector } from './ColorSelector';
 import { RecentAchievements } from './RecentAchievements';
+import { LoginStats } from './LoginStats';
+import { LoginCalendar } from './LoginCalendar';
 import { calculateTotalPoints, getAchievementProgress } from '../../shared/achievements';
 
 export const SettingsPanel: React.FC = () => {
@@ -22,6 +25,7 @@ export const SettingsPanel: React.FC = () => {
   const { theme } = useTheme();
   const { colorTheme } = useColor();
   const { unlockedAchievements, stats } = useAchievements();
+  const loginStats = useLogin();
 
   // Local state for form
   const [formData, setFormData] = useState({
@@ -351,6 +355,38 @@ export const SettingsPanel: React.FC = () => {
                 </h4>
                 <RecentAchievements limit={3} compact={true} />
               </div>
+            </div>
+          </div>
+
+          {/* Login Tracking & Activity */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
+              <span>📊</span>
+              <span>Activity Tracking</span>
+            </h3>
+
+            <div className="space-y-6">
+              {/* Login Stats */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                  <span>📈</span>
+                  <span>Login Statistics</span>
+                </h4>
+                <LoginStats compact={true} />
+              </div>
+
+              {/* Login Calendar */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                  <span>📅</span>
+                  <span>Login History (Last 90 Days)</span>
+                </h4>
+                <LoginCalendar months={3} />
+              </div>
+
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                Keep your login streak alive to unlock special achievements!
+              </p>
             </div>
           </div>
 

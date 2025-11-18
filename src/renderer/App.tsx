@@ -5,6 +5,7 @@ import SettingsPanel from './components/SettingsPanel';
 import ParentDashboard from './components/ParentDashboard';
 import AchievementsPanel from './components/AchievementsPanel';
 import { useAchievements } from './hooks/useAchievements';
+import { useLogin } from './hooks/useLogin';
 
 /**
  * Main application component
@@ -13,6 +14,7 @@ import { useAchievements } from './hooks/useAchievements';
 function App() {
   const [currentView, setCurrentView] = useState<'chat' | 'profile' | 'achievements' | 'settings' | 'parent'>('chat');
   const { trackSessionStart, trackSessionEnd, recentAchievements } = useAchievements();
+  const { recordLogin } = useLogin();
 
   // Count unseen achievements (within last hour)
   const unseenCount = recentAchievements.filter((recent) => {
@@ -21,14 +23,15 @@ function App() {
     return now - unlockTime < 3600000; // 1 hour
   }).length;
 
-  // Track session on mount and unmount
+  // Track session and login on mount and unmount
   useEffect(() => {
+    recordLogin();
     trackSessionStart();
 
     return () => {
       trackSessionEnd();
     };
-  }, [trackSessionStart, trackSessionEnd]);
+  }, [recordLogin, trackSessionStart, trackSessionEnd]);
 
   return (
     <div className="app h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
