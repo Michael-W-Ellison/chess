@@ -32,6 +32,12 @@ from services.report_scheduler import report_scheduler
 from services.auth_service import auth_service
 from utils.auth_dependencies import get_current_user, RequireAuth
 from utils.config import settings
+from utils.rate_limiter import auth_rate_limiter
+from utils.password_validation import (
+    validate_password,
+    is_common_password,
+    get_password_requirements
+)
 
 logger = logging.getLogger("chatbot.routes.parent")
 
@@ -71,6 +77,8 @@ async def login(request: LoginRequest):
     The token should be included in the Authorization header for subsequent
     requests as: Authorization: Bearer <token>
 
+    Rate limited: 5 attempts per 15 minutes
+
     Args:
         request: Login request with password
 
@@ -78,13 +86,26 @@ async def login(request: LoginRequest):
         Access token and metadata
 
     Raises:
+        HTTPException: 429 if rate limited
         HTTPException: 401 if authentication fails
         HTTPException: 403 if authentication not configured
     """
     try:
+        # Rate limiting (use "parent_login" as identifier since we have one password)
+        identifier = "parent_login"
+
+        if not auth_rate_limiter.is_allowed(identifier):
+            lockout_info = auth_rate_limiter.get_lockout_info(identifier)
+            logger.warning(f"Rate limit exceeded for login attempt")
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many login attempts. Please try again in {lockout_info['remaining_time']}."
+            )
+
         # Check if password protection is enabled
         if not settings.PARENT_DASHBOARD_REQUIRE_PASSWORD:
             logger.info("Password protection disabled - generating unrestricted token")
+            auth_rate_limiter.clear_attempts(identifier)
             token = auth_service.create_access_token(
                 data={"sub": "parent", "access": "unrestricted"}
             )
@@ -104,11 +125,26 @@ async def login(request: LoginRequest):
 
         # Authenticate
         if not auth_service.authenticate(request.password):
-            logger.warning("Login attempt failed - invalid password")
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid password"
-            )
+            # Record failed attempt
+            auth_rate_limiter.record_attempt(identifier)
+            remaining = auth_rate_limiter.get_remaining_attempts(identifier)
+
+            logger.warning(f"Login attempt failed - invalid password ({remaining} attempts remaining)")
+
+            if remaining > 0:
+                raise HTTPException(
+                    status_code=401,
+                    detail=f"Invalid password. {remaining} attempt{'s' if remaining != 1 else ''} remaining."
+                )
+            else:
+                lockout_info = auth_rate_limiter.get_lockout_info(identifier)
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Too many failed attempts. Account locked for {lockout_info['remaining_time']}."
+                )
+
+        # Clear attempts on successful login
+        auth_rate_limiter.clear_attempts(identifier)
 
         # Create access token
         token = auth_service.create_access_token(
@@ -166,6 +202,250 @@ async def verify_auth(current_user: dict = RequireAuth):
         "authenticated": True,
         "user": current_user.get("sub"),
         "message": "Token is valid"
+    }
+
+
+class ChangePasswordRequest(BaseModel):
+    """Change password request"""
+    current_password: str
+    new_password: str
+
+
+class SetupPasswordRequest(BaseModel):
+    """Initial password setup request"""
+    password: str
+
+
+class PasswordValidationResponse(BaseModel):
+    """Password validation result"""
+    valid: bool
+    errors: List[str]
+    strength: str
+
+
+@router.post("/auth/change-password")
+async def change_password(
+    request: ChangePasswordRequest,
+    current_user: dict = RequireAuth
+):
+    """
+    Change parent dashboard password
+
+    Requires authentication. User must provide current password
+    and a new password that meets strength requirements.
+
+    Args:
+        request: Password change request
+        current_user: Current user from token
+
+    Returns:
+        Success message
+
+    Raises:
+        HTTPException: 400 if validation fails
+        HTTPException: 401 if current password is wrong
+        HTTPException: 403 if password protection disabled
+    """
+    try:
+        # Check if password protection is enabled
+        if not settings.PARENT_DASHBOARD_REQUIRE_PASSWORD:
+            raise HTTPException(
+                status_code=403,
+                detail="Password protection is disabled. Enable it in configuration first."
+            )
+
+        # Check if authentication is configured
+        if not auth_service.is_configured:
+            raise HTTPException(
+                status_code=403,
+                detail="Authentication not properly configured"
+            )
+
+        # Verify current password
+        if not auth_service.authenticate(request.current_password):
+            logger.warning("Password change failed - invalid current password")
+            raise HTTPException(
+                status_code=401,
+                detail="Current password is incorrect"
+            )
+
+        # Validate new password
+        validation = validate_password(request.new_password)
+        if not validation["valid"]:
+            logger.warning(f"Password change failed - validation errors: {validation['errors']}")
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "New password does not meet requirements",
+                    "errors": validation["errors"],
+                    "requirements": get_password_requirements()
+                }
+            )
+
+        # Check if new password is common
+        if is_common_password(request.new_password):
+            logger.warning("Password change failed - common password")
+            raise HTTPException(
+                status_code=400,
+                detail="This password is too common. Please choose a more unique password."
+            )
+
+        # Check if new password is same as current
+        if request.current_password == request.new_password:
+            raise HTTPException(
+                status_code=400,
+                detail="New password must be different from current password"
+            )
+
+        # Hash new password
+        new_hash = auth_service.hash_password(request.new_password)
+
+        logger.info("Password changed successfully")
+        logger.warning(
+            "IMPORTANT: Update PARENT_DASHBOARD_PASSWORD in .env file with new hash:\n"
+            f"PARENT_DASHBOARD_PASSWORD={new_hash}"
+        )
+
+        return {
+            "success": True,
+            "message": "Password changed successfully",
+            "new_password_hash": new_hash,
+            "instructions": "Update PARENT_DASHBOARD_PASSWORD in your .env file with the new hash and restart the server"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error changing password: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/auth/setup-password")
+async def setup_password(request: SetupPasswordRequest):
+    """
+    Initial password setup
+
+    This endpoint is used for first-time password setup.
+    It should only be used when no password is configured.
+
+    Args:
+        request: Password setup request
+
+    Returns:
+        Hashed password to add to configuration
+
+    Raises:
+        HTTPException: 400 if validation fails
+        HTTPException: 403 if password already configured
+    """
+    try:
+        # Check if password already configured
+        if settings.PARENT_DASHBOARD_PASSWORD:
+            raise HTTPException(
+                status_code=403,
+                detail="Password already configured. Use change-password endpoint instead."
+            )
+
+        # Validate password
+        validation = validate_password(request.password)
+        if not validation["valid"]:
+            logger.warning(f"Password setup failed - validation errors: {validation['errors']}")
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Password does not meet requirements",
+                    "errors": validation["errors"],
+                    "requirements": get_password_requirements()
+                }
+            )
+
+        # Check if password is common
+        if is_common_password(request.password):
+            logger.warning("Password setup failed - common password")
+            raise HTTPException(
+                status_code=400,
+                detail="This password is too common. Please choose a more unique password."
+            )
+
+        # Hash password
+        password_hash = auth_service.hash_password(request.password)
+
+        # Generate JWT secret if not set
+        jwt_secret = settings.JWT_SECRET_KEY
+        if not jwt_secret:
+            import secrets
+            jwt_secret = secrets.token_urlsafe(32)
+
+        logger.info("Initial password setup completed")
+
+        return {
+            "success": True,
+            "message": "Password setup complete",
+            "password_hash": password_hash,
+            "jwt_secret": jwt_secret,
+            "instructions": (
+                "Add these to your .env file:\n"
+                f"PARENT_DASHBOARD_PASSWORD={password_hash}\n"
+                f"JWT_SECRET_KEY={jwt_secret}\n"
+                "Then restart the server."
+            )
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error setting up password: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/auth/validate-password", response_model=PasswordValidationResponse)
+async def validate_password_endpoint(request: SetupPasswordRequest):
+    """
+    Validate password strength
+
+    Test if a password meets the requirements without saving it.
+    Useful for client-side validation feedback.
+
+    Args:
+        request: Password to validate
+
+    Returns:
+        Validation result with errors and strength
+    """
+    try:
+        validation = validate_password(request.password)
+
+        # Add common password check
+        if validation["valid"] and is_common_password(request.password):
+            validation["valid"] = False
+            validation["errors"].append("Password is too common")
+
+        return PasswordValidationResponse(**validation)
+
+    except Exception as e:
+        logger.error(f"Error validating password: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/auth/requirements")
+async def get_requirements():
+    """
+    Get password requirements
+
+    Returns the password strength requirements that must be met.
+
+    Returns:
+        Password requirements as text
+    """
+    return {
+        "requirements": get_password_requirements(),
+        "min_length": 8,
+        "requires": {
+            "uppercase": True,
+            "lowercase": True,
+            "digit": True,
+            "special": True
+        }
     }
 
 
