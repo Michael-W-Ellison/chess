@@ -38,6 +38,7 @@ class User(Base):
     safety_flags = relationship("SafetyFlag", back_populates="user", cascade="all, delete-orphan")
     level_up_events = relationship("LevelUpEvent", back_populates="user", cascade="all, delete-orphan", order_by="LevelUpEvent.timestamp.desc()")
     personality_drifts = relationship("PersonalityDrift", back_populates="user", cascade="all, delete-orphan", order_by="PersonalityDrift.timestamp.desc()")
+    parent_preferences = relationship("ParentNotificationPreferences", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User(id={self.id}, name='{self.name}', age={self.age})>"

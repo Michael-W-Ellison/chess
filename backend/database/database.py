@@ -80,6 +80,7 @@ def init_db() -> None:
         safety,
         level_up_event,
         personality_drift,
+        parent_preferences,
     )
 
     # Create all tables
@@ -142,6 +143,7 @@ def reset_database() -> None:
         safety,
         level_up_event,
         personality_drift,
+        parent_preferences,
     )
 
     # Drop all tables

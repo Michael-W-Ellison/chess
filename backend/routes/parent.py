@@ -15,6 +15,7 @@ from models.user import User
 from models.safety import SafetyFlag
 from services.safety_flag_service import safety_flag_service
 from services.parent_notification_service import parent_notification_service
+from services.parent_preferences_service import parent_preferences_service
 
 logger = logging.getLogger("chatbot.routes.parent")
 
@@ -644,4 +645,265 @@ async def acknowledge_multiple_flags(
         raise
     except Exception as e:
         logger.error(f"Error acknowledging multiple safety flags: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Parent Notification Preferences Endpoints
+# ============================================================================
+
+
+class PreferencesResponse(BaseModel):
+    """Parent notification preferences"""
+    id: int
+    user_id: int
+    email_notifications_enabled: bool
+    instant_notification_min_severity: str
+    severity_filters: Dict[str, bool]
+    flag_type_filters: Dict[str, bool]
+    summary_settings: Dict[str, Optional[int | str]]
+    content_settings: Dict[str, bool | int]
+    quiet_hours: Dict[str, bool | Optional[int]]
+    created_at: str
+    updated_at: str
+
+
+class PreferencesUpdateRequest(BaseModel):
+    """Request model for updating preferences"""
+    email_notifications_enabled: Optional[bool] = None
+    instant_notification_min_severity: Optional[str] = None
+    notify_on_critical: Optional[bool] = None
+    notify_on_high: Optional[bool] = None
+    notify_on_medium: Optional[bool] = None
+    notify_on_low: Optional[bool] = None
+    notify_on_crisis: Optional[bool] = None
+    notify_on_abuse: Optional[bool] = None
+    notify_on_bullying: Optional[bool] = None
+    notify_on_profanity: Optional[bool] = None
+    notify_on_inappropriate: Optional[bool] = None
+    summary_frequency: Optional[str] = None
+    summary_day_of_week: Optional[int] = None
+    summary_hour: Optional[int] = None
+    include_content_snippets: Optional[bool] = None
+    max_snippet_length: Optional[int] = None
+    quiet_hours_enabled: Optional[bool] = None
+    quiet_hours_start: Optional[int] = None
+    quiet_hours_end: Optional[int] = None
+
+
+@router.get("/preferences", response_model=PreferencesResponse)
+async def get_notification_preferences(
+    user_id: int = Query(..., description="Child's user ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get parent notification preferences for a child
+
+    Args:
+        user_id: Child's user ID
+        db: Database session
+
+    Returns:
+        Parent notification preferences
+    """
+    try:
+        prefs = parent_preferences_service.get_preferences(db, user_id)
+
+        return PreferencesResponse(
+            id=prefs.id,
+            user_id=prefs.user_id,
+            email_notifications_enabled=prefs.email_notifications_enabled,
+            instant_notification_min_severity=prefs.instant_notification_min_severity,
+            severity_filters={
+                "critical": prefs.notify_on_critical,
+                "high": prefs.notify_on_high,
+                "medium": prefs.notify_on_medium,
+                "low": prefs.notify_on_low,
+            },
+            flag_type_filters={
+                "crisis": prefs.notify_on_crisis,
+                "abuse": prefs.notify_on_abuse,
+                "bullying": prefs.notify_on_bullying,
+                "profanity": prefs.notify_on_profanity,
+                "inappropriate": prefs.notify_on_inappropriate,
+            },
+            summary_settings={
+                "frequency": prefs.summary_frequency,
+                "day_of_week": prefs.summary_day_of_week,
+                "hour": prefs.summary_hour,
+            },
+            content_settings={
+                "include_snippets": prefs.include_content_snippets,
+                "max_snippet_length": prefs.max_snippet_length,
+            },
+            quiet_hours={
+                "enabled": prefs.quiet_hours_enabled,
+                "start": prefs.quiet_hours_start,
+                "end": prefs.quiet_hours_end,
+            },
+            created_at=prefs.created_at.isoformat() if prefs.created_at else "",
+            updated_at=prefs.updated_at.isoformat() if prefs.updated_at else "",
+        )
+
+    except Exception as e:
+        logger.error(f"Error getting notification preferences: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/preferences", response_model=PreferencesResponse)
+async def update_notification_preferences(
+    request: PreferencesUpdateRequest,
+    user_id: int = Query(..., description="Child's user ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Update parent notification preferences
+
+    Args:
+        request: Preference updates
+        user_id: Child's user ID
+        db: Database session
+
+    Returns:
+        Updated parent notification preferences
+    """
+    try:
+        # Convert request to updates dict, excluding None values
+        updates = {k: v for k, v in request.dict().items() if v is not None}
+
+        prefs = parent_preferences_service.update_preferences(db, user_id, updates)
+
+        return PreferencesResponse(
+            id=prefs.id,
+            user_id=prefs.user_id,
+            email_notifications_enabled=prefs.email_notifications_enabled,
+            instant_notification_min_severity=prefs.instant_notification_min_severity,
+            severity_filters={
+                "critical": prefs.notify_on_critical,
+                "high": prefs.notify_on_high,
+                "medium": prefs.notify_on_medium,
+                "low": prefs.notify_on_low,
+            },
+            flag_type_filters={
+                "crisis": prefs.notify_on_crisis,
+                "abuse": prefs.notify_on_abuse,
+                "bullying": prefs.notify_on_bullying,
+                "profanity": prefs.notify_on_profanity,
+                "inappropriate": prefs.notify_on_inappropriate,
+            },
+            summary_settings={
+                "frequency": prefs.summary_frequency,
+                "day_of_week": prefs.summary_day_of_week,
+                "hour": prefs.summary_hour,
+            },
+            content_settings={
+                "include_snippets": prefs.include_content_snippets,
+                "max_snippet_length": prefs.max_snippet_length,
+            },
+            quiet_hours={
+                "enabled": prefs.quiet_hours_enabled,
+                "start": prefs.quiet_hours_start,
+                "end": prefs.quiet_hours_end,
+            },
+            created_at=prefs.created_at.isoformat() if prefs.created_at else "",
+            updated_at=prefs.updated_at.isoformat() if prefs.updated_at else "",
+        )
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error updating notification preferences: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/preferences/enable-all")
+async def enable_all_notification_preferences(
+    user_id: int = Query(..., description="Child's user ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Enable all notification types and severities
+
+    Args:
+        user_id: Child's user ID
+        db: Database session
+
+    Returns:
+        Success message
+    """
+    try:
+        parent_preferences_service.enable_all_notifications(db, user_id)
+
+        logger.info(f"Enabled all notifications for user {user_id}")
+
+        return {
+            "success": True,
+            "message": "All notifications enabled",
+            "user_id": user_id
+        }
+
+    except Exception as e:
+        logger.error(f"Error enabling all notifications: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/preferences/disable-all")
+async def disable_all_notification_preferences(
+    user_id: int = Query(..., description="Child's user ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Disable all email notifications
+
+    Args:
+        user_id: Child's user ID
+        db: Database session
+
+    Returns:
+        Success message
+    """
+    try:
+        parent_preferences_service.disable_all_notifications(db, user_id)
+
+        logger.info(f"Disabled all notifications for user {user_id}")
+
+        return {
+            "success": True,
+            "message": "All notifications disabled",
+            "user_id": user_id
+        }
+
+    except Exception as e:
+        logger.error(f"Error disabling all notifications: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/preferences/reset")
+async def reset_notification_preferences(
+    user_id: int = Query(..., description="Child's user ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Reset notification preferences to defaults
+
+    Args:
+        user_id: Child's user ID
+        db: Database session
+
+    Returns:
+        Success message
+    """
+    try:
+        parent_preferences_service.reset_to_defaults(db, user_id)
+
+        logger.info(f"Reset notification preferences to defaults for user {user_id}")
+
+        return {
+            "success": True,
+            "message": "Preferences reset to defaults",
+            "user_id": user_id
+        }
+
+    except Exception as e:
+        logger.error(f"Error resetting preferences: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

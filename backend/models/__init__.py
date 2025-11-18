@@ -8,6 +8,7 @@ from models.personality import BotPersonality
 from models.conversation import Conversation, Message
 from models.memory import UserProfile
 from models.safety import SafetyFlag, AdviceTemplate
+from models.parent_preferences import ParentNotificationPreferences
 
 __all__ = [
     "User",
@@ -17,4 +18,5 @@ __all__ = [
     "UserProfile",
     "SafetyFlag",
     "AdviceTemplate",
+    "ParentNotificationPreferences",
 ]
