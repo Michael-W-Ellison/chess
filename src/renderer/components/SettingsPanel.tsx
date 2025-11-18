@@ -5,9 +5,13 @@
 
 import React, { useState } from 'react';
 import { useProfile } from '../hooks/useProfile';
+import { useAvatar } from '../hooks/useAvatar';
+import { AvatarSelector } from './AvatarSelector';
+import { AvatarDisplay } from './AvatarDisplay';
 
 export const SettingsPanel: React.FC = () => {
   const { profile, updateProfile, isLoading } = useProfile();
+  const { avatarId, updateAvatar } = useAvatar();
 
   // Local state for form
   const [formData, setFormData] = useState({
@@ -17,6 +21,7 @@ export const SettingsPanel: React.FC = () => {
   });
 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [showAvatarSelector, setShowAvatarSelector] = useState(false);
 
   /**
    * Handle form submission
@@ -47,6 +52,14 @@ export const SettingsPanel: React.FC = () => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  /**
+   * Handle avatar selection
+   */
+  const handleAvatarSelect = (newAvatarId: string) => {
+    updateAvatar(newAvatarId);
+    setShowAvatarSelector(false);
+  };
+
   return (
     <div className="h-full flex flex-col bg-gray-50 pb-16">
       {/* Header */}
@@ -58,6 +71,42 @@ export const SettingsPanel: React.FC = () => {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-2xl mx-auto space-y-6">
+          {/* Avatar Selection */}
+          <div className="bg-white rounded-lg p-6 border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <span>🎨</span>
+              <span>Avatar</span>
+            </h3>
+
+            <div className="flex items-center gap-6">
+              {/* Avatar preview */}
+              <AvatarDisplay avatarId={avatarId} size="xlarge" showBorder />
+
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 mb-3">
+                  Choose an avatar to personalize your profile
+                </p>
+                <button
+                  onClick={() => setShowAvatarSelector(!showAvatarSelector)}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+                >
+                  {showAvatarSelector ? 'Hide Avatar Selector' : 'Change Avatar'}
+                </button>
+              </div>
+            </div>
+
+            {/* Avatar selector (expanded) */}
+            {showAvatarSelector && (
+              <div className="mt-6">
+                <AvatarSelector
+                  selectedAvatarId={avatarId}
+                  onSelect={handleAvatarSelect}
+                  onClose={() => setShowAvatarSelector(false)}
+                />
+              </div>
+            )}
+          </div>
+
           {/* Profile Information */}
           <div className="bg-white rounded-lg p-6 border border-gray-200">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
