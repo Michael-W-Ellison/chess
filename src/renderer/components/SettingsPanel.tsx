@@ -10,6 +10,7 @@ import { useTheme } from '../hooks/useTheme';
 import { useColor } from '../hooks/useColor';
 import { useAchievements } from '../hooks/useAchievements';
 import { useLogin } from '../hooks/useLogin';
+import { useStreak } from '../hooks/useStreak';
 import { AvatarSelector } from './AvatarSelector';
 import { AvatarDisplay } from './AvatarDisplay';
 import { ThemeToggle } from './ThemeToggle';
@@ -17,6 +18,7 @@ import { ColorSelector } from './ColorSelector';
 import { RecentAchievements } from './RecentAchievements';
 import { LoginStats } from './LoginStats';
 import { LoginCalendar } from './LoginCalendar';
+import { StreakDisplay } from './StreakDisplay';
 import { calculateTotalPoints, getAchievementProgress } from '../../shared/achievements';
 
 export const SettingsPanel: React.FC = () => {
@@ -366,6 +368,18 @@ export const SettingsPanel: React.FC = () => {
             </h3>
 
             <div className="space-y-6">
+              {/* Streak Indicators */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                  <span>🔥</span>
+                  <span>Active Streaks</span>
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <StreakDisplay type="login" compact={true} showProgress={false} showRisk={true} />
+                  <StreakDisplay type="chat" compact={true} showProgress={false} showRisk={true} />
+                </div>
+              </div>
+
               {/* Login Stats */}
               <div>
                 <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
