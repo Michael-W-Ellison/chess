@@ -15,6 +15,7 @@ from models.parent_preferences import ParentNotificationPreferences
 from models.user import User
 from services.email_service import email_service
 from services.parent_preferences_service import parent_preferences_service
+from services.email_template_service import email_template_service
 
 logger = logging.getLogger("chatbot.weekly_report")
 
@@ -424,7 +425,7 @@ class WeeklyReportService:
         prefs: ParentNotificationPreferences
     ) -> tuple:
         """
-        Format report data as email
+        Format report data as email using templates
 
         Args:
             report_data: Report data dictionary
@@ -439,11 +440,19 @@ class WeeklyReportService:
         # Subject
         subject = f"Chess Tutor {period} Report - {user_name}"
 
-        # Plain text body
-        plain_body = self._generate_plain_text_report(report_data, prefs)
-
-        # HTML body
-        html_body = self._generate_html_report(report_data, prefs)
+        # Render templates
+        try:
+            plain_body = email_template_service.render_report(
+                report_data, prefs, format_type='text'
+            )
+            html_body = email_template_service.render_report(
+                report_data, prefs, format_type='html'
+            )
+        except Exception as e:
+            logger.error(f"Error rendering email templates: {e}", exc_info=True)
+            # Fallback to legacy methods if template rendering fails
+            plain_body = self._generate_plain_text_report(report_data, prefs)
+            html_body = self._generate_html_report(report_data, prefs)
 
         return subject, plain_body, html_body
 
