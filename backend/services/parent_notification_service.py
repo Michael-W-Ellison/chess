@@ -493,6 +493,59 @@ This notification was generated automatically by the safety monitoring system. Y
             "service_status": "active",
         }
 
+    def send_test_notification(self, parent_email: str, child_name: str) -> bool:
+        """
+        Send a test notification email to parent
+
+        Args:
+            parent_email: Parent's email address
+            child_name: Child's name for personalization
+
+        Returns:
+            True if sent successfully
+
+        Raises:
+            Exception if sending fails
+        """
+        logger.info(f"Sending test notification to {parent_email}")
+
+        # Create test notification content
+        subject = f"[Test] Safety Monitor - Test Notification"
+
+        body = f"""
+This is a test notification from the Chess Tutor Safety Monitoring System.
+
+Dear Parent,
+
+This test confirms that your email notifications are configured correctly for {child_name}'s account.
+
+When a safety event is detected, you will receive notifications similar to this one with:
+- Event type and severity level
+- Timestamp of the event
+- Relevant content snippet
+- Recommended actions
+- Crisis resources (when applicable)
+
+Your current notification settings are active and working properly.
+
+---
+Chess Tutor Safety Monitoring System
+This is an automated test message.
+"""
+
+        # Send via email service
+        try:
+            email_service.send_email(
+                to_email=parent_email,
+                subject=subject,
+                body=body
+            )
+            logger.info(f"Test notification sent successfully to {parent_email}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send test notification to {parent_email}: {e}")
+            raise
+
 
 # Global instance
 parent_notification_service = ParentNotificationService()

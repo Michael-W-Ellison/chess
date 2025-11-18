@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { useNotificationPreferences } from '../../hooks/useNotificationPreferences';
+import { SeverityBadge } from '../common/SeverityBadge';
 
 interface NotificationPreferencesProps {
   userId: number;
@@ -31,14 +32,22 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
   const handleTestNotification = async () => {
     setTestingNotification(true);
     try {
-      // TODO: Replace with actual API call
-      // await fetch(`http://localhost:8000/api/parent/test-notification?user_id=${userId}`, {
-      //   method: 'POST',
-      // });
-      console.log('Test notification sent');
-      alert('Test notification sent! Check your email.');
+      const response = await fetch(`http://localhost:8000/api/parent/test-notification?user_id=${userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to send test notification');
+      }
+
+      const data = await response.json();
+      alert(`✅ Test notification sent successfully to ${data.email}!\n\nCheck your email inbox (and spam folder) for the test notification.`);
     } catch (err) {
-      alert('Failed to send test notification');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send test notification';
+      alert(`❌ Error: ${errorMessage}\n\nPlease check your email configuration and try again.`);
+      console.error('Failed to send test notification:', err);
     } finally {
       setTestingNotification(false);
     }
@@ -148,20 +157,19 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
         </div>
         <div className="space-y-3">
           {[
-            { key: 'critical', label: 'Critical', color: 'red', icon: '🚨', description: 'Immediate action required' },
-            { key: 'high', label: 'High', color: 'orange', icon: '⚠️', description: 'Needs attention soon' },
-            { key: 'medium', label: 'Medium', color: 'yellow', icon: '⚡', description: 'Should be reviewed' },
-            { key: 'low', label: 'Low', color: 'blue', icon: 'ℹ️', description: 'For your awareness' },
-          ].map(({ key, label, color, icon, description }) => {
+            { key: 'critical', description: 'Immediate action required' },
+            { key: 'high', description: 'Needs attention soon' },
+            { key: 'medium', description: 'Should be reviewed' },
+            { key: 'low', description: 'For your awareness' },
+          ].map(({ key, description }) => {
             const fieldName = `notify_on_${key}` as keyof typeof preferences;
             const isEnabled = preferences?.[fieldName] as boolean;
 
             return (
               <div key={key} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{icon}</span>
+                  <SeverityBadge severity={key as 'critical' | 'high' | 'medium' | 'low'} size="md" />
                   <div>
-                    <div className="font-medium text-gray-800">{label}</div>
                     <div className="text-xs text-gray-600">{description}</div>
                   </div>
                 </div>
@@ -464,6 +472,77 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
             ⚠️ Email notifications are currently disabled. Enable them to send a test notification.
           </p>
         )}
+      </div>
+
+      {/* Notification Example */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="font-semibold text-gray-800 mb-4">📧 Notification Example</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          This is what you'll receive when a safety event is detected:
+        </p>
+
+        {/* Example Email Preview */}
+        <div className="bg-gray-50 rounded-lg border-2 border-gray-200 p-5 space-y-4">
+          {/* Email Header */}
+          <div className="border-b border-gray-300 pb-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm text-gray-600">From:</div>
+              <div className="text-sm font-medium text-gray-800">Chess Tutor Safety Monitor</div>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">Subject:</div>
+              <div className="text-sm font-semibold text-gray-800">
+                [Safety Alert] Critical Event Detected
+              </div>
+            </div>
+          </div>
+
+          {/* Email Body */}
+          <div className="space-y-3">
+            <div>
+              <div className="text-sm text-gray-800 mb-2">
+                <strong>Dear Parent,</strong>
+              </div>
+              <div className="text-sm text-gray-700">
+                A safety event has been detected in your child's conversation with the Chess Tutor assistant.
+              </div>
+            </div>
+
+            <div className="bg-red-50 border border-red-200 rounded p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-red-800">Event Type:</span>
+                <span className="text-sm text-red-700">Crisis Keywords Detected</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-red-800">Severity:</span>
+                <SeverityBadge severity="critical" size="sm" />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-red-800">Time:</span>
+                <span className="text-sm text-red-700">Today at 2:45 PM</span>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+              <div className="text-xs font-semibold text-yellow-800 mb-1">Recommended Action:</div>
+              <div className="text-xs text-yellow-700">
+                Talk to your child in a safe, non-judgmental environment. If this is a crisis situation, contact professional help immediately.
+              </div>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded p-3">
+              <div className="text-xs font-semibold text-blue-800 mb-1">Crisis Resources:</div>
+              <div className="text-xs text-blue-700 space-y-1">
+                <div>• National Suicide Prevention Lifeline: 988</div>
+                <div>• Crisis Text Line: Text HOME to 741741</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-xs text-gray-500 mt-4 text-center">
+          ℹ️ Actual notifications will include specific content details and timestamps
+        </p>
       </div>
 
       {/* Current Configuration Summary */}

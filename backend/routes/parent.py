@@ -1250,3 +1250,76 @@ async def generate_summaries_batch(
     except Exception as e:
         logger.error(f"Error generating batch summaries: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/test-notification")
+async def send_test_notification(
+    user_id: int = Query(..., description="Child's user ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Send a test notification email to parent
+
+    This endpoint sends a sample safety notification email to verify
+    email configuration and notification settings are working correctly.
+
+    Args:
+        user_id: Child's user ID
+        db: Database session
+
+    Returns:
+        Success message
+    """
+    try:
+        # Get user
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Get parent preferences
+        preferences = parent_preferences_service.get_preferences(db, user_id)
+
+        if not preferences:
+            raise HTTPException(
+                status_code=404,
+                detail="Parent preferences not found. Please configure email settings first."
+            )
+
+        if not preferences.email:
+            raise HTTPException(
+                status_code=400,
+                detail="No email address configured. Please add a parent email address."
+            )
+
+        if not preferences.email_notifications_enabled:
+            raise HTTPException(
+                status_code=400,
+                detail="Email notifications are disabled. Please enable them to send test notifications."
+            )
+
+        # Send test notification
+        try:
+            parent_notification_service.send_test_notification(
+                parent_email=preferences.email,
+                child_name=user.name or f"User {user_id}"
+            )
+        except Exception as e:
+            logger.error(f"Failed to send test notification: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to send test notification: {str(e)}"
+            )
+
+        logger.info(f"Test notification sent to {preferences.email} for user {user_id}")
+
+        return {
+            "success": True,
+            "message": f"Test notification sent to {preferences.email}",
+            "email": preferences.email
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sending test notification: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
