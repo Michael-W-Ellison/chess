@@ -9,11 +9,13 @@ import { useProfile } from '../hooks/useProfile';
 import { useMemory } from '../contexts/MemoryContext';
 import { FriendshipMeter } from './FriendshipMeter';
 import { MemoryBook } from './MemoryBook';
+import { ExportDialog } from './ExportDialog';
 
 type TabType = 'personality' | 'profile' | 'memories';
 
 export const ProfilePanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('personality');
+  const [showExportDialog, setShowExportDialog] = useState(false);
   const { personality, description, isLoading: personalityLoading } = usePersonality();
   const { profile, isLoading: profileLoading } = useProfile();
   const { memories } = useMemory();
@@ -277,10 +279,21 @@ export const ProfilePanel: React.FC = () => {
     <div className="h-full flex flex-col bg-gray-50 pb-16">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <h2 className="text-2xl font-bold text-gray-800">Profile</h2>
-        <p className="text-sm text-gray-600 mt-1">
-          View personality, profile, and memories
-        </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">Profile</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              View personality, profile, and memories
+            </p>
+          </div>
+          <button
+            onClick={() => setShowExportDialog(true)}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2 text-sm"
+          >
+            <span>📥</span>
+            <span>Export</span>
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -336,6 +349,14 @@ export const ProfilePanel: React.FC = () => {
           </>
         )}
       </div>
+
+      {/* Export Dialog */}
+      <ExportDialog
+        isOpen={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        defaultType="memories"
+        defaultFormat="markdown"
+      />
     </div>
   );
 };

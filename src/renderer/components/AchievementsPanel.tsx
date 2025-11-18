@@ -15,11 +15,13 @@ import {
   getAchievementProgress,
 } from '../../shared/achievements';
 import { AchievementBadge } from './AchievementBadge';
+import { ExportDialog } from './ExportDialog';
 
 export const AchievementsPanel: React.FC = () => {
   const { unlockedAchievements, stats, isUnlocked, getProgress } = useAchievements();
   const [selectedCategory, setSelectedCategory] = useState<AchievementCategory | 'all'>('all');
   const [selectedAchievement, setSelectedAchievement] = useState<string | null>(null);
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   const categories = getAchievementCategories();
   const totalPoints = calculateTotalPoints(unlockedAchievements);
@@ -40,10 +42,21 @@ export const AchievementsPanel: React.FC = () => {
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 pb-16">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Achievements</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Track your progress and earn rewards
-        </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Achievements</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Track your progress and earn rewards
+            </p>
+          </div>
+          <button
+            onClick={() => setShowExportDialog(true)}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2 text-sm"
+          >
+            <span>📥</span>
+            <span>Export</span>
+          </button>
+        </div>
 
         {/* Progress summary */}
         <div className="mt-4 grid grid-cols-3 gap-4">
@@ -214,6 +227,14 @@ export const AchievementsPanel: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Export Dialog */}
+      <ExportDialog
+        isOpen={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        defaultType="achievements"
+        defaultFormat="markdown"
+      />
     </div>
   );
 };
