@@ -5,6 +5,7 @@
 
 import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { Achievement, ACHIEVEMENTS, getAchievementById } from '../../shared/achievements';
+import { AchievementNotification } from '../components/AchievementNotification';
 
 const ACHIEVEMENT_STORAGE_KEY = 'user_achievements';
 const STATS_STORAGE_KEY = 'user_stats';
@@ -15,6 +16,7 @@ export interface UserStats {
   dailyStreak: number;
   lastChatDate: string | null;
   longestSessionMinutes: number;
+  currentSessionStartTime: number | null;
   wordCount: number;
   topicsDiversityCount: number;
   emojiUsageCount: number;
@@ -25,6 +27,7 @@ export interface UserStats {
   totalPoints: number;
   lastAchievementUnlocked: string | null;
   weekendDaysCount: number;
+  uniqueAvatarsUsed: string[];
 }
 
 export interface RecentAchievement {
@@ -43,6 +46,12 @@ interface AchievementContextType {
   resetAllProgress: () => void;
   isUnlocked: (achievementId: string) => boolean;
   getProgress: (achievementId: string) => number;
+  // Tracking functions
+  trackMessage: (text: string) => void;
+  trackSessionStart: () => void;
+  trackSessionEnd: () => void;
+  trackAvatarChange: (avatarId: string) => void;
+  updateDailyStreak: () => void;
 }
 
 const DEFAULT_STATS: UserStats = {
@@ -51,6 +60,7 @@ const DEFAULT_STATS: UserStats = {
   dailyStreak: 0,
   lastChatDate: null,
   longestSessionMinutes: 0,
+  currentSessionStartTime: null,
   wordCount: 0,
   topicsDiversityCount: 0,
   emojiUsageCount: 0,
@@ -61,6 +71,7 @@ const DEFAULT_STATS: UserStats = {
   totalPoints: 0,
   lastAchievementUnlocked: null,
   weekendDaysCount: 0,
+  uniqueAvatarsUsed: [],
 };
 
 export const AchievementContext = createContext<AchievementContextType | undefined>(undefined);
@@ -73,6 +84,7 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
   const [unlockedAchievements, setUnlockedAchievements] = useState<string[]>([]);
   const [recentAchievements, setRecentAchievements] = useState<RecentAchievement[]>([]);
   const [stats, setStats] = useState<UserStats>(DEFAULT_STATS);
+  const [notificationQueue, setNotificationQueue] = useState<Achievement[]>([]);
 
   /**
    * Load achievements and stats from localStorage
@@ -220,7 +232,8 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
       setStats(newStats);
       saveStats(newStats);
 
-      // Could trigger notification/toast here
+      // Trigger notification
+      setNotificationQueue((prev) => [...prev, achievement]);
       console.log(`🎉 Achievement Unlocked: ${achievement.name}`);
 
       return true;
@@ -320,6 +333,129 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
   );
 
   /**
+   * Track a message sent
+   */
+  const trackMessage = useCallback(
+    (text: string) => {
+      const words = text.trim().split(/\s+/).length;
+      const emojis = (text.match(/[\p{Emoji}]/gu) || []).length;
+      const hasQuestionMark = text.includes('?');
+
+      updateStats({
+        messageCount: stats.messageCount + 1,
+        wordCount: stats.wordCount + words,
+        emojiUsageCount: stats.emojiUsageCount + emojis,
+        questionsAskedCount: hasQuestionMark
+          ? stats.questionsAskedCount + 1
+          : stats.questionsAskedCount,
+      });
+
+      // Check for achievements after updating stats
+      setTimeout(() => checkAndUnlockAchievements(), 100);
+    },
+    [stats, updateStats, checkAndUnlockAchievements]
+  );
+
+  /**
+   * Update daily streak
+   */
+  const updateDailyStreak = useCallback(() => {
+    const today = new Date().toDateString();
+    const lastChat = stats.lastChatDate;
+
+    if (lastChat) {
+      const lastDate = new Date(lastChat).toDateString();
+      if (lastDate === today) {
+        // Already chatted today
+        return;
+      }
+
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toDateString();
+
+      if (lastDate === yesterdayStr) {
+        // Continuing streak
+        updateStats({
+          dailyStreak: stats.dailyStreak + 1,
+          lastChatDate: today,
+        });
+      } else {
+        // Streak broken, reset to 1
+        updateStats({
+          dailyStreak: 1,
+          lastChatDate: today,
+        });
+      }
+    } else {
+      // First day
+      updateStats({
+        dailyStreak: 1,
+        lastChatDate: today,
+      });
+    }
+
+    // Check weekend achievement
+    const dayOfWeek = new Date().getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      // Weekend
+      updateStats({
+        weekendDaysCount: stats.weekendDaysCount + 1,
+      });
+    }
+
+    setTimeout(() => checkAndUnlockAchievements(), 100);
+  }, [stats, updateStats, checkAndUnlockAchievements]);
+
+  /**
+   * Track session start
+   */
+  const trackSessionStart = useCallback(() => {
+    const now = Date.now();
+    updateStats({
+      currentSessionStartTime: now,
+      conversationCount: stats.conversationCount + 1,
+    });
+    updateDailyStreak();
+  }, [stats, updateStats, updateDailyStreak]);
+
+  /**
+   * Track session end
+   */
+  const trackSessionEnd = useCallback(() => {
+    if (stats.currentSessionStartTime) {
+      const sessionMinutes = Math.floor(
+        (Date.now() - stats.currentSessionStartTime) / 60000
+      );
+      const longestSession = Math.max(stats.longestSessionMinutes, sessionMinutes);
+
+      updateStats({
+        currentSessionStartTime: null,
+        longestSessionMinutes: longestSession,
+      });
+
+      setTimeout(() => checkAndUnlockAchievements(), 100);
+    }
+  }, [stats, updateStats, checkAndUnlockAchievements]);
+
+  /**
+   * Track avatar change
+   */
+  const trackAvatarChange = useCallback(
+    (avatarId: string) => {
+      const uniqueAvatars = stats.uniqueAvatarsUsed || [];
+      if (!uniqueAvatars.includes(avatarId)) {
+        updateStats({
+          uniqueAvatarsUsed: [...uniqueAvatars, avatarId],
+          avatarChangesCount: uniqueAvatars.length + 1,
+        });
+        setTimeout(() => checkAndUnlockAchievements(), 100);
+      }
+    },
+    [stats, updateStats, checkAndUnlockAchievements]
+  );
+
+  /**
    * Reset all achievement progress (for testing/demo)
    */
   const resetAllProgress = useCallback(() => {
@@ -343,9 +479,25 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
         resetAllProgress,
         isUnlocked,
         getProgress,
+        trackMessage,
+        trackSessionStart,
+        trackSessionEnd,
+        trackAvatarChange,
+        updateDailyStreak,
       }}
     >
       {children}
+
+      {/* Achievement notifications */}
+      {notificationQueue.map((achievement, index) => (
+        <AchievementNotification
+          key={`${achievement.id}-${index}`}
+          achievement={achievement}
+          onClose={() => {
+            setNotificationQueue((prev) => prev.filter((_, i) => i !== index));
+          }}
+        />
+      ))}
     </AchievementContext.Provider>
   );
 };

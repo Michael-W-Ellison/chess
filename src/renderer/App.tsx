@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ChatWindow from './components/ChatWindow';
 import ProfilePanel from './components/ProfilePanel';
 import SettingsPanel from './components/SettingsPanel';
 import ParentDashboard from './components/ParentDashboard';
 import AchievementsPanel from './components/AchievementsPanel';
+import { useAchievements } from './hooks/useAchievements';
 
 /**
  * Main application component
@@ -11,6 +12,16 @@ import AchievementsPanel from './components/AchievementsPanel';
  */
 function App() {
   const [currentView, setCurrentView] = useState<'chat' | 'profile' | 'achievements' | 'settings' | 'parent'>('chat');
+  const { trackSessionStart, trackSessionEnd } = useAchievements();
+
+  // Track session on mount and unmount
+  useEffect(() => {
+    trackSessionStart();
+
+    return () => {
+      trackSessionEnd();
+    };
+  }, [trackSessionStart, trackSessionEnd]);
 
   return (
     <div className="app h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">

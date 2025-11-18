@@ -5,12 +5,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { DEFAULT_AVATAR } from '../../shared/avatars';
+import { useAchievements } from './useAchievements';
 
 const AVATAR_STORAGE_KEY = 'user_avatar_id';
 
 export const useAvatar = () => {
   const [avatarId, setAvatarId] = useState<string>(DEFAULT_AVATAR.id);
   const [isLoading, setIsLoading] = useState(true);
+  const { trackAvatarChange } = useAchievements();
 
   /**
    * Load avatar from localStorage on mount
@@ -35,11 +37,12 @@ export const useAvatar = () => {
     try {
       setAvatarId(newAvatarId);
       localStorage.setItem(AVATAR_STORAGE_KEY, newAvatarId);
+      trackAvatarChange(newAvatarId);
     } catch (error) {
       console.error('Failed to save avatar:', error);
       throw error;
     }
-  }, []);
+  }, [trackAvatarChange]);
 
   /**
    * Reset avatar to default
