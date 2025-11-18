@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     # Safety Configuration
     ENABLE_SAFETY_FILTER: bool = True
     LOG_SAFETY_EVENTS: bool = True
+    ENABLE_PARENT_NOTIFICATIONS: bool = False
 
     # Email Configuration (for parent notifications)
     SMTP_HOST: str = "smtp.gmail.com"
@@ -36,6 +37,7 @@ class Settings(BaseSettings):
     SMTP_USERNAME: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
     SMTP_FROM_EMAIL: Optional[str] = None
+    SMTP_USE_TLS: bool = True
 
     # Logging Configuration
     LOG_LEVEL: str = "INFO"
@@ -44,6 +46,7 @@ class Settings(BaseSettings):
     # Feature Flags
     ENABLE_VECTOR_MEMORY: bool = False  # ChromaDB for semantic search
     ENABLE_WEEKLY_REPORTS: bool = True
+    AUTO_GENERATE_SUMMARIES: bool = True  # Auto-generate LLM summaries on conversation end
 
     # Security
     PARENT_DASHBOARD_REQUIRE_PASSWORD: bool = True
