@@ -15,6 +15,7 @@ from utils.config import settings
 from utils.logging_config import setup_logging
 from database.database import init_db, close_db
 from services.llm_service import llm_service
+from services.report_scheduler import report_scheduler
 
 # Import routes
 from routes import conversation, personality, profile, parent
@@ -47,12 +48,24 @@ async def lifespan(app: FastAPI):
         logger.warning("⚠ LLM model not loaded - chatbot functionality will be limited")
         logger.warning("  Download a model with: ./scripts/download_model.sh")
 
+    # Start report scheduler
+    if settings.ENABLE_WEEKLY_REPORTS and settings.ENABLE_PARENT_NOTIFICATIONS:
+        logger.info("Starting automated report scheduler...")
+        report_scheduler.start()
+        logger.info("✓ Report scheduler started - will check for due reports every hour")
+    else:
+        logger.info("Report scheduler disabled (ENABLE_WEEKLY_REPORTS or ENABLE_PARENT_NOTIFICATIONS is False)")
+
     logger.info(f"Backend ready at http://{settings.HOST}:{settings.PORT}")
 
     yield
 
     # Shutdown
     logger.info("Shutting down Tamagotchi Chatbot Backend...")
+
+    # Stop report scheduler
+    report_scheduler.stop()
+    logger.info("Report scheduler stopped")
 
     # Unload LLM model
     llm_service.unload_model()

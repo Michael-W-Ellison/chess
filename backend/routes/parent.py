@@ -19,6 +19,7 @@ from services.parent_notification_service import parent_notification_service
 from services.parent_preferences_service import parent_preferences_service
 from services.conversation_summary_service import conversation_summary_service
 from services.weekly_report_service import weekly_report_service
+from services.report_scheduler import report_scheduler
 
 logger = logging.getLogger("chatbot.routes.parent")
 
@@ -1524,4 +1525,32 @@ async def generate_report(
         raise
     except Exception as e:
         logger.error(f"Error generating report: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/reports/trigger-scheduled-check")
+async def trigger_scheduled_check():
+    """
+    Manually trigger the scheduled report check
+
+    This endpoint is useful for testing the automated report scheduler.
+    It will immediately check all users and send reports to those who are
+    due based on their preferences.
+
+    This bypasses the hourly schedule and runs the check immediately.
+
+    Returns:
+        Success message
+    """
+    try:
+        logger.info("Manually triggering scheduled report check")
+        report_scheduler.force_check_now()
+
+        return {
+            "success": True,
+            "message": "Scheduled report check triggered. Check logs for results."
+        }
+
+    except Exception as e:
+        logger.error(f"Error triggering scheduled check: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
