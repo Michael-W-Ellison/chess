@@ -9,8 +9,9 @@ import { MessageBubble } from './MessageBubble';
 import { InputArea } from './InputArea';
 import { TwentyQuestionsGame } from './TwentyQuestionsGame';
 import { WordAssociationGame } from './WordAssociationGame';
+import { StoryCollaborationGame } from './StoryCollaborationGame';
 
-type GameMode = 'twenty-questions' | 'word-association' | null;
+type GameMode = 'twenty-questions' | 'word-association' | 'story-collaboration' | null;
 
 export const ChatWindow: React.FC = () => {
   const {
@@ -62,6 +63,7 @@ export const ChatWindow: React.FC = () => {
             <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
               {gameMode === 'twenty-questions' && '20 Questions ♟️'}
               {gameMode === 'word-association' && 'Word Association 🧠'}
+              {gameMode === 'story-collaboration' && 'Story Collaboration 📖'}
               {!gameMode && (personality?.name || 'Loading...')}
             </h2>
             {personality && !gameMode && (
@@ -73,6 +75,7 @@ export const ChatWindow: React.FC = () => {
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {gameMode === 'twenty-questions' && 'Chess guessing game'}
                 {gameMode === 'word-association' && 'Type related words quickly'}
+                {gameMode === 'story-collaboration' && 'Create stories together with AI'}
               </p>
             )}
           </div>
@@ -119,7 +122,7 @@ export const ChatWindow: React.FC = () => {
                   setGameMode('word-association');
                   setShowGameMenu(false);
                 }}
-                className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-3"
+                className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-3 border-b border-gray-200 dark:border-gray-700"
               >
                 <span className="text-2xl">🧠</span>
                 <div>
@@ -128,6 +131,23 @@ export const ChatWindow: React.FC = () => {
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
                     Type related words
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  setGameMode('story-collaboration');
+                  setShowGameMenu(false);
+                }}
+                className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-3"
+              >
+                <span className="text-2xl">📖</span>
+                <div>
+                  <div className="font-semibold text-gray-900 dark:text-gray-100">
+                    Story Collaboration
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Create stories with AI
                   </div>
                 </div>
               </button>
@@ -153,6 +173,7 @@ export const ChatWindow: React.FC = () => {
         <div className="flex-1 overflow-y-auto">
           {gameMode === 'twenty-questions' && <TwentyQuestionsGame />}
           {gameMode === 'word-association' && <WordAssociationGame />}
+          {gameMode === 'story-collaboration' && <StoryCollaborationGame />}
         </div>
       ) : (
         <>
