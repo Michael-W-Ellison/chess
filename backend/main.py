@@ -38,15 +38,32 @@ async def lifespan(app: FastAPI):
     init_db()
     logger.info("Database initialized")
 
-    # Load LLM model
+    # Load LLM model with optimizations from settings
     logger.info(f"Loading LLM model from {settings.MODEL_PATH}")
-    model_loaded = llm_service.load_model()
 
-    if model_loaded:
-        logger.info("✓ LLM model loaded successfully")
+    # Configure loading based on settings
+    use_mmap = settings.MODEL_USE_MMAP
+    blocking = not settings.MODEL_BACKGROUND_LOAD
+    lazy_load = settings.MODEL_LAZY_LOAD
+
+    if lazy_load:
+        logger.info("Lazy loading enabled - model will load on first chat request")
     else:
-        logger.warning("⚠ LLM model not loaded - chatbot functionality will be limited")
-        logger.warning("  Download a model with: ./scripts/download_model.sh")
+        logger.info(f"Loading model: mmap={use_mmap}, background={settings.MODEL_BACKGROUND_LOAD}")
+
+        # Start model loading
+        model_loading_started = llm_service.load_model(blocking=blocking, use_mmap=use_mmap)
+
+        if model_loading_started:
+            if settings.MODEL_BACKGROUND_LOAD:
+                logger.info("✓ LLM model loading started in background")
+                logger.info("  App is ready - model will finish loading shortly")
+                logger.info("  First chat request will wait for model if needed")
+            else:
+                logger.info("✓ LLM model loaded successfully")
+        else:
+            logger.warning("⚠ LLM model loading failed to start - chatbot functionality will be limited")
+            logger.warning("  Download a model with: ./scripts/download_model.sh")
 
     # Start report scheduler
     if settings.ENABLE_WEEKLY_REPORTS and settings.ENABLE_PARENT_NOTIFICATIONS:

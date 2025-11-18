@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     MODEL_TEMPERATURE: float = 0.7
     MODEL_N_GPU_LAYERS: int = 0  # 0 for CPU, -1 for full GPU
 
+    # LLM Performance Optimizations
+    MODEL_USE_MMAP: bool = True  # Memory-mapped files for faster loading
+    MODEL_LAZY_LOAD: bool = True  # Load on first request instead of blocking startup
+    MODEL_BACKGROUND_LOAD: bool = True  # Load in background thread
+
     # Safety Configuration
     ENABLE_SAFETY_FILTER: bool = True
     LOG_SAFETY_EVENTS: bool = True
