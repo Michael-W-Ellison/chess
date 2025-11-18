@@ -43,12 +43,36 @@ function App() {
   return (
     <div className="app h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
       {/* Render appropriate view */}
-      {currentView === 'chat' && <ChatWindow />}
-      {currentView === 'profile' && <ProfilePanel />}
-      {currentView === 'achievements' && <AchievementsPanel />}
-      {currentView === 'streaks' && <StreakPanel />}
-      {currentView === 'settings' && <SettingsPanel />}
-      {currentView === 'parent' && <ParentDashboard />}
+      {currentView === 'chat' && (
+        <div className="view-enter h-full">
+          <ChatWindow />
+        </div>
+      )}
+      {currentView === 'profile' && (
+        <div className="view-enter h-full">
+          <ProfilePanel />
+        </div>
+      )}
+      {currentView === 'achievements' && (
+        <div className="view-enter h-full">
+          <AchievementsPanel />
+        </div>
+      )}
+      {currentView === 'streaks' && (
+        <div className="view-enter h-full">
+          <StreakPanel />
+        </div>
+      )}
+      {currentView === 'settings' && (
+        <div className="view-enter h-full">
+          <SettingsPanel />
+        </div>
+      )}
+      {currentView === 'parent' && (
+        <div className="view-enter h-full">
+          <ParentDashboard />
+        </div>
+      )}
 
       {/* Global navigation overlay (bottom) */}
       <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg transition-colors">

@@ -343,9 +343,21 @@ export const ProfilePanel: React.FC = () => {
 
         {!isLoading && (
           <>
-            {activeTab === 'personality' && renderPersonalityTab()}
-            {activeTab === 'profile' && renderProfileTab()}
-            {activeTab === 'memories' && renderMemoriesTab()}
+            {activeTab === 'personality' && (
+              <div className="tab-content-enter">
+                {renderPersonalityTab()}
+              </div>
+            )}
+            {activeTab === 'profile' && (
+              <div className="tab-content-enter">
+                {renderProfileTab()}
+              </div>
+            )}
+            {activeTab === 'memories' && (
+              <div className="tab-content-enter">
+                {renderMemoriesTab()}
+              </div>
+            )}
           </>
         )}
       </div>
