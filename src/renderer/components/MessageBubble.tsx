@@ -28,7 +28,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
     <div
       className={`flex w-full mb-4 ${
         isUser ? 'justify-end' : 'justify-start'
-      }`}
+      } ${isUser ? 'animate-message-right' : 'animate-message-left'}`}
     >
       <div
         className={`flex flex-col max-w-[75%] ${
@@ -42,7 +42,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
             ${
               isUser
                 ? 'bg-blue-500 text-white rounded-br-sm'
-                : 'bg-gray-200 text-gray-900 rounded-bl-sm'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-sm'
             }
             ${hasSafetyFlag ? 'border-2 border-yellow-500' : ''}
           `}

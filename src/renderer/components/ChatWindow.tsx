@@ -7,6 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useChat } from '../hooks/useChat';
 import { MessageBubble } from './MessageBubble';
 import { InputArea } from './InputArea';
+import { TypingIndicator } from './TypingIndicator';
 import { TwentyQuestionsGame } from './TwentyQuestionsGame';
 import { WordAssociationGame } from './WordAssociationGame';
 import { StoryCollaborationGame } from './StoryCollaborationGame';
@@ -220,16 +221,7 @@ export const ChatWindow: React.FC = () => {
             <div ref={messagesEndRef} />
 
             {/* Typing indicator */}
-            {isLoading && messages.length > 0 && (
-              <div className="flex items-center gap-2 mb-4 text-gray-500 dark:text-gray-400">
-                <div className="flex gap-1">
-                  <span className="animate-bounce delay-0">●</span>
-                  <span className="animate-bounce delay-75">●</span>
-                  <span className="animate-bounce delay-150">●</span>
-                </div>
-                <span className="text-sm italic">{personality?.name || 'Bot'} is typing...</span>
-              </div>
-            )}
+            {isLoading && messages.length > 0 && <TypingIndicator />}
           </div>
 
           {/* Input area */}
