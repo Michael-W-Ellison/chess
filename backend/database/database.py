@@ -88,12 +88,39 @@ def init_db() -> None:
 
     logger.info(f"Database initialized at {settings.get_database_path()}")
 
+    # Create indexes for performance optimization
+    create_indexes()
+
     # Seed initial data if needed
     db = SessionLocal()
     try:
         seed_initial_data(db)
     finally:
         db.close()
+
+
+def create_indexes() -> None:
+    """
+    Create database indexes for performance optimization
+    Calls the add_indexes function from database.add_indexes module
+    """
+    try:
+        from database.add_indexes import add_indexes, analyze_database
+
+        logger.info("Creating database indexes for performance optimization...")
+        created_indexes = add_indexes()
+
+        if created_indexes:
+            logger.info(f"✓ Created {len(created_indexes)} indexes")
+
+            # Update database statistics for query optimization
+            analyze_database()
+        else:
+            logger.info("No new indexes created (may already exist)")
+
+    except Exception as e:
+        logger.warning(f"Could not create indexes: {e}")
+        logger.warning("Application will continue but performance may be affected")
 
 
 def close_db() -> None:
