@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 interface Preferences {
   id: number;
   user_id: number;
+  email: string | null;
   email_notifications_enabled: boolean;
   instant_notification_min_severity: string;
   severity_filters: {
@@ -39,6 +40,22 @@ interface Preferences {
   };
   created_at: string;
   updated_at: string;
+  // Flattened fields for component compatibility
+  notify_on_critical?: boolean;
+  notify_on_high?: boolean;
+  notify_on_medium?: boolean;
+  notify_on_low?: boolean;
+  notify_on_crisis?: boolean;
+  notify_on_abuse?: boolean;
+  notify_on_bullying?: boolean;
+  notify_on_profanity?: boolean;
+  notify_on_inappropriate?: boolean;
+  summary_frequency?: string;
+  summary_day_of_week?: number | null;
+  summary_hour?: number;
+  quiet_hours_enabled?: boolean;
+  quiet_hours_start?: number | null;
+  quiet_hours_end?: number | null;
 }
 
 export const useNotificationPreferences = (userId: number) => {
@@ -52,50 +69,42 @@ export const useNotificationPreferences = (userId: number) => {
       setIsLoading(true);
       setError(null);
 
-      // TODO: Replace with actual API call
-      // const response = await fetch(`http://localhost:8000/api/parent/preferences?user_id=${userId}`);
-      // const data = await response.json();
+      const response = await fetch(`http://localhost:8000/api/parent/preferences?user_id=${userId}`);
 
-      // Mock default preferences
-      const mockData: Preferences = {
-        id: 1,
-        user_id: userId,
-        email_notifications_enabled: true,
-        instant_notification_min_severity: 'high',
-        severity_filters: {
-          critical: true,
-          high: true,
-          medium: false,
-          low: false,
-        },
-        flag_type_filters: {
-          crisis: true,
-          abuse: true,
-          bullying: true,
-          profanity: false,
-          inappropriate: true,
-        },
-        summary_settings: {
-          frequency: 'weekly',
-          day_of_week: 0,
-          hour: 9,
-        },
-        content_settings: {
-          include_snippets: true,
-          max_snippet_length: 100,
-        },
-        quiet_hours: {
-          enabled: false,
-          start: 22,
-          end: 7,
-        },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+      if (!response.ok) {
+        throw new Error(`Failed to fetch preferences: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Flatten nested structure for component compatibility
+      const flattenedData: Preferences = {
+        ...data,
+        // Add flattened severity filters
+        notify_on_critical: data.severity_filters.critical,
+        notify_on_high: data.severity_filters.high,
+        notify_on_medium: data.severity_filters.medium,
+        notify_on_low: data.severity_filters.low,
+        // Add flattened flag type filters
+        notify_on_crisis: data.flag_type_filters.crisis,
+        notify_on_abuse: data.flag_type_filters.abuse,
+        notify_on_bullying: data.flag_type_filters.bullying,
+        notify_on_profanity: data.flag_type_filters.profanity,
+        notify_on_inappropriate: data.flag_type_filters.inappropriate,
+        // Add flattened summary settings
+        summary_frequency: data.summary_settings.frequency,
+        summary_day_of_week: data.summary_settings.day_of_week,
+        summary_hour: data.summary_settings.hour,
+        // Add flattened quiet hours
+        quiet_hours_enabled: data.quiet_hours.enabled,
+        quiet_hours_start: data.quiet_hours.start,
+        quiet_hours_end: data.quiet_hours.end,
       };
 
-      setPreferences(mockData);
+      setPreferences(flattenedData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch preferences');
+      console.error('Failed to fetch preferences:', err);
     } finally {
       setIsLoading(false);
     }
@@ -105,35 +114,47 @@ export const useNotificationPreferences = (userId: number) => {
     try {
       setIsSaving(true);
 
-      // TODO: Replace with actual API call
-      // const response = await fetch(`http://localhost:8000/api/parent/preferences?user_id=${userId}`, {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(updates),
-      // });
-      // const data = await response.json();
-
-      // Mock update for now - merge updates with current preferences
-      setPreferences((prev) => {
-        if (!prev) return prev;
-
-        const updated = { ...prev };
-
-        // Handle top-level updates
-        Object.keys(updates).forEach((key) => {
-          if (key in updated) {
-            (updated as any)[key] = updates[key];
-          }
-        });
-
-        updated.updated_at = new Date().toISOString();
-        return updated;
+      const response = await fetch(`http://localhost:8000/api/parent/preferences?user_id=${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
       });
 
-      // Simulate network delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to update preferences');
+      }
+
+      const data = await response.json();
+
+      // Flatten nested structure for component compatibility
+      const flattenedData: Preferences = {
+        ...data,
+        // Add flattened severity filters
+        notify_on_critical: data.severity_filters.critical,
+        notify_on_high: data.severity_filters.high,
+        notify_on_medium: data.severity_filters.medium,
+        notify_on_low: data.severity_filters.low,
+        // Add flattened flag type filters
+        notify_on_crisis: data.flag_type_filters.crisis,
+        notify_on_abuse: data.flag_type_filters.abuse,
+        notify_on_bullying: data.flag_type_filters.bullying,
+        notify_on_profanity: data.flag_type_filters.profanity,
+        notify_on_inappropriate: data.flag_type_filters.inappropriate,
+        // Add flattened summary settings
+        summary_frequency: data.summary_settings.frequency,
+        summary_day_of_week: data.summary_settings.day_of_week,
+        summary_hour: data.summary_settings.hour,
+        // Add flattened quiet hours
+        quiet_hours_enabled: data.quiet_hours.enabled,
+        quiet_hours_start: data.quiet_hours.start,
+        quiet_hours_end: data.quiet_hours.end,
+      };
+
+      setPreferences(flattenedData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update preferences');
+      console.error('Failed to update preferences:', err);
       throw err;
     } finally {
       setIsSaving(false);

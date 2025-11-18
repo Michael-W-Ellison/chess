@@ -70,6 +70,7 @@ class ParentPreferencesService:
         # Validate and update fields
         valid_fields = {
             # Email settings
+            "email",
             "email_notifications_enabled",
             # Severity filters
             "instant_notification_min_severity",

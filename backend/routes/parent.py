@@ -752,6 +752,7 @@ class PreferencesResponse(BaseModel):
     """Parent notification preferences"""
     id: int
     user_id: int
+    email: Optional[str]
     email_notifications_enabled: bool
     instant_notification_min_severity: str
     severity_filters: Dict[str, bool]
@@ -765,6 +766,7 @@ class PreferencesResponse(BaseModel):
 
 class PreferencesUpdateRequest(BaseModel):
     """Request model for updating preferences"""
+    email: Optional[str] = None
     email_notifications_enabled: Optional[bool] = None
     instant_notification_min_severity: Optional[str] = None
     notify_on_critical: Optional[bool] = None
@@ -807,6 +809,7 @@ async def get_notification_preferences(
         return PreferencesResponse(
             id=prefs.id,
             user_id=prefs.user_id,
+            email=prefs.email,
             email_notifications_enabled=prefs.email_notifications_enabled,
             instant_notification_min_severity=prefs.instant_notification_min_severity,
             severity_filters={
@@ -871,6 +874,7 @@ async def update_notification_preferences(
         return PreferencesResponse(
             id=prefs.id,
             user_id=prefs.user_id,
+            email=prefs.email,
             email_notifications_enabled=prefs.email_notifications_enabled,
             instant_notification_min_severity=prefs.instant_notification_min_severity,
             severity_filters={

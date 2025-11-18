@@ -48,6 +48,7 @@ class ParentNotificationPreferences(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
 
     # Email notification settings
+    email = Column(String, nullable=True)  # Parent's email address
     email_notifications_enabled = Column(Boolean, default=True, nullable=False)
 
     # Instant notification severity filters
@@ -93,6 +94,7 @@ class ParentNotificationPreferences(Base):
         return {
             "id": self.id,
             "user_id": self.user_id,
+            "email": self.email,
             "email_notifications_enabled": self.email_notifications_enabled,
             "instant_notification_min_severity": self.instant_notification_min_severity,
             "severity_filters": {
