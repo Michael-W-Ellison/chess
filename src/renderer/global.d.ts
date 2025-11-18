@@ -3,6 +3,16 @@
  * Defines the window.electron API exposed via preload script
  */
 
+interface ElectronStoreAPI {
+  get: (key: string, defaultValue?: any) => Promise<any>;
+  set: (key: string, value: any) => Promise<void>;
+  delete: (key: string) => Promise<void>;
+  clear: () => Promise<void>;
+  has: (key: string) => Promise<boolean>;
+  getAll: () => Promise<any>;
+  getPath: () => Promise<string>;
+}
+
 interface ElectronAPI {
   // Platform information
   platform: string;
@@ -18,6 +28,9 @@ interface ElectronAPI {
 
   // Remove all listeners for a channel
   removeAllListeners: (channel: string) => void;
+
+  // Electron Store API
+  store: ElectronStoreAPI;
 }
 
 declare global {

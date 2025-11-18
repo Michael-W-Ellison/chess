@@ -1,5 +1,6 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
 import { backendManager } from './backend-manager';
+import { store, getStoreValue, setStoreValue, deleteStoreValue, resetStore, getAllStoreData, getStorePath, hasStoreKey } from './store';
 
 /**
  * IPC Handlers - Handle all communication from renderer to main process
@@ -31,6 +32,15 @@ export function setupIpcHandlers(): void {
 
   // Export
   ipcMain.handle('export-memory-book', handleExportMemoryBook);
+
+  // Electron Store
+  ipcMain.handle('store-get', handleStoreGet);
+  ipcMain.handle('store-set', handleStoreSet);
+  ipcMain.handle('store-delete', handleStoreDelete);
+  ipcMain.handle('store-clear', handleStoreClear);
+  ipcMain.handle('store-has', handleStoreHas);
+  ipcMain.handle('store-get-all', handleStoreGetAll);
+  ipcMain.handle('store-get-path', handleStoreGetPath);
 
   console.log('IPC handlers ready');
 }
@@ -325,6 +335,156 @@ async function handleExportMemoryBook(
 }
 
 /**
+ * Electron Store: Get value
+ */
+async function handleStoreGet(
+  event: IpcMainInvokeEvent,
+  key: string,
+  defaultValue?: any
+): Promise<any> {
+  try {
+    const value = store.get(key, defaultValue);
+    return {
+      success: true,
+      data: value,
+    };
+  } catch (error) {
+    console.error('Error getting store value:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Electron Store: Set value
+ */
+async function handleStoreSet(
+  event: IpcMainInvokeEvent,
+  key: string,
+  value: any
+): Promise<any> {
+  try {
+    store.set(key, value);
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error('Error setting store value:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Electron Store: Delete value
+ */
+async function handleStoreDelete(
+  event: IpcMainInvokeEvent,
+  key: string
+): Promise<any> {
+  try {
+    store.delete(key);
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error('Error deleting store value:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Electron Store: Clear all data
+ */
+async function handleStoreClear(
+  event: IpcMainInvokeEvent
+): Promise<any> {
+  try {
+    store.clear();
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error('Error clearing store:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Electron Store: Check if key exists
+ */
+async function handleStoreHas(
+  event: IpcMainInvokeEvent,
+  key: string
+): Promise<any> {
+  try {
+    const exists = store.has(key);
+    return {
+      success: true,
+      data: exists,
+    };
+  } catch (error) {
+    console.error('Error checking store key:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Electron Store: Get all data
+ */
+async function handleStoreGetAll(
+  event: IpcMainInvokeEvent
+): Promise<any> {
+  try {
+    const allData = getAllStoreData();
+    return {
+      success: true,
+      data: allData,
+    };
+  } catch (error) {
+    console.error('Error getting all store data:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Electron Store: Get store file path
+ */
+async function handleStoreGetPath(
+  event: IpcMainInvokeEvent
+): Promise<any> {
+  try {
+    const path = getStorePath();
+    return {
+      success: true,
+      data: path,
+    };
+  } catch (error) {
+    console.error('Error getting store path:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
  * Clean up IPC handlers
  */
 export function cleanupIpcHandlers(): void {
@@ -339,4 +499,11 @@ export function cleanupIpcHandlers(): void {
   ipcMain.removeAllListeners('get-parent-dashboard');
   ipcMain.removeAllListeners('update-settings');
   ipcMain.removeAllListeners('export-memory-book');
+  ipcMain.removeAllListeners('store-get');
+  ipcMain.removeAllListeners('store-set');
+  ipcMain.removeAllListeners('store-delete');
+  ipcMain.removeAllListeners('store-clear');
+  ipcMain.removeAllListeners('store-has');
+  ipcMain.removeAllListeners('store-get-all');
+  ipcMain.removeAllListeners('store-get-path');
 }

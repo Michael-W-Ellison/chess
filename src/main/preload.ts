@@ -70,6 +70,13 @@ const electronAPI = {
       'get-parent-dashboard',
       'update-settings',
       'export-memory-book',
+      'store-get',
+      'store-set',
+      'store-delete',
+      'store-clear',
+      'store-has',
+      'store-get-all',
+      'store-get-path',
     ];
 
     if (validChannels.includes(channel)) {
@@ -78,6 +85,66 @@ const electronAPI = {
       console.error(`Invalid IPC invoke channel: ${channel}`);
       throw new Error(`Invalid channel: ${channel}`);
     }
+  },
+
+  // Electron Store API
+  store: {
+    get: async (key: string, defaultValue?: any): Promise<any> => {
+      const result = await ipcRenderer.invoke('store-get', key, defaultValue);
+      if (result.success) {
+        return result.data;
+      } else {
+        throw new Error(result.error);
+      }
+    },
+
+    set: async (key: string, value: any): Promise<void> => {
+      const result = await ipcRenderer.invoke('store-set', key, value);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+    },
+
+    delete: async (key: string): Promise<void> => {
+      const result = await ipcRenderer.invoke('store-delete', key);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+    },
+
+    clear: async (): Promise<void> => {
+      const result = await ipcRenderer.invoke('store-clear');
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+    },
+
+    has: async (key: string): Promise<boolean> => {
+      const result = await ipcRenderer.invoke('store-has', key);
+      if (result.success) {
+        return result.data;
+      } else {
+        throw new Error(result.error);
+      }
+    },
+
+    getAll: async (): Promise<any> => {
+      const result = await ipcRenderer.invoke('store-get-all');
+      if (result.success) {
+        return result.data;
+      } else {
+        throw new Error(result.error);
+      }
+    },
+
+    getPath: async (): Promise<string> => {
+      const result = await ipcRenderer.invoke('store-get-path');
+      if (result.success) {
+        return result.data;
+      } else {
+        throw new Error(result.error);
+      }
+    },
   },
 
   // Remove all listeners for a channel

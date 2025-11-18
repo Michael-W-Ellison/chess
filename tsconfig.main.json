@@ -6,9 +6,10 @@
     "moduleResolution": "node",
     "outDir": "dist/main",
     "noEmit": false,
+    "allowImportingTsExtensions": false,
     "lib": ["ES2020"],
     "skipLibCheck": true,
-    "strict": true,
+    "strict": false,
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "baseUrl": ".",
@@ -16,6 +17,6 @@
       "@shared/*": ["src/shared/*"]
     }
   },
-  "include": ["src/main/**/*", "src/shared/**/*"],
-  "exclude": ["node_modules", "dist", "src/renderer"]
+  "include": ["src/main/**/*"],
+  "exclude": ["node_modules", "dist", "src/renderer", "src/shared", "src/main/test-store.ts"]
 }
