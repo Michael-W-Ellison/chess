@@ -18,6 +18,7 @@ from services.safety_flag_service import safety_flag_service
 from services.parent_notification_service import parent_notification_service
 from services.parent_preferences_service import parent_preferences_service
 from services.conversation_summary_service import conversation_summary_service
+from services.weekly_report_service import weekly_report_service
 
 logger = logging.getLogger("chatbot.routes.parent")
 
@@ -1326,4 +1327,201 @@ async def send_test_notification(
         raise
     except Exception as e:
         logger.error(f"Error sending test notification: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Weekly/Daily Report Endpoints
+# ============================================================================
+
+
+class ReportDataResponse(BaseModel):
+    """Report data structure"""
+    user_id: int
+    user_name: str
+    period: str
+    start_date: str
+    end_date: str
+    safety: Dict
+    conversations: Dict
+    engagement: Dict
+
+
+class ReportSendResponse(BaseModel):
+    """Report send result"""
+    success: bool
+    sent: bool
+    to_email: Optional[str] = None
+    period: str
+    reason: Optional[str] = None
+    error: Optional[str] = None
+
+
+@router.get("/reports/preview", response_model=ReportDataResponse)
+async def preview_report(
+    user_id: int = Query(..., description="Child's user ID"),
+    period: str = Query("weekly", description="Report period (daily or weekly)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Preview report data without sending email
+
+    Generates all report data including safety statistics, conversation summaries,
+    and engagement metrics for the specified period.
+
+    Args:
+        user_id: Child's user ID
+        period: Report period - "daily" (last 24 hours) or "weekly" (last 7 days)
+        db: Database session
+
+    Returns:
+        Report data for preview
+    """
+    try:
+        if period not in ["daily", "weekly"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid period. Must be 'daily' or 'weekly'"
+            )
+
+        # Generate report data
+        report_data = weekly_report_service.generate_report_data(db, user_id, period)
+
+        logger.info(f"Generated {period} report preview for user {user_id}")
+
+        return ReportDataResponse(**report_data)
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating report preview: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/reports/send", response_model=ReportSendResponse)
+async def send_report(
+    user_id: int = Query(..., description="Child's user ID"),
+    period: str = Query("weekly", description="Report period (daily or weekly)"),
+    force_send: bool = Query(False, description="Send regardless of preferences"),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate and send report via email
+
+    Generates a comprehensive safety and activity report and sends it to the
+    parent's configured email address. Respects notification preferences unless
+    force_send is True.
+
+    Args:
+        user_id: Child's user ID
+        period: Report period - "daily" (last 24 hours) or "weekly" (last 7 days)
+        force_send: If True, send regardless of notification preferences
+        db: Database session
+
+    Returns:
+        Send result with status
+    """
+    try:
+        if period not in ["daily", "weekly"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid period. Must be 'daily' or 'weekly'"
+            )
+
+        # Generate and send report
+        result = weekly_report_service.generate_and_send_report(
+            db, user_id, period, force_send
+        )
+
+        if result.get("success"):
+            logger.info(f"Successfully sent {period} report to {result.get('to_email')} for user {user_id}")
+            return ReportSendResponse(
+                success=True,
+                sent=True,
+                to_email=result.get("to_email"),
+                period=period
+            )
+        else:
+            # Report not sent due to preferences or configuration
+            logger.info(f"Report not sent for user {user_id}: {result.get('reason', result.get('error'))}")
+            return ReportSendResponse(
+                success=False,
+                sent=False,
+                period=period,
+                reason=result.get("reason"),
+                error=result.get("error")
+            )
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sending report: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/reports/generate")
+async def generate_report(
+    user_id: int = Query(..., description="Child's user ID"),
+    period: str = Query("weekly", description="Report period (daily or weekly)"),
+    send_email: bool = Query(False, description="Send report via email"),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate report and optionally send via email
+
+    This is a convenience endpoint that can either:
+    - Generate report data only (send_email=False) for preview
+    - Generate and send report via email (send_email=True)
+
+    Args:
+        user_id: Child's user ID
+        period: Report period - "daily" (last 24 hours) or "weekly" (last 7 days)
+        send_email: If True, also send report via email
+        db: Database session
+
+    Returns:
+        Report data and send status (if email was requested)
+    """
+    try:
+        if period not in ["daily", "weekly"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid period. Must be 'daily' or 'weekly'"
+            )
+
+        # Generate report data
+        report_data = weekly_report_service.generate_report_data(db, user_id, period)
+
+        response = {
+            "report_data": report_data,
+            "email_sent": False
+        }
+
+        # Optionally send email
+        if send_email:
+            send_result = weekly_report_service.generate_and_send_report(
+                db, user_id, period, force_send=False
+            )
+            response["email_sent"] = send_result.get("sent", False)
+            response["send_result"] = {
+                "success": send_result.get("success"),
+                "to_email": send_result.get("to_email"),
+                "reason": send_result.get("reason"),
+                "error": send_result.get("error")
+            }
+
+        logger.info(f"Generated {period} report for user {user_id} (email_sent={response['email_sent']})")
+
+        return response
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating report: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
