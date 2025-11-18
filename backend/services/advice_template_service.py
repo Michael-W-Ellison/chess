@@ -13,6 +13,7 @@ import random
 from sqlalchemy.orm import Session
 from models.safety import AdviceTemplate
 from models.personality import BotPersonality
+from services.template_personalization_service import template_personalization_service
 
 logger = logging.getLogger("chatbot.advice_template_service")
 
@@ -103,7 +104,9 @@ class AdviceTemplateService:
         db: Session,
         category: str,
         friendship_level: int,
-        user_name: Optional[str] = None,
+        user_id: Optional[int] = None,
+        user_message: Optional[str] = None,
+        detected_mood: Optional[str] = None,
         age: Optional[int] = None,
         subcategory: Optional[str] = None,
         tone: Optional[str] = None,
@@ -111,13 +114,15 @@ class AdviceTemplateService:
         **format_kwargs
     ) -> Optional[str]:
         """
-        Get formatted advice text ready to use
+        Get formatted advice text ready to use with personalization
 
         Args:
             db: Database session
             category: Advice category
             friendship_level: Current friendship level
-            user_name: User's name for personalization
+            user_id: User ID for personalization (optional)
+            user_message: User's message for context extraction (optional)
+            detected_mood: Detected user mood (optional)
             age: User's age
             subcategory: Optional subcategory filter
             tone: Preferred tone
@@ -141,13 +146,19 @@ class AdviceTemplateService:
         if not template:
             return None
 
-        # Prepare format variables
-        format_vars = format_kwargs.copy()
-        if user_name:
-            format_vars["name"] = user_name
-
-        # Format advice
-        formatted = template.format_advice(**format_vars)
+        # Use personalization service if user_id provided
+        if user_id:
+            formatted = template_personalization_service.personalize_template(
+                template=template,
+                db=db,
+                user_id=user_id,
+                user_message=user_message,
+                detected_mood=detected_mood,
+                additional_context=format_kwargs
+            )
+        else:
+            # Fall back to basic formatting
+            formatted = template.format_advice(**format_kwargs)
 
         # Increment usage count
         template.increment_usage()
@@ -311,23 +322,25 @@ class AdviceTemplateService:
         db: Session,
         advice_detection: Dict,
         personality: BotPersonality,
-        user_name: Optional[str] = None,
+        user_id: Optional[int] = None,
+        user_message: Optional[str] = None,
         user_age: Optional[int] = None,
         detected_mood: Optional[str] = None
     ) -> Optional[str]:
         """
-        Get advice based on full conversation context
+        Get advice based on full conversation context with personalization
 
         Args:
             db: Database session
             advice_detection: Result from AdviceCategoryDetector
             personality: User's bot personality
-            user_name: User's name
+            user_id: User ID for personalization
+            user_message: User's original message for context extraction
             user_age: User's age
             detected_mood: Detected user mood
 
         Returns:
-            Formatted advice string or None
+            Formatted and personalized advice string or None
         """
         if not advice_detection.get("is_advice_request"):
             return None
@@ -349,12 +362,14 @@ class AdviceTemplateService:
         }
         preferred_tone = tone_mapping.get(detected_mood, "supportive")
 
-        # Get formatted advice
+        # Get formatted advice with personalization
         advice = self.get_formatted_advice(
             db=db,
             category=category,
             friendship_level=personality.friendship_level,
-            user_name=user_name,
+            user_id=user_id,
+            user_message=user_message,
+            detected_mood=detected_mood,
             age=user_age,
             tone=preferred_tone,
             strategy="tone_match"
@@ -400,16 +415,19 @@ def get_formatted_advice(
     db: Session,
     category: str,
     friendship_level: int,
-    user_name: Optional[str] = None,
+    user_id: Optional[int] = None,
+    user_message: Optional[str] = None,
+    detected_mood: Optional[str] = None,
     age: Optional[int] = None,
     subcategory: Optional[str] = None,
     tone: Optional[str] = None,
     strategy: str = "expert_reviewed",
     **format_kwargs
 ) -> Optional[str]:
-    """Get formatted advice"""
+    """Get formatted advice with personalization"""
     return advice_template_service.get_formatted_advice(
-        db, category, friendship_level, user_name, age, subcategory, tone, strategy, **format_kwargs
+        db, category, friendship_level, user_id, user_message, detected_mood,
+        age, subcategory, tone, strategy, **format_kwargs
     )
 
 
@@ -417,13 +435,14 @@ def get_advice_for_context(
     db: Session,
     advice_detection: Dict,
     personality: BotPersonality,
-    user_name: Optional[str] = None,
+    user_id: Optional[int] = None,
+    user_message: Optional[str] = None,
     user_age: Optional[int] = None,
     detected_mood: Optional[str] = None
 ) -> Optional[str]:
-    """Get advice for full context"""
+    """Get advice for full context with personalization"""
     return advice_template_service.get_advice_for_context(
-        db, advice_detection, personality, user_name, user_age, detected_mood
+        db, advice_detection, personality, user_id, user_message, user_age, detected_mood
     )
 
 
