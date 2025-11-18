@@ -6,14 +6,17 @@
 import React, { useState } from 'react';
 import { usePersonality } from '../hooks/usePersonality';
 import { useProfile } from '../hooks/useProfile';
+import { useMemory } from '../contexts/MemoryContext';
 import { FriendshipMeter } from './FriendshipMeter';
+import { MemoryBook } from './MemoryBook';
 
 type TabType = 'personality' | 'profile' | 'memories';
 
 export const ProfilePanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('personality');
   const { personality, description, isLoading: personalityLoading } = usePersonality();
-  const { profile, memories, isLoading: profileLoading } = useProfile();
+  const { profile, isLoading: profileLoading } = useProfile();
+  const { memories } = useMemory();
 
   const isLoading = personalityLoading || profileLoading;
 
@@ -267,61 +270,7 @@ export const ProfilePanel: React.FC = () => {
    * Render memories tab
    */
   const renderMemoriesTab = () => {
-    if (memories.length === 0) {
-      return (
-        <div className="text-center py-12 text-gray-500">
-          <div className="text-4xl mb-4">🧠</div>
-          <p className="mb-2">No memories yet!</p>
-          <p className="text-sm">Start chatting to create memories together</p>
-        </div>
-      );
-    }
-
-    // Group memories by category
-    const groupedMemories = memories.reduce((acc, memory) => {
-      if (!acc[memory.category]) {
-        acc[memory.category] = [];
-      }
-      acc[memory.category].push(memory);
-      return acc;
-    }, {} as Record<string, typeof memories>);
-
-    return (
-      <div className="space-y-6">
-        {Object.entries(groupedMemories).map(([category, items]) => (
-          <div key={category} className="bg-white rounded-lg p-6 border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3 capitalize">
-              {category.replace(/_/g, ' ')}
-            </h3>
-            <div className="space-y-3">
-              {items.map((memory) => (
-                <div key={memory.id} className="p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-gray-700">
-                        {memory.key.replace(/_/g, ' ')}
-                      </div>
-                      <div className="text-sm text-gray-600 mt-1">{memory.value}</div>
-                    </div>
-                    <div className="text-xs text-gray-500 ml-2">
-                      {memory.mentionCount > 1 && (
-                        <span title="Times mentioned">×{memory.mentionCount}</span>
-                      )}
-                    </div>
-                  </div>
-                  {memory.lastMentioned && (
-                    <div className="text-xs text-gray-400 mt-2">
-                      Last mentioned:{' '}
-                      {new Date(memory.lastMentioned).toLocaleDateString()}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
+    return <MemoryBook memories={memories} />;
   };
 
   return (
