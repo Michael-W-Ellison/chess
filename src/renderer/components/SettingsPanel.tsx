@@ -7,14 +7,17 @@ import React, { useState } from 'react';
 import { useProfile } from '../hooks/useProfile';
 import { useAvatar } from '../hooks/useAvatar';
 import { useTheme } from '../hooks/useTheme';
+import { useColor } from '../hooks/useColor';
 import { AvatarSelector } from './AvatarSelector';
 import { AvatarDisplay } from './AvatarDisplay';
 import { ThemeToggle } from './ThemeToggle';
+import { ColorSelector } from './ColorSelector';
 
 export const SettingsPanel: React.FC = () => {
   const { profile, updateProfile, isLoading } = useProfile();
   const { avatarId, updateAvatar } = useAvatar();
   const { theme } = useTheme();
+  const { colorTheme } = useColor();
 
   // Local state for form
   const [formData, setFormData] = useState({
@@ -91,7 +94,16 @@ export const SettingsPanel: React.FC = () => {
                 </p>
                 <button
                   onClick={() => setShowAvatarSelector(!showAvatarSelector)}
-                  className="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors text-sm font-medium"
+                  className="px-4 py-2 text-white rounded-lg transition-colors text-sm font-medium"
+                  style={{
+                    backgroundColor: 'var(--color-primary)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--color-hover)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--color-primary)';
+                  }}
                 >
                   {showAvatarSelector ? 'Hide Avatar Selector' : 'Change Avatar'}
                 </button>
@@ -130,6 +142,21 @@ export const SettingsPanel: React.FC = () => {
             </div>
           </div>
 
+          {/* Color Customization */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
+              <span>🎨</span>
+              <span>Colors</span>
+            </h3>
+
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Personalize your experience with custom color themes
+              </p>
+              <ColorSelector />
+            </div>
+          </div>
+
           {/* Profile Information */}
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
@@ -148,7 +175,10 @@ export const SettingsPanel: React.FC = () => {
                   value={formData.name}
                   onChange={(e) => handleChange('name', e.target.value)}
                   placeholder="Enter your name"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 transition-shadow"
+                  style={{
+                    ['--tw-ring-color' as any]: 'var(--color-focus)',
+                  }}
                   maxLength={50}
                 />
               </div>
@@ -163,7 +193,10 @@ export const SettingsPanel: React.FC = () => {
                   placeholder="Enter your age"
                   min={1}
                   max={120}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 transition-shadow"
+                  style={{
+                    ['--tw-ring-color' as any]: 'var(--color-focus)',
+                  }}
                 />
               </div>
 
@@ -175,7 +208,10 @@ export const SettingsPanel: React.FC = () => {
                 <select
                   value={formData.grade}
                   onChange={(e) => handleChange('grade', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 transition-shadow"
+                  style={{
+                    ['--tw-ring-color' as any]: 'var(--color-focus)',
+                  }}
                 >
                   <option value="">Select grade</option>
                   <option value="1">1st Grade</option>
@@ -198,7 +234,20 @@ export const SettingsPanel: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isLoading || saveStatus === 'saving'}
-                  className="px-6 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                  className="px-6 py-2 text-white rounded-lg disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                  style={{
+                    backgroundColor: isLoading || saveStatus === 'saving' ? undefined : 'var(--color-primary)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isLoading && saveStatus !== 'saving') {
+                      e.currentTarget.style.backgroundColor = 'var(--color-hover)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isLoading && saveStatus !== 'saving') {
+                      e.currentTarget.style.backgroundColor = 'var(--color-primary)';
+                    }
+                  }}
                 >
                   {saveStatus === 'saving' ? 'Saving...' : 'Save Changes'}
                 </button>

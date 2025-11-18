@@ -26,9 +26,13 @@ function App() {
             onClick={() => setCurrentView('chat')}
             className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
               currentView === 'chat'
-                ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/50 dark:text-blue-400'
+                ? ''
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
+            style={currentView === 'chat' ? {
+              color: 'var(--color-text)',
+              backgroundColor: 'var(--color-primary-lighter)',
+            } : {}}
           >
             <span className="text-2xl">💬</span>
             <span className="text-xs font-medium">Chat</span>
@@ -37,9 +41,13 @@ function App() {
             onClick={() => setCurrentView('profile')}
             className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
               currentView === 'profile'
-                ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/50 dark:text-blue-400'
+                ? ''
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
+            style={currentView === 'profile' ? {
+              color: 'var(--color-text)',
+              backgroundColor: 'var(--color-primary-lighter)',
+            } : {}}
           >
             <span className="text-2xl">🤖</span>
             <span className="text-xs font-medium">Profile</span>
@@ -48,9 +56,13 @@ function App() {
             onClick={() => setCurrentView('settings')}
             className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
               currentView === 'settings'
-                ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/50 dark:text-blue-400'
+                ? ''
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
+            style={currentView === 'settings' ? {
+              color: 'var(--color-text)',
+              backgroundColor: 'var(--color-primary-lighter)',
+            } : {}}
           >
             <span className="text-2xl">⚙️</span>
             <span className="text-xs font-medium">Settings</span>
@@ -59,9 +71,13 @@ function App() {
             onClick={() => setCurrentView('parent')}
             className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
               currentView === 'parent'
-                ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/50 dark:text-blue-400'
+                ? ''
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
+            style={currentView === 'parent' ? {
+              color: 'var(--color-text)',
+              backgroundColor: 'var(--color-primary-lighter)',
+            } : {}}
           >
             <span className="text-2xl">👨‍👩‍👧</span>
             <span className="text-xs font-medium">Parent</span>
