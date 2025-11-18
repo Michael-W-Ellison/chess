@@ -13,6 +13,7 @@ import { AvatarSelector } from './AvatarSelector';
 import { AvatarDisplay } from './AvatarDisplay';
 import { ThemeToggle } from './ThemeToggle';
 import { ColorSelector } from './ColorSelector';
+import { RecentAchievements } from './RecentAchievements';
 import { calculateTotalPoints, getAchievementProgress } from '../../shared/achievements';
 
 export const SettingsPanel: React.FC = () => {
@@ -341,6 +342,15 @@ export const SettingsPanel: React.FC = () => {
               <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
                 View all achievements in the Achievements tab
               </p>
+
+              {/* Recent Achievements */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                  <span>✨</span>
+                  <span>Recent Unlocks</span>
+                </h4>
+                <RecentAchievements limit={3} compact={true} />
+              </div>
             </div>
           </div>
 

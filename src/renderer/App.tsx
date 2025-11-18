@@ -12,7 +12,14 @@ import { useAchievements } from './hooks/useAchievements';
  */
 function App() {
   const [currentView, setCurrentView] = useState<'chat' | 'profile' | 'achievements' | 'settings' | 'parent'>('chat');
-  const { trackSessionStart, trackSessionEnd } = useAchievements();
+  const { trackSessionStart, trackSessionEnd, recentAchievements } = useAchievements();
+
+  // Count unseen achievements (within last hour)
+  const unseenCount = recentAchievements.filter((recent) => {
+    const unlockTime = new Date(recent.unlockedAt).getTime();
+    const now = Date.now();
+    return now - unlockTime < 3600000; // 1 hour
+  }).length;
 
   // Track session on mount and unmount
   useEffect(() => {
@@ -67,7 +74,7 @@ function App() {
           </button>
           <button
             onClick={() => setCurrentView('achievements')}
-            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+            className={`relative flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
               currentView === 'achievements'
                 ? ''
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -79,6 +86,14 @@ function App() {
           >
             <span className="text-2xl">🏆</span>
             <span className="text-xs font-medium">Achieve</span>
+            {unseenCount > 0 && (
+              <span
+                className="absolute top-1 right-1 min-w-[18px] h-[18px] flex items-center justify-center text-white text-xs font-bold rounded-full animate-pulse"
+                style={{ backgroundColor: 'var(--color-primary)' }}
+              >
+                {unseenCount}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setCurrentView('settings')}
