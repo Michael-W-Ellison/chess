@@ -3,19 +3,21 @@ import ChatWindow from './components/ChatWindow';
 import ProfilePanel from './components/ProfilePanel';
 import SettingsPanel from './components/SettingsPanel';
 import ParentDashboard from './components/ParentDashboard';
+import AchievementsPanel from './components/AchievementsPanel';
 
 /**
  * Main application component
  * This is the root component that manages the overall app state and layout
  */
 function App() {
-  const [currentView, setCurrentView] = useState<'chat' | 'profile' | 'settings' | 'parent'>('chat');
+  const [currentView, setCurrentView] = useState<'chat' | 'profile' | 'achievements' | 'settings' | 'parent'>('chat');
 
   return (
     <div className="app h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
       {/* Render appropriate view */}
       {currentView === 'chat' && <ChatWindow />}
       {currentView === 'profile' && <ProfilePanel />}
+      {currentView === 'achievements' && <AchievementsPanel />}
       {currentView === 'settings' && <SettingsPanel />}
       {currentView === 'parent' && <ParentDashboard />}
 
@@ -51,6 +53,21 @@ function App() {
           >
             <span className="text-2xl">🤖</span>
             <span className="text-xs font-medium">Profile</span>
+          </button>
+          <button
+            onClick={() => setCurrentView('achievements')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+              currentView === 'achievements'
+                ? ''
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+            style={currentView === 'achievements' ? {
+              color: 'var(--color-text)',
+              backgroundColor: 'var(--color-primary-lighter)',
+            } : {}}
+          >
+            <span className="text-2xl">🏆</span>
+            <span className="text-xs font-medium">Achieve</span>
           </button>
           <button
             onClick={() => setCurrentView('settings')}

@@ -8,16 +8,19 @@ import { useProfile } from '../hooks/useProfile';
 import { useAvatar } from '../hooks/useAvatar';
 import { useTheme } from '../hooks/useTheme';
 import { useColor } from '../hooks/useColor';
+import { useAchievements } from '../hooks/useAchievements';
 import { AvatarSelector } from './AvatarSelector';
 import { AvatarDisplay } from './AvatarDisplay';
 import { ThemeToggle } from './ThemeToggle';
 import { ColorSelector } from './ColorSelector';
+import { calculateTotalPoints, getAchievementProgress } from '../../shared/achievements';
 
 export const SettingsPanel: React.FC = () => {
   const { profile, updateProfile, isLoading } = useProfile();
   const { avatarId, updateAvatar } = useAvatar();
   const { theme } = useTheme();
   const { colorTheme } = useColor();
+  const { unlockedAchievements, stats } = useAchievements();
 
   // Local state for form
   const [formData, setFormData] = useState({
@@ -267,6 +270,78 @@ export const SettingsPanel: React.FC = () => {
                 )}
               </div>
             </form>
+          </div>
+
+          {/* Achievements Summary */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
+              <span>🏆</span>
+              <span>Achievements</span>
+            </h3>
+
+            <div className="space-y-4">
+              {/* Stats grid */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                    {unlockedAchievements.length}
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    Unlocked
+                  </div>
+                </div>
+                <div className="text-center p-3 bg-gradient-to-br from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                    {calculateTotalPoints(unlockedAchievements)}
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    Points
+                  </div>
+                </div>
+                <div className="text-center p-3 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                    {getAchievementProgress(unlockedAchievements)}%
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    Progress
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent stats */}
+              <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Messages</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-200">
+                      {stats.messageCount}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Streak</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-200">
+                      {stats.dailyStreak} days
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Sessions</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-200">
+                      {stats.conversationCount}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Total Points</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-200">
+                      {stats.totalPoints}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                View all achievements in the Achievements tab
+              </p>
+            </div>
           </div>
 
           {/* Privacy & Data */}
