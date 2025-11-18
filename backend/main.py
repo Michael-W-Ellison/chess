@@ -41,6 +41,12 @@ async def lifespan(app: FastAPI):
     # Load LLM model with optimizations from settings
     logger.info(f"Loading LLM model from {settings.MODEL_PATH}")
 
+    # Log cache configuration
+    if settings.ENABLE_RESPONSE_CACHE:
+        logger.info(f"Response caching enabled: TTL={settings.CACHE_TTL_SECONDS}s, Max={settings.CACHE_MAX_SIZE}")
+    else:
+        logger.info("Response caching disabled")
+
     # Configure loading based on settings
     use_mmap = settings.MODEL_USE_MMAP
     blocking = not settings.MODEL_BACKGROUND_LOAD
@@ -145,12 +151,33 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """Health check endpoint with cache statistics"""
     return {
         "status": "healthy",
         "database": "connected",
         "llm": "loaded" if llm_service.is_loaded else "not loaded",
         "model_info": llm_service.get_model_info(),
+    }
+
+
+@app.post("/api/cache/clear")
+async def clear_cache():
+    """Clear all LLM response caches"""
+    stats = llm_service.clear_cache()
+    logger.info("Cache cleared via API")
+    return {
+        "success": True,
+        "message": "Cache cleared successfully",
+        "previous_stats": stats,
+    }
+
+
+@app.get("/api/cache/stats")
+async def get_cache_stats():
+    """Get cache statistics"""
+    return {
+        "success": True,
+        "cache_stats": llm_service.get_cache_stats(),
     }
 
 

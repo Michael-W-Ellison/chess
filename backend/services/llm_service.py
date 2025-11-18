@@ -1,6 +1,7 @@
 """
 LLM Service
 Wrapper for llama-cpp-python to handle local LLM inference with optimized loading
+Includes response caching for improved performance
 """
 
 from typing import Optional, Dict, Any, Iterator
@@ -8,8 +9,10 @@ import logging
 from pathlib import Path
 import threading
 import time
+import hashlib
 
 from utils.config import settings
+from utils.cache import TTLCache, generate_cache_key
 
 logger = logging.getLogger("chatbot.llm_service")
 
@@ -40,6 +43,13 @@ class LLMService:
         # Thread-safe lock for loading
         self._load_lock = threading.Lock()
         self._loading_thread = None
+
+        # Response cache - configurable via settings
+        # Only caches identical prompts with same parameters
+        cache_ttl = getattr(settings, 'CACHE_TTL_SECONDS', 3600)
+        cache_max_size = getattr(settings, 'CACHE_MAX_SIZE', 500)
+        self._response_cache = TTLCache(default_ttl=cache_ttl, max_size=cache_max_size)
+        self._cache_enabled = getattr(settings, 'ENABLE_RESPONSE_CACHE', True)
 
     def load_model(self, blocking: bool = True, use_mmap: bool = True) -> bool:
         """
@@ -210,9 +220,10 @@ class LLMService:
         temperature: Optional[float] = None,
         stop: Optional[list] = None,
         stream: bool = False,
+        use_cache: bool = True,
     ) -> str:
         """
-        Generate a response from the LLM
+        Generate a response from the LLM with optional caching
 
         Args:
             prompt: The full prompt to send to the model
@@ -220,6 +231,7 @@ class LLMService:
             temperature: Sampling temperature (defaults to settings)
             stop: List of stop sequences
             stream: Whether to stream the response (not implemented yet)
+            use_cache: Whether to use response cache (default: True)
 
         Returns:
             Generated text response
@@ -246,6 +258,15 @@ class LLMService:
         if stop is None:
             stop = ["\n\nUser:", "\n\nHuman:", "<|endoftext|>"]
 
+        # Check cache if enabled
+        if self._cache_enabled and use_cache:
+            cache_key = self._generate_cache_key(prompt, max_tokens, temperature, stop)
+            cached_response = self._response_cache.get(cache_key)
+
+            if cached_response is not None:
+                logger.debug(f"Cache HIT for prompt: {prompt[:50]}...")
+                return cached_response
+
         try:
             logger.debug(f"Generating response (max_tokens={max_tokens}, temp={temperature})")
 
@@ -266,11 +287,45 @@ class LLMService:
 
             logger.debug(f"Generated {len(text)} characters")
 
+            # Cache the response if caching is enabled
+            if self._cache_enabled and use_cache:
+                self._response_cache.set(cache_key, text)
+
             return text
 
         except Exception as e:
             logger.error(f"Error generating response: {e}", exc_info=True)
             return "I'm having trouble thinking right now. Can you try asking again?"
+
+    def _generate_cache_key(
+        self,
+        prompt: str,
+        max_tokens: int,
+        temperature: float,
+        stop: list
+    ) -> str:
+        """
+        Generate a cache key for LLM parameters
+
+        Args:
+            prompt: The prompt text
+            max_tokens: Max tokens setting
+            temperature: Temperature setting
+            stop: Stop sequences
+
+        Returns:
+            Hash string for cache key
+        """
+        # Create dictionary of all parameters that affect output
+        key_data = {
+            'prompt': prompt,
+            'max_tokens': max_tokens,
+            'temperature': temperature,
+            'stop': sorted(stop) if stop else [],
+        }
+
+        # Use the utility function to generate hash
+        return generate_cache_key(**key_data)
 
     def generate_stream(
         self,
@@ -354,12 +409,43 @@ class LLMService:
         except AttributeError:
             raise NotImplementedError("Model does not support embeddings")
 
+    def clear_cache(self) -> Dict[str, int]:
+        """
+        Clear the response cache
+
+        Returns:
+            Dictionary with cache stats before clearing
+        """
+        stats = self._response_cache.get_stats()
+        self._response_cache.clear()
+        logger.info("LLM response cache cleared")
+        return stats
+
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """
+        Get response cache statistics
+
+        Returns:
+            Dictionary with cache statistics
+        """
+        return self._response_cache.get_stats()
+
+    def set_cache_enabled(self, enabled: bool) -> None:
+        """
+        Enable or disable response caching
+
+        Args:
+            enabled: True to enable, False to disable
+        """
+        self._cache_enabled = enabled
+        logger.info(f"LLM response cache {'enabled' if enabled else 'disabled'}")
+
     def get_model_info(self) -> Dict[str, Any]:
         """
         Get information about the loaded model
 
         Returns:
-            Dictionary with model information including loading status
+            Dictionary with model information including loading status and cache stats
         """
         load_time = None
         if self.load_start_time and self.is_loaded:
@@ -375,6 +461,8 @@ class LLMService:
             "max_tokens": self.max_tokens,
             "temperature": self.temperature,
             "gpu_layers": self.n_gpu_layers,
+            "cache_enabled": self._cache_enabled,
+            "cache_stats": self.get_cache_stats(),
         }
 
 

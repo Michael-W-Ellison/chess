@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     MODEL_LAZY_LOAD: bool = True  # Load on first request instead of blocking startup
     MODEL_BACKGROUND_LOAD: bool = True  # Load in background thread
 
+    # Response Caching
+    ENABLE_RESPONSE_CACHE: bool = True  # Cache LLM responses for identical prompts
+    CACHE_TTL_SECONDS: int = 3600  # Cache time-to-live (1 hour)
+    CACHE_MAX_SIZE: int = 500  # Maximum cached responses
+
     # Safety Configuration
     ENABLE_SAFETY_FILTER: bool = True
     LOG_SAFETY_EVENTS: bool = True
