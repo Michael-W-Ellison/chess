@@ -143,6 +143,69 @@ export function playAchievementSound(): void {
 }
 
 /**
+ * Play a level-up celebration sound effect
+ * Creates an exciting ascending fanfare sound
+ */
+export function playLevelUpSound(): void {
+  if (!isSoundEnabled()) return;
+
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+    // Create multiple oscillators for a rich, celebratory sound
+    const osc1 = audioContext.createOscillator();
+    const osc2 = audioContext.createOscillator();
+    const osc3 = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    osc1.connect(gainNode);
+    osc2.connect(gainNode);
+    osc3.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    // Configure ascending fanfare - C major arpeggio up to high C
+    osc1.type = 'triangle'; // Warmer tone for celebration
+    osc1.frequency.setValueAtTime(261.63, audioContext.currentTime); // C4
+    osc1.frequency.setValueAtTime(329.63, audioContext.currentTime + 0.15); // E4
+    osc1.frequency.setValueAtTime(392.00, audioContext.currentTime + 0.3); // G4
+    osc1.frequency.setValueAtTime(523.25, audioContext.currentTime + 0.45); // C5
+
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+    osc2.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.15); // E5
+    osc2.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.3); // G5
+    osc2.frequency.setValueAtTime(1046.50, audioContext.currentTime + 0.45); // C6
+
+    // Add sparkle with a higher frequency oscillator
+    osc3.type = 'sine';
+    osc3.frequency.setValueAtTime(1046.50, audioContext.currentTime); // C6
+    osc3.frequency.setValueAtTime(1318.51, audioContext.currentTime + 0.15); // E6
+    osc3.frequency.setValueAtTime(1567.98, audioContext.currentTime + 0.3); // G6
+    osc3.frequency.setValueAtTime(2093.00, audioContext.currentTime + 0.45); // C7
+
+    // Configure volume envelope with sustain at the end
+    gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+    gainNode.gain.setValueAtTime(0.25, audioContext.currentTime + 0.45); // Peak at the end
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.8);
+
+    // Play the sound
+    osc1.start(audioContext.currentTime);
+    osc2.start(audioContext.currentTime);
+    osc3.start(audioContext.currentTime);
+    osc1.stop(audioContext.currentTime + 0.8);
+    osc2.stop(audioContext.currentTime + 0.8);
+    osc3.stop(audioContext.currentTime + 0.8);
+
+    // Clean up
+    setTimeout(() => {
+      audioContext.close();
+    }, 900);
+  } catch (error) {
+    console.warn('Failed to play level-up sound:', error);
+  }
+}
+
+/**
  * Play a button click sound effect
  * Creates a subtle "tap" sound
  */
