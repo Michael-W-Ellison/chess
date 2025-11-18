@@ -6,6 +6,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import type { ChatMessage, PersonalityState } from '../../shared/types';
+import { playMessageReceiveSound } from '../../shared/soundEffects';
+
+// Memory optimization: Limit number of messages in memory
+// Full conversation history is still stored in backend database
+const MAX_MESSAGES_IN_MEMORY = 100;
 
 export interface UseChatState {
   // State
@@ -21,6 +26,18 @@ export interface UseChatState {
   sendMessage: (message: string) => Promise<void>;
   endConversation: () => Promise<void>;
   clearError: () => void;
+}
+
+/**
+ * Helper function to trim messages to prevent memory bloat
+ * Keeps only the most recent MAX_MESSAGES_IN_MEMORY messages
+ */
+function trimMessages(messages: ChatMessage[]): ChatMessage[] {
+  if (messages.length <= MAX_MESSAGES_IN_MEMORY) {
+    return messages;
+  }
+  // Keep only the most recent messages
+  return messages.slice(-MAX_MESSAGES_IN_MEMORY);
 }
 
 /**
@@ -63,6 +80,9 @@ export function useChat(): UseChatState {
       };
 
       setMessages([greetingMessage]);
+
+      // Play receive sound for greeting
+      playMessageReceiveSound();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to start conversation';
       setError(errorMessage);
@@ -98,7 +118,7 @@ export function useChat(): UseChatState {
           timestamp: new Date().toISOString(),
         };
 
-        setMessages((prev) => [...prev, userMessage]);
+        setMessages((prev) => trimMessages([...prev, userMessage]));
 
         // Send to backend
         const response = await api.conversation.sendMessage(conversationId, content.trim());
@@ -112,7 +132,10 @@ export function useChat(): UseChatState {
           metadata: response.metadata,
         };
 
-        setMessages((prev) => [...prev, assistantMessage]);
+        setMessages((prev) => trimMessages([...prev, assistantMessage]));
+
+        // Play receive sound for bot response
+        playMessageReceiveSound();
 
         // Show safety warning if flagged
         if (response.metadata?.safety_flag) {

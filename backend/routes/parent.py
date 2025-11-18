@@ -1,6 +1,15 @@
 """
 Parent Dashboard API Routes
 Endpoints for parents to monitor child safety and view safety flags
+
+Authentication:
+    These routes support JWT-based authentication. When PARENT_DASHBOARD_REQUIRE_PASSWORD
+    is enabled, endpoints require a valid JWT token in the Authorization header.
+
+    To protect an endpoint, add the RequireAuth dependency:
+        async def my_endpoint(..., current_user: dict = RequireAuth):
+
+    See docs/AUTHENTICATION_SETUP.md for complete setup instructions.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -19,10 +28,430 @@ from services.parent_notification_service import parent_notification_service
 from services.parent_preferences_service import parent_preferences_service
 from services.conversation_summary_service import conversation_summary_service
 from services.weekly_report_service import weekly_report_service
+from services.report_scheduler import report_scheduler
+from services.auth_service import auth_service
+from utils.auth_dependencies import get_current_user, RequireAuth
+from utils.config import settings
+from utils.rate_limiter import auth_rate_limiter
+from utils.password_validation import (
+    validate_password,
+    is_common_password,
+    get_password_requirements
+)
 
 logger = logging.getLogger("chatbot.routes.parent")
 
 router = APIRouter()
+
+
+# ============================================================================
+# Authentication Endpoints
+# ============================================================================
+
+
+class LoginRequest(BaseModel):
+    """Login request"""
+    password: str
+
+
+class LoginResponse(BaseModel):
+    """Login response"""
+    access_token: str
+    token_type: str
+    expires_in: int
+
+
+class AuthStatusResponse(BaseModel):
+    """Authentication status"""
+    authenticated: bool
+    required: bool
+    configured: bool
+
+
+@router.post("/auth/login", response_model=LoginResponse)
+async def login(request: LoginRequest):
+    """
+    Login to parent dashboard
+
+    Authenticates the user with a password and returns a JWT access token.
+    The token should be included in the Authorization header for subsequent
+    requests as: Authorization: Bearer <token>
+
+    Rate limited: 5 attempts per 15 minutes
+
+    Args:
+        request: Login request with password
+
+    Returns:
+        Access token and metadata
+
+    Raises:
+        HTTPException: 429 if rate limited
+        HTTPException: 401 if authentication fails
+        HTTPException: 403 if authentication not configured
+    """
+    try:
+        # Rate limiting (use "parent_login" as identifier since we have one password)
+        identifier = "parent_login"
+
+        if not auth_rate_limiter.is_allowed(identifier):
+            lockout_info = auth_rate_limiter.get_lockout_info(identifier)
+            logger.warning(f"Rate limit exceeded for login attempt")
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many login attempts. Please try again in {lockout_info['remaining_time']}."
+            )
+
+        # Check if password protection is enabled
+        if not settings.PARENT_DASHBOARD_REQUIRE_PASSWORD:
+            logger.info("Password protection disabled - generating unrestricted token")
+            auth_rate_limiter.clear_attempts(identifier)
+            token = auth_service.create_access_token(
+                data={"sub": "parent", "access": "unrestricted"}
+            )
+            return LoginResponse(
+                access_token=token,
+                token_type="bearer",
+                expires_in=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
+            )
+
+        # Check if authentication is configured
+        if not auth_service.is_configured:
+            logger.error("Authentication required but not configured")
+            raise HTTPException(
+                status_code=403,
+                detail="Authentication not properly configured. Please set PARENT_DASHBOARD_PASSWORD and JWT_SECRET_KEY."
+            )
+
+        # Authenticate
+        if not auth_service.authenticate(request.password):
+            # Record failed attempt
+            auth_rate_limiter.record_attempt(identifier)
+            remaining = auth_rate_limiter.get_remaining_attempts(identifier)
+
+            logger.warning(f"Login attempt failed - invalid password ({remaining} attempts remaining)")
+
+            if remaining > 0:
+                raise HTTPException(
+                    status_code=401,
+                    detail=f"Invalid password. {remaining} attempt{'s' if remaining != 1 else ''} remaining."
+                )
+            else:
+                lockout_info = auth_rate_limiter.get_lockout_info(identifier)
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Too many failed attempts. Account locked for {lockout_info['remaining_time']}."
+                )
+
+        # Clear attempts on successful login
+        auth_rate_limiter.clear_attempts(identifier)
+
+        # Create access token
+        token = auth_service.create_access_token(
+            data={"sub": "parent", "authenticated": True}
+        )
+
+        logger.info("Parent dashboard login successful")
+
+        return LoginResponse(
+            access_token=token,
+            token_type="bearer",
+            expires_in=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error during login: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/auth/status", response_model=AuthStatusResponse)
+async def auth_status():
+    """
+    Check authentication status
+
+    Returns information about whether authentication is required and configured.
+    This endpoint does not require authentication.
+
+    Returns:
+        Authentication status information
+    """
+    return AuthStatusResponse(
+        authenticated=False,  # Cannot determine without token
+        required=settings.PARENT_DASHBOARD_REQUIRE_PASSWORD,
+        configured=auth_service.is_configured
+    )
+
+
+@router.get("/auth/verify")
+async def verify_auth(current_user: dict = RequireAuth):
+    """
+    Verify authentication token
+
+    This endpoint requires a valid JWT token.
+    Use this to check if a token is still valid.
+
+    Args:
+        current_user: Current user from token (injected by dependency)
+
+    Returns:
+        Token verification status
+    """
+    return {
+        "authenticated": True,
+        "user": current_user.get("sub"),
+        "message": "Token is valid"
+    }
+
+
+class ChangePasswordRequest(BaseModel):
+    """Change password request"""
+    current_password: str
+    new_password: str
+
+
+class SetupPasswordRequest(BaseModel):
+    """Initial password setup request"""
+    password: str
+
+
+class PasswordValidationResponse(BaseModel):
+    """Password validation result"""
+    valid: bool
+    errors: List[str]
+    strength: str
+
+
+@router.post("/auth/change-password")
+async def change_password(
+    request: ChangePasswordRequest,
+    current_user: dict = RequireAuth
+):
+    """
+    Change parent dashboard password
+
+    Requires authentication. User must provide current password
+    and a new password that meets strength requirements.
+
+    Args:
+        request: Password change request
+        current_user: Current user from token
+
+    Returns:
+        Success message
+
+    Raises:
+        HTTPException: 400 if validation fails
+        HTTPException: 401 if current password is wrong
+        HTTPException: 403 if password protection disabled
+    """
+    try:
+        # Check if password protection is enabled
+        if not settings.PARENT_DASHBOARD_REQUIRE_PASSWORD:
+            raise HTTPException(
+                status_code=403,
+                detail="Password protection is disabled. Enable it in configuration first."
+            )
+
+        # Check if authentication is configured
+        if not auth_service.is_configured:
+            raise HTTPException(
+                status_code=403,
+                detail="Authentication not properly configured"
+            )
+
+        # Verify current password
+        if not auth_service.authenticate(request.current_password):
+            logger.warning("Password change failed - invalid current password")
+            raise HTTPException(
+                status_code=401,
+                detail="Current password is incorrect"
+            )
+
+        # Validate new password
+        validation = validate_password(request.new_password)
+        if not validation["valid"]:
+            logger.warning(f"Password change failed - validation errors: {validation['errors']}")
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "New password does not meet requirements",
+                    "errors": validation["errors"],
+                    "requirements": get_password_requirements()
+                }
+            )
+
+        # Check if new password is common
+        if is_common_password(request.new_password):
+            logger.warning("Password change failed - common password")
+            raise HTTPException(
+                status_code=400,
+                detail="This password is too common. Please choose a more unique password."
+            )
+
+        # Check if new password is same as current
+        if request.current_password == request.new_password:
+            raise HTTPException(
+                status_code=400,
+                detail="New password must be different from current password"
+            )
+
+        # Hash new password
+        new_hash = auth_service.hash_password(request.new_password)
+
+        logger.info("Password changed successfully")
+        logger.warning(
+            "IMPORTANT: Update PARENT_DASHBOARD_PASSWORD in .env file with new hash:\n"
+            f"PARENT_DASHBOARD_PASSWORD={new_hash}"
+        )
+
+        return {
+            "success": True,
+            "message": "Password changed successfully",
+            "new_password_hash": new_hash,
+            "instructions": "Update PARENT_DASHBOARD_PASSWORD in your .env file with the new hash and restart the server"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error changing password: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/auth/setup-password")
+async def setup_password(request: SetupPasswordRequest):
+    """
+    Initial password setup
+
+    This endpoint is used for first-time password setup.
+    It should only be used when no password is configured.
+
+    Args:
+        request: Password setup request
+
+    Returns:
+        Hashed password to add to configuration
+
+    Raises:
+        HTTPException: 400 if validation fails
+        HTTPException: 403 if password already configured
+    """
+    try:
+        # Check if password already configured
+        if settings.PARENT_DASHBOARD_PASSWORD:
+            raise HTTPException(
+                status_code=403,
+                detail="Password already configured. Use change-password endpoint instead."
+            )
+
+        # Validate password
+        validation = validate_password(request.password)
+        if not validation["valid"]:
+            logger.warning(f"Password setup failed - validation errors: {validation['errors']}")
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Password does not meet requirements",
+                    "errors": validation["errors"],
+                    "requirements": get_password_requirements()
+                }
+            )
+
+        # Check if password is common
+        if is_common_password(request.password):
+            logger.warning("Password setup failed - common password")
+            raise HTTPException(
+                status_code=400,
+                detail="This password is too common. Please choose a more unique password."
+            )
+
+        # Hash password
+        password_hash = auth_service.hash_password(request.password)
+
+        # Generate JWT secret if not set
+        jwt_secret = settings.JWT_SECRET_KEY
+        if not jwt_secret:
+            import secrets
+            jwt_secret = secrets.token_urlsafe(32)
+
+        logger.info("Initial password setup completed")
+
+        return {
+            "success": True,
+            "message": "Password setup complete",
+            "password_hash": password_hash,
+            "jwt_secret": jwt_secret,
+            "instructions": (
+                "Add these to your .env file:\n"
+                f"PARENT_DASHBOARD_PASSWORD={password_hash}\n"
+                f"JWT_SECRET_KEY={jwt_secret}\n"
+                "Then restart the server."
+            )
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error setting up password: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/auth/validate-password", response_model=PasswordValidationResponse)
+async def validate_password_endpoint(request: SetupPasswordRequest):
+    """
+    Validate password strength
+
+    Test if a password meets the requirements without saving it.
+    Useful for client-side validation feedback.
+
+    Args:
+        request: Password to validate
+
+    Returns:
+        Validation result with errors and strength
+    """
+    try:
+        validation = validate_password(request.password)
+
+        # Add common password check
+        if validation["valid"] and is_common_password(request.password):
+            validation["valid"] = False
+            validation["errors"].append("Password is too common")
+
+        return PasswordValidationResponse(**validation)
+
+    except Exception as e:
+        logger.error(f"Error validating password: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/auth/requirements")
+async def get_requirements():
+    """
+    Get password requirements
+
+    Returns the password strength requirements that must be met.
+
+    Returns:
+        Password requirements as text
+    """
+    return {
+        "requirements": get_password_requirements(),
+        "min_length": 8,
+        "requires": {
+            "uppercase": True,
+            "lowercase": True,
+            "digit": True,
+            "special": True
+        }
+    }
+
+
+# ============================================================================
+# Response models
+# ============================================================================
 
 
 # Response models
@@ -74,7 +503,8 @@ class NotificationHistoryResponse(BaseModel):
 @router.get("/dashboard/overview", response_model=UserSafetySummaryResponse)
 async def get_parent_dashboard_overview(
     user_id: int = Query(..., description="Child's user ID"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = RequireAuth
 ):
     """
     Get parent dashboard overview for a child
@@ -1524,4 +1954,32 @@ async def generate_report(
         raise
     except Exception as e:
         logger.error(f"Error generating report: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/reports/trigger-scheduled-check")
+async def trigger_scheduled_check():
+    """
+    Manually trigger the scheduled report check
+
+    This endpoint is useful for testing the automated report scheduler.
+    It will immediately check all users and send reports to those who are
+    due based on their preferences.
+
+    This bypasses the hourly schedule and runs the check immediately.
+
+    Returns:
+        Success message
+    """
+    try:
+        logger.info("Manually triggering scheduled report check")
+        report_scheduler.force_check_now()
+
+        return {
+            "success": True,
+            "message": "Scheduled report check triggered. Check logs for results."
+        }
+
+    except Exception as e:
+        logger.error(f"Error triggering scheduled check: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

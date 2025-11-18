@@ -26,6 +26,16 @@ class Settings(BaseSettings):
     MODEL_TEMPERATURE: float = 0.7
     MODEL_N_GPU_LAYERS: int = 0  # 0 for CPU, -1 for full GPU
 
+    # LLM Performance Optimizations
+    MODEL_USE_MMAP: bool = True  # Memory-mapped files for faster loading
+    MODEL_LAZY_LOAD: bool = True  # Load on first request instead of blocking startup
+    MODEL_BACKGROUND_LOAD: bool = True  # Load in background thread
+
+    # Response Caching
+    ENABLE_RESPONSE_CACHE: bool = True  # Cache LLM responses for identical prompts
+    CACHE_TTL_SECONDS: int = 3600  # Cache time-to-live (1 hour)
+    CACHE_MAX_SIZE: int = 500  # Maximum cached responses
+
     # Safety Configuration
     ENABLE_SAFETY_FILTER: bool = True
     LOG_SAFETY_EVENTS: bool = True
@@ -48,8 +58,16 @@ class Settings(BaseSettings):
     ENABLE_WEEKLY_REPORTS: bool = True
     AUTO_GENERATE_SUMMARIES: bool = True  # Auto-generate LLM summaries on conversation end
 
-    # Security
+    # Memory Optimization
+    MAX_CONVERSATION_HISTORY: int = 50  # Maximum messages to include in context
+    MAX_MEMORY_ITEMS_PER_CATEGORY: int = 20  # Maximum memory items per category
+
+    # Security & Authentication
     PARENT_DASHBOARD_REQUIRE_PASSWORD: bool = True
+    PARENT_DASHBOARD_PASSWORD: Optional[str] = None  # Hashed password stored in .env
+    JWT_SECRET_KEY: Optional[str] = None  # Secret key for JWT tokens
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 hours
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1,0 +1,34 @@
+{{ alert_icon }} SAFETY ALERT - REQUIRES IMMEDIATE ATTENTION
+
+Time: {{ timestamp }}
+Severity: {{ severity|upper }}
+Child: {{ child_name }}
+
+================================================================================
+
+{{ message }}
+
+{% if content_snippet %}
+CONTENT DETECTED:
+"{{ content_snippet }}"
+
+{% endif %}
+================================================================================
+RECOMMENDED ACTION
+================================================================================
+
+{{ action_message }}
+
+{% if resources %}
+CRISIS RESOURCES:
+{% for resource in resources %}
+- {{ resource }}
+{% endfor %}
+
+{% endif %}
+================================================================================
+
+This notification was generated automatically by the safety monitoring system.
+You can review the full conversation details in the parent dashboard.
+
+To disable these notifications, adjust your settings in the parent dashboard.

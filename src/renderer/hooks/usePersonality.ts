@@ -3,9 +3,10 @@
  * Manages bot personality state and updates
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import type { PersonalityState } from '../../shared/types';
+import { playLevelUpSound } from '../../shared/soundEffects';
 
 export interface UsePersonalityState {
   // State
@@ -39,6 +40,9 @@ export function usePersonality(): UsePersonalityState {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Track previous friendship level to detect level-ups
+  const previousLevelRef = useRef<number | null>(null);
+
   /**
    * Fetch current personality
    */
@@ -48,6 +52,18 @@ export function usePersonality(): UsePersonalityState {
       setError(null);
 
       const data = await api.personality.get();
+
+      // Check for level-up
+      if (previousLevelRef.current !== null &&
+          data.friendshipLevel > previousLevelRef.current) {
+        // Play celebratory sound for level-up!
+        playLevelUpSound();
+        console.log(`🎉 Level up! ${previousLevelRef.current} → ${data.friendshipLevel}`);
+      }
+
+      // Update previous level
+      previousLevelRef.current = data.friendshipLevel;
+
       setPersonality(data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load personality';

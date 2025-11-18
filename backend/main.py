@@ -15,6 +15,9 @@ from utils.config import settings
 from utils.logging_config import setup_logging
 from database.database import init_db, close_db
 from services.llm_service import llm_service
+from services.report_scheduler import report_scheduler
+from utils.cache import cache_cleanup_scheduler
+from utils.memory_profiler import memory_profiler, get_memory_info, force_gc, log_memory
 
 # Import routes
 from routes import conversation, personality, profile, parent
@@ -33,19 +36,61 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Tamagotchi Chatbot Backend...")
     logger.info(f"Environment: {'Development' if settings.DEBUG else 'Production'}")
 
+    # Set memory baseline for monitoring
+    memory_profiler.set_baseline()
+    log_memory("Application startup")
+
     # Initialize database
     init_db()
     logger.info("Database initialized")
 
-    # Load LLM model
+    # Load LLM model with optimizations from settings
     logger.info(f"Loading LLM model from {settings.MODEL_PATH}")
-    model_loaded = llm_service.load_model()
 
-    if model_loaded:
-        logger.info("✓ LLM model loaded successfully")
+    # Log cache configuration
+    if settings.ENABLE_RESPONSE_CACHE:
+        logger.info(f"Response caching enabled: TTL={settings.CACHE_TTL_SECONDS}s, Max={settings.CACHE_MAX_SIZE}")
     else:
-        logger.warning("⚠ LLM model not loaded - chatbot functionality will be limited")
-        logger.warning("  Download a model with: ./scripts/download_model.sh")
+        logger.info("Response caching disabled")
+
+    # Configure loading based on settings
+    use_mmap = settings.MODEL_USE_MMAP
+    blocking = not settings.MODEL_BACKGROUND_LOAD
+    lazy_load = settings.MODEL_LAZY_LOAD
+
+    if lazy_load:
+        logger.info("Lazy loading enabled - model will load on first chat request")
+    else:
+        logger.info(f"Loading model: mmap={use_mmap}, background={settings.MODEL_BACKGROUND_LOAD}")
+
+        # Start model loading
+        model_loading_started = llm_service.load_model(blocking=blocking, use_mmap=use_mmap)
+
+        if model_loading_started:
+            if settings.MODEL_BACKGROUND_LOAD:
+                logger.info("✓ LLM model loading started in background")
+                logger.info("  App is ready - model will finish loading shortly")
+                logger.info("  First chat request will wait for model if needed")
+            else:
+                logger.info("✓ LLM model loaded successfully")
+        else:
+            logger.warning("⚠ LLM model loading failed to start - chatbot functionality will be limited")
+            logger.warning("  Download a model with: ./scripts/download_model.sh")
+
+    # Start report scheduler
+    if settings.ENABLE_WEEKLY_REPORTS and settings.ENABLE_PARENT_NOTIFICATIONS:
+        logger.info("Starting automated report scheduler...")
+        report_scheduler.start()
+        logger.info("✓ Report scheduler started - will check for due reports every hour")
+    else:
+        logger.info("Report scheduler disabled (ENABLE_WEEKLY_REPORTS or ENABLE_PARENT_NOTIFICATIONS is False)")
+
+    # Start cache cleanup scheduler
+    cache_cleanup_scheduler.start()
+    logger.info("✓ Cache cleanup scheduler started - will clean expired entries every 5 minutes")
+
+    # Log final memory state
+    log_memory("Startup complete")
 
     logger.info(f"Backend ready at http://{settings.HOST}:{settings.PORT}")
 
@@ -54,10 +99,26 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down Tamagotchi Chatbot Backend...")
 
+    # Log memory before shutdown
+    log_memory("Before shutdown")
+
+    # Stop report scheduler
+    report_scheduler.stop()
+    logger.info("Report scheduler stopped")
+
+    # Stop cache cleanup scheduler
+    cache_cleanup_scheduler.stop()
+    logger.info("Cache cleanup scheduler stopped")
+
     # Unload LLM model
     llm_service.unload_model()
 
     close_db()
+
+    # Force garbage collection before exit
+    gc_stats = force_gc()
+    logger.info(f"Final GC: freed {gc_stats['memory_freed_mb']:.2f} MB")
+
     logger.info("Shutdown complete")
 
 
@@ -115,12 +176,54 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """Health check endpoint with cache statistics"""
     return {
         "status": "healthy",
         "database": "connected",
         "llm": "loaded" if llm_service.is_loaded else "not loaded",
         "model_info": llm_service.get_model_info(),
+    }
+
+
+@app.post("/api/cache/clear")
+async def clear_cache():
+    """Clear all LLM response caches"""
+    stats = llm_service.clear_cache()
+    logger.info("Cache cleared via API")
+    return {
+        "success": True,
+        "message": "Cache cleared successfully",
+        "previous_stats": stats,
+    }
+
+
+@app.get("/api/cache/stats")
+async def get_cache_stats():
+    """Get cache statistics"""
+    return {
+        "success": True,
+        "cache_stats": llm_service.get_cache_stats(),
+    }
+
+
+@app.get("/api/memory/info")
+async def get_memory_info_endpoint():
+    """Get current memory usage information"""
+    return {
+        "success": True,
+        "memory": get_memory_info(),
+    }
+
+
+@app.post("/api/memory/gc")
+async def force_garbage_collection():
+    """Force garbage collection to free memory"""
+    stats = force_gc()
+    logger.info("Garbage collection triggered via API")
+    return {
+        "success": True,
+        "message": "Garbage collection completed",
+        "gc_stats": stats,
     }
 
 

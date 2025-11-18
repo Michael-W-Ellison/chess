@@ -1,0 +1,73 @@
+================================================================================
+CHESS TUTOR {{ period|upper }} REPORT
+================================================================================
+
+Child: {{ user_name }}
+Period: {{ period }}
+Date Range: {{ start_date }} - {{ end_date }}
+
+{% if total_flags > 0 %}⚠️  STATUS: {{ status_text|upper }}{% else %}✅ STATUS: {{ status_text|upper }}{% endif %}
+
+
+================================================================================
+SAFETY SUMMARY
+================================================================================
+
+Total Safety Flags: {{ total_flags }}
+
+{% if total_flags > 0 %}
+By Severity:
+{% for severity, count in by_severity.items() %}{% if count > 0 %}  - {{ severity|title }}: {{ count }}
+{% endif %}{% endfor %}
+
+By Type:
+{% for flag_type, count in by_type.items() %}  - {{ flag_type|replace('_', ' ')|title }}: {{ count }}
+{% endfor %}
+
+{% if critical_and_high_flags %}
+Critical & High Severity Flags:
+{% for flag in critical_and_high_flags %}  - [{{ flag.timestamp[:10] if flag.timestamp else 'Unknown' }}] {{ flag.severity|upper }}: {{ flag.flag_type|replace('_', ' ')|title }}
+{% if include_snippets and flag.content_snippet %}    "{{ flag.content_snippet }}"
+{% endif %}{% endfor %}
+{% endif %}
+{% else %}
+✅ No safety flags during this {{ period.lower() }}!
+{% endif %}
+
+
+================================================================================
+ACTIVITY SUMMARY
+================================================================================
+
+Total Conversations: {{ total_conversations }}
+Total Messages: {{ total_messages }}
+Active Days: {{ active_days }}
+Avg Messages per Session: {{ avg_messages_per_session }}
+{% if total_duration_minutes > 0 %}Total Time: {{ total_duration_minutes }} minutes
+{% endif %}
+{% if primary_mood %}Primary Mood: {{ primary_mood|title }}
+{% endif %}
+{% if topics %}Topics: {{ topics|join(', ') }}
+{% endif %}
+
+
+{% if summaries %}
+================================================================================
+RECENT CONVERSATIONS
+================================================================================
+
+{% for summary in summaries %}{{ loop.index }}. [{{ summary.start_time[:10] if summary.start_time else 'Unknown' }}] {{ summary.message_count }} messages
+   {{ summary.summary }}
+{% if summary.topics %}   Topics: {{ summary.topics|join(', ') }}
+{% endif %}{% if summary.mood %}   Mood: {{ summary.mood|title }}
+{% endif %}
+
+{% endfor %}
+{% endif %}
+
+================================================================================
+This is an automated {{ period.lower() }} report from the Chess Tutor Safety
+Monitoring System.
+
+To adjust report preferences, visit the parent dashboard.
+================================================================================
