@@ -13,9 +13,11 @@ import logging
 from database.database import get_db
 from models.user import User
 from models.safety import SafetyFlag
+from models.conversation import Conversation
 from services.safety_flag_service import safety_flag_service
 from services.parent_notification_service import parent_notification_service
 from services.parent_preferences_service import parent_preferences_service
+from services.conversation_summary_service import conversation_summary_service
 
 logger = logging.getLogger("chatbot.routes.parent")
 
@@ -906,4 +908,252 @@ async def reset_notification_preferences(
 
     except Exception as e:
         logger.error(f"Error resetting preferences: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===========================
+# Conversation Summary Routes
+# ===========================
+
+class ConversationSummaryResponse(BaseModel):
+    """Conversation summary data"""
+    conversation_id: int
+    summary: str
+    topics: List[str]
+    mood: str
+    key_moments: List[str]
+    safety_concerns: List[str]
+    message_count: int
+    duration_seconds: Optional[int]
+
+
+class ConversationListResponse(BaseModel):
+    """Conversation list item"""
+    id: int
+    timestamp: str
+    message_count: Optional[int]
+    duration_seconds: Optional[int]
+    summary: Optional[str]
+    topics: List[str]
+    mood: Optional[str]
+
+
+@router.get("/conversations", response_model=List[ConversationListResponse])
+async def get_user_conversations(
+    user_id: int = Query(..., description="Child's user ID"),
+    limit: int = Query(50, description="Max conversations to return"),
+    offset: int = Query(0, description="Offset for pagination"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get list of conversations for a child
+
+    Args:
+        user_id: Child's user ID
+        limit: Maximum number of conversations to return
+        offset: Offset for pagination
+        db: Database session
+
+    Returns:
+        List of conversations with summaries
+    """
+    try:
+        # Get user
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Get conversations
+        conversations = db.query(Conversation).filter(
+            Conversation.user_id == user_id
+        ).order_by(
+            Conversation.timestamp.desc()
+        ).limit(limit).offset(offset).all()
+
+        # Format response
+        result = []
+        for conv in conversations:
+            result.append({
+                "id": conv.id,
+                "timestamp": conv.timestamp.isoformat() if conv.timestamp else None,
+                "message_count": conv.message_count,
+                "duration_seconds": conv.duration_seconds,
+                "summary": conv.conversation_summary,
+                "topics": conv.get_topics(),
+                "mood": conv.mood_detected
+            })
+
+        logger.info(f"Retrieved {len(result)} conversations for user {user_id}")
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving conversations: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/conversations/{conversation_id}/summary", response_model=ConversationSummaryResponse)
+async def get_conversation_summary(
+    conversation_id: int,
+    user_id: int = Query(..., description="Child's user ID for verification"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get summary for a specific conversation
+
+    If summary doesn't exist, returns basic conversation info.
+
+    Args:
+        conversation_id: Conversation ID
+        user_id: Child's user ID (for verification)
+        db: Database session
+
+    Returns:
+        Conversation summary data
+    """
+    try:
+        # Get conversation
+        conversation = db.query(Conversation).filter(
+            Conversation.id == conversation_id,
+            Conversation.user_id == user_id
+        ).first()
+
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
+        # Return existing summary or basic info
+        return {
+            "conversation_id": conversation.id,
+            "summary": conversation.conversation_summary or "No summary available yet",
+            "topics": conversation.get_topics(),
+            "mood": conversation.mood_detected or "neutral",
+            "key_moments": [],
+            "safety_concerns": [],
+            "message_count": conversation.message_count or len(conversation.messages),
+            "duration_seconds": conversation.duration_seconds
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving conversation summary: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/conversations/{conversation_id}/generate-summary", response_model=ConversationSummaryResponse)
+async def generate_conversation_summary(
+    conversation_id: int,
+    user_id: int = Query(..., description="Child's user ID for verification"),
+    regenerate: bool = Query(False, description="Force regenerate even if summary exists"),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate or regenerate summary for a conversation using LLM
+
+    Args:
+        conversation_id: Conversation ID
+        user_id: Child's user ID (for verification)
+        regenerate: Force regeneration even if summary exists
+        db: Database session
+
+    Returns:
+        Generated conversation summary
+    """
+    try:
+        # Verify conversation belongs to user
+        conversation = db.query(Conversation).filter(
+            Conversation.id == conversation_id,
+            Conversation.user_id == user_id
+        ).first()
+
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
+        # Check if summary exists and regenerate is False
+        if conversation.conversation_summary and not regenerate:
+            logger.info(f"Summary already exists for conversation {conversation_id}, skipping generation")
+            return {
+                "conversation_id": conversation.id,
+                "summary": conversation.conversation_summary,
+                "topics": conversation.get_topics(),
+                "mood": conversation.mood_detected or "neutral",
+                "key_moments": [],
+                "safety_concerns": [],
+                "message_count": conversation.message_count or len(conversation.messages),
+                "duration_seconds": conversation.duration_seconds
+            }
+
+        # Generate summary
+        logger.info(f"Generating summary for conversation {conversation_id}")
+        summary_data = conversation_summary_service.generate_summary(conversation_id, db)
+
+        return {
+            "conversation_id": conversation_id,
+            **summary_data,
+            "message_count": conversation.message_count or len(conversation.messages),
+            "duration_seconds": conversation.duration_seconds
+        }
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error generating conversation summary: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/conversations/generate-summaries-batch")
+async def generate_summaries_batch(
+    user_id: int = Query(..., description="Child's user ID"),
+    conversation_ids: List[int] = Query(..., description="List of conversation IDs"),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate summaries for multiple conversations
+
+    Args:
+        user_id: Child's user ID
+        conversation_ids: List of conversation IDs to summarize
+        db: Database session
+
+    Returns:
+        Results for each conversation
+    """
+    try:
+        # Verify user exists
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Verify conversations belong to user
+        conversations = db.query(Conversation).filter(
+            Conversation.id.in_(conversation_ids),
+            Conversation.user_id == user_id
+        ).all()
+
+        found_ids = [c.id for c in conversations]
+        missing_ids = set(conversation_ids) - set(found_ids)
+
+        if missing_ids:
+            logger.warning(f"Some conversations not found or don't belong to user: {missing_ids}")
+
+        # Generate summaries
+        results = conversation_summary_service.generate_batch_summaries(found_ids, db)
+
+        logger.info(f"Generated {len(results)} summaries for user {user_id}")
+
+        return {
+            "success": True,
+            "processed": len(results),
+            "missing": list(missing_ids),
+            "results": results
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating batch summaries: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
