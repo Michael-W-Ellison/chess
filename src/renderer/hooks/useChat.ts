@@ -6,6 +6,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import type { ChatMessage, PersonalityState } from '../../shared/types';
+import { playMessageReceiveSound } from '../../shared/soundEffects';
 
 export interface UseChatState {
   // State
@@ -63,6 +64,9 @@ export function useChat(): UseChatState {
       };
 
       setMessages([greetingMessage]);
+
+      // Play receive sound for greeting
+      playMessageReceiveSound();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to start conversation';
       setError(errorMessage);
@@ -113,6 +117,9 @@ export function useChat(): UseChatState {
         };
 
         setMessages((prev) => [...prev, assistantMessage]);
+
+        // Play receive sound for bot response
+        playMessageReceiveSound();
 
         // Show safety warning if flagged
         if (response.metadata?.safety_flag) {

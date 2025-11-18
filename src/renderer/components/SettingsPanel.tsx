@@ -3,7 +3,7 @@
  * App settings and preferences
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useProfile } from '../hooks/useProfile';
 import { useAvatar } from '../hooks/useAvatar';
 import { useTheme } from '../hooks/useTheme';
@@ -21,6 +21,7 @@ import { LoginCalendar } from './LoginCalendar';
 import { StreakDisplay } from './StreakDisplay';
 import { MemoryExport } from './MemoryExport';
 import { calculateTotalPoints, getAchievementProgress } from '../../shared/achievements';
+import { isSoundEnabled, setSoundEnabled, playClickSound } from '../../shared/soundEffects';
 
 export const SettingsPanel: React.FC = () => {
   const { profile, updateProfile, isLoading } = useProfile();
@@ -39,6 +40,7 @@ export const SettingsPanel: React.FC = () => {
 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [showAvatarSelector, setShowAvatarSelector] = useState(false);
+  const [soundEnabled, setSoundEnabledState] = useState(isSoundEnabled());
 
   /**
    * Handle form submission
@@ -75,6 +77,20 @@ export const SettingsPanel: React.FC = () => {
   const handleAvatarSelect = (newAvatarId: string) => {
     updateAvatar(newAvatarId);
     setShowAvatarSelector(false);
+  };
+
+  /**
+   * Handle sound toggle
+   */
+  const handleSoundToggle = () => {
+    const newValue = !soundEnabled;
+    setSoundEnabledState(newValue);
+    setSoundEnabled(newValue);
+
+    // Play a test sound when enabling
+    if (newValue) {
+      playClickSound();
+    }
   };
 
   return (
@@ -150,6 +166,43 @@ export const SettingsPanel: React.FC = () => {
                 </p>
               </div>
               <ThemeToggle showLabels={true} />
+            </div>
+          </div>
+
+          {/* Sound Settings */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
+              <span>🔊</span>
+              <span>Sound Effects</span>
+            </h3>
+
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Enable Sounds
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Play sound effects when sending messages
+                </p>
+              </div>
+              <button
+                onClick={handleSoundToggle}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                  soundEnabled
+                    ? 'bg-blue-600 dark:bg-blue-500'
+                    : 'bg-gray-200 dark:bg-gray-700'
+                }`}
+                style={{
+                  ['--tw-ring-color' as any]: soundEnabled ? 'var(--color-focus)' : undefined,
+                }}
+                aria-label="Toggle sound effects"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    soundEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
             </div>
           </div>
 

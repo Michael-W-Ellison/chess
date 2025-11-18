@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import { playMessageSendSound } from '../../shared/soundEffects';
 
 interface InputAreaProps {
   onSend: (message: string) => void;
@@ -30,6 +31,9 @@ export const InputArea: React.FC<InputAreaProps> = ({
     if (!trimmedMessage || disabled) {
       return;
     }
+
+    // Play send sound effect
+    playMessageSendSound();
 
     onSend(trimmedMessage);
     setMessage('');
