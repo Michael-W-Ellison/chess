@@ -244,19 +244,32 @@ export interface GetParentDashboardResponse {
 // Settings Types
 // ============================================================================
 
-export interface AppSettings {
-  theme: 'light' | 'dark';
-  avatarId?: string;
-  soundEnabled: boolean;
-  notificationsEnabled: boolean;
-  parentEmail?: string;
-  parentPassword?: string;
-}
+// Comprehensive settings schema - re-export from settings modules
+export type {
+  AppSettings,
+  AppearanceSettings,
+  SoundSettings,
+  NotificationSettings,
+  PrivacySettings,
+  ChatSettings,
+  PersonalitySettings,
+  AccessibilitySettings,
+  ParentalSettings,
+  AdvancedSettings,
+  WindowSettings,
+  AppMetadata,
+  Theme,
+  ColorTheme,
+  SafetyLevel,
+  FontSize,
+  SettingsPath,
+  SettingsCategory,
+  SettingsValidationError,
+  SettingsValidationResult,
+} from './settings-schema';
 
-export interface NotificationSettings {
-  emailNotifications: boolean;
-  weeklyReport: boolean;
-}
+export { DEFAULT_SETTINGS, DEFAULT_USER_ID } from './settings-defaults';
+export { validateSettings, sanitizeSettings } from './settings-validation';
 
 // ============================================================================
 // Memory Types
