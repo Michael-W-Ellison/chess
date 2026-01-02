@@ -47,13 +47,20 @@ Write-Host ""
 $gpuSupport = "cpu"
 
 try {
-    $nvidiaCheck = nvidia-smi 2>&1
+    $ErrorActionPreference = 'Stop'
+    $nvidiaCheck = & nvidia-smi 2>&1
     if ($LASTEXITCODE -eq 0) {
         Write-Host "NVIDIA GPU detected" -ForegroundColor Green
         $gpuSupport = "cuda"
+    } else {
+        Write-Host "No NVIDIA GPU detected, using CPU" -ForegroundColor Yellow
     }
-} catch {
+}
+catch {
     Write-Host "No NVIDIA GPU detected, using CPU" -ForegroundColor Yellow
+}
+finally {
+    $ErrorActionPreference = 'Continue'
 }
 
 Write-Host ""
