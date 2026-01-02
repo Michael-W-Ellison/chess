@@ -11,7 +11,6 @@ try {
     $pythonVersion = python --version 2>&1 | Out-String
     Write-Host "Python version: $pythonVersion"
 
-    # Parse version
     if ($pythonVersion -match "Python (\d+)\.(\d+)") {
         $major = [int]$matches[1]
         $minor = [int]$matches[2]
@@ -20,9 +19,10 @@ try {
             Write-Host "Error: Python 3.10 or higher required" -ForegroundColor Red
             exit 1
         }
-        Write-Host "✓ Python version OK" -ForegroundColor Green
+        Write-Host "Python version OK" -ForegroundColor Green
     }
-} catch {
+}
+catch {
     Write-Host "Error: Python not found. Please install Python 3.10+" -ForegroundColor Red
     exit 1
 }
@@ -32,13 +32,14 @@ Write-Host ""
 # Check/create virtual environment
 if (Test-Path "venv") {
     Write-Host "Activating virtual environment..." -ForegroundColor Yellow
-    .\venv\Scripts\Activate.ps1
-    Write-Host "✓ Virtual environment activated" -ForegroundColor Green
-} else {
+    . .\venv\Scripts\Activate.ps1
+    Write-Host "Virtual environment activated" -ForegroundColor Green
+}
+else {
     Write-Host "Creating virtual environment..." -ForegroundColor Yellow
     python -m venv venv
-    .\venv\Scripts\Activate.ps1
-    Write-Host "✓ Virtual environment created and activated" -ForegroundColor Green
+    . .\venv\Scripts\Activate.ps1
+    Write-Host "Virtual environment created and activated" -ForegroundColor Green
 }
 
 Write-Host ""
@@ -52,7 +53,8 @@ try {
     if ($LASTEXITCODE -eq 0) {
         Write-Host "NVIDIA GPU detected" -ForegroundColor Green
         $gpuSupport = "cuda"
-    } else {
+    }
+    else {
         Write-Host "No NVIDIA GPU detected, using CPU" -ForegroundColor Yellow
     }
 }
@@ -72,17 +74,19 @@ if ($gpuSupport -eq "cuda") {
     Write-Host "Installing with CUDA support..." -ForegroundColor Yellow
     $env:CMAKE_ARGS = "-DLLAMA_CUBLAS=on"
     pip install llama-cpp-python --force-reinstall --no-cache-dir
-} else {
+}
+else {
     Write-Host "Installing with CPU-only support..." -ForegroundColor Yellow
     pip install llama-cpp-python
 }
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host ""
-    Write-Host "✓ llama-cpp-python installed successfully" -ForegroundColor Green
-} else {
+    Write-Host "llama-cpp-python installed successfully" -ForegroundColor Green
+}
+else {
     Write-Host ""
-    Write-Host "✗ Installation failed" -ForegroundColor Red
+    Write-Host "Installation failed" -ForegroundColor Red
     exit 1
 }
 
