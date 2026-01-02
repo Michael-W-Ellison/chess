@@ -500,6 +500,141 @@ class NotificationHistoryResponse(BaseModel):
 
 
 # Endpoints
+@router.get("/dashboard")
+async def get_parent_dashboard(
+    user_id: int = Query(..., description="Child's user ID"),
+    db: Session = Depends(get_db),
+    current_user: dict = RequireAuth
+):
+    """
+    Get comprehensive parent dashboard for a child
+
+    Returns all key dashboard information in a single response:
+    - User information
+    - Safety summary and statistics
+    - Recent safety flags
+    - Recent conversations
+    - Notification preferences status
+    - Requires attention indicators
+
+    Args:
+        user_id: Child's user ID
+        db: Database session
+        current_user: Authenticated user (injected by RequireAuth)
+
+    Returns:
+        Comprehensive dashboard data
+    """
+    try:
+        # Get user
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Get safety summary
+        summary = safety_flag_service.get_user_safety_summary(db, user_id)
+
+        # Get recent safety flags (last 7 days)
+        recent_flags = safety_flag_service.get_recent_flags(db, user_id=user_id, hours=168)
+
+        # Determine if requires attention
+        critical_flags = safety_flag_service.get_critical_flags(
+            db, user_id=user_id, include_notified=False
+        )
+        recent_unnotified = safety_flag_service.get_unnotified_flags(
+            db, user_id=user_id, min_severity="high"
+        )
+        requires_attention = len(critical_flags) > 0 or len(recent_unnotified) > 0
+
+        # Get safety statistics
+        stats = safety_flag_service.get_stats(db, user_id=user_id, since_date=None)
+
+        # Get recent conversations (last 10)
+        recent_conversations = db.query(Conversation).filter(
+            Conversation.user_id == user_id
+        ).order_by(
+            Conversation.timestamp.desc()
+        ).limit(10).all()
+
+        conversations_data = [
+            {
+                "id": conv.id,
+                "timestamp": conv.timestamp.isoformat() if conv.timestamp else None,
+                "message_count": conv.message_count,
+                "duration_seconds": conv.duration_seconds,
+                "summary": conv.conversation_summary,
+                "topics": conv.get_topics(),
+                "mood": conv.mood_detected
+            }
+            for conv in recent_conversations
+        ]
+
+        # Get notification preferences
+        preferences = parent_preferences_service.get_preferences(db, user_id)
+        preferences_status = {
+            "email_configured": bool(preferences.email),
+            "email_notifications_enabled": preferences.email_notifications_enabled,
+            "instant_notification_min_severity": preferences.instant_notification_min_severity,
+        }
+
+        # Build comprehensive response
+        dashboard_data = {
+            "user": {
+                "id": user_id,
+                "name": user.name or "User",
+                "age": user.age,
+                "grade": user.grade,
+                "parent_email": user.parent_email,
+                "last_active": user.last_active.isoformat() if user.last_active else None,
+            },
+            "safety_summary": {
+                "total_flags_all_time": summary["total_flags_all_time"],
+                "total_flags_last_7_days": summary["total_flags_last_7_days"],
+                "critical_flags_count": summary["critical_flags_count"],
+                "last_flag_timestamp": summary["last_flag_timestamp"],
+                "most_common_flag_type": summary["most_common_flag_type"],
+                "requires_attention": requires_attention,
+                "unnotified_count": len(recent_unnotified),
+                "critical_unnotified_count": len(critical_flags),
+            },
+            "safety_statistics": {
+                "total_flags": stats["total_flags"],
+                "by_severity": stats["by_severity"],
+                "by_type": stats["by_type"],
+                "parent_notified": stats["parent_notified"],
+                "parent_unnotified": stats["parent_unnotified"],
+                "last_24_hours": stats["last_24_hours"],
+            },
+            "recent_flags": [
+                {
+                    "id": flag.id,
+                    "flag_type": flag.flag_type,
+                    "severity": flag.severity,
+                    "content_snippet": flag.content_snippet,
+                    "timestamp": flag.timestamp.isoformat() if flag.timestamp else "",
+                    "parent_notified": flag.parent_notified
+                }
+                for flag in recent_flags[:5]  # Limit to 5 most recent
+            ],
+            "recent_conversations": conversations_data,
+            "notification_preferences": preferences_status,
+            "conversation_stats": {
+                "total_conversations": len(conversations_data),
+                "recent_conversation_count": len(recent_conversations),
+            }
+        }
+
+        logger.info(f"Retrieved comprehensive dashboard for user {user_id}")
+
+        return dashboard_data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting parent dashboard: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/dashboard/overview", response_model=UserSafetySummaryResponse)
 async def get_parent_dashboard_overview(
     user_id: int = Query(..., description="Child's user ID"),

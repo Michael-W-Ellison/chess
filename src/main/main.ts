@@ -3,6 +3,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { setupIpcHandlers, cleanupIpcHandlers } from './ipc-handlers';
 import { backendManager } from './backend-manager';
+import { trackAppLaunch, getStorePath } from './store';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling
 if (require('electron-squirrel-startup')) {
@@ -74,6 +75,11 @@ function createMainWindow(): void {
  * App lifecycle: Ready
  */
 app.whenReady().then(async () => {
+  // Initialize electron-store and track app launch
+  console.log('Initializing electron-store...');
+  trackAppLaunch();
+  console.log(`Store location: ${getStorePath()}`);
+
   // Set up IPC communication handlers
   setupIpcHandlers();
 

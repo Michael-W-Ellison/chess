@@ -17,7 +17,8 @@
     "package": "electron-builder",
     "package:all": "electron-builder -mwl",
     "test:ipc": "npm run build:main && node dist/main/test-ipc.js",
-    "test:ipc:dev": "ts-node --project tsconfig.main.json src/main/test-ipc.ts"
+    "test:ipc:dev": "ts-node --project tsconfig.main.json src/main/test-ipc.ts",
+    "test:store": "node src/main/test-store.js"
   },
   "dependencies": {
     "react": "^18.2.0",
