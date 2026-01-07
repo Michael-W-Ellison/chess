@@ -192,7 +192,21 @@ class ConversationManager:
         try:
             if llm_service.ensure_loaded(timeout=60.0):
                 prompt = self._build_prompt(context, user_message, personality)
-                raw_response = llm_service.generate(prompt, max_tokens=150, temperature=0.7)
+                # Custom stop sequences to prevent model from generating both sides of conversation
+                stop_sequences = [
+                    "\nUser:",
+                    "\nuser:",
+                    "\n\nUser:",
+                    f"\n{personality.name}:",
+                    "<|endoftext|>",
+                    "<|end|>",
+                ]
+                raw_response = llm_service.generate(
+                    prompt,
+                    max_tokens=150,
+                    temperature=0.7,
+                    stop=stop_sequences
+                )
             else:
                 logger.warning("LLM model not available, using fallback response")
                 raw_response = self._fallback_response(context)
