@@ -26,7 +26,7 @@ interface ApiConfig {
 
 const defaultConfig: ApiConfig = {
   baseURL: API_BASE_URL,
-  timeout: 10000, // 10 seconds
+  timeout: 120000, // 2 minutes - LLM model loading can take 30-60s on first request
   userId: 1, // Single user app
 };
 
