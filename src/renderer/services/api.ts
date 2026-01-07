@@ -121,7 +121,7 @@ export const conversationApi = {
       {
         method: 'POST',
         body: JSON.stringify({
-          user_message: message,
+          content: message,
           conversation_id: conversationId,
           user_id: userId,
         }),
