@@ -113,16 +113,15 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
 
   /**
    * Check login streak achievements when login stats change
+   * Note: We use a separate effect that runs after checkAndUnlockAchievements is defined
    */
+  const [shouldCheckAchievements, setShouldCheckAchievements] = useState(false);
+
   useEffect(() => {
     if (loginContext.stats.currentStreak > 0) {
-      // Delay to ensure login stats are persisted
-      const timer = setTimeout(() => {
-        checkAndUnlockAchievements();
-      }, 100);
-      return () => clearTimeout(timer);
+      setShouldCheckAchievements(true);
     }
-  }, [loginContext.stats.currentStreak, checkAndUnlockAchievements]);
+  }, [loginContext.stats.currentStreak]);
 
   /**
    * Save achievements to localStorage
@@ -327,6 +326,19 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
       }
     });
   }, [stats, loginContext.stats.currentStreak, isUnlocked, unlockAchievement]);
+
+  /**
+   * Effect to check achievements after the function is defined
+   */
+  useEffect(() => {
+    if (shouldCheckAchievements) {
+      const timer = setTimeout(() => {
+        checkAndUnlockAchievements();
+        setShouldCheckAchievements(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldCheckAchievements, checkAndUnlockAchievements]);
 
   /**
    * Update stats
