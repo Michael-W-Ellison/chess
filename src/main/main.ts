@@ -1,6 +1,5 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
 import { setupIpcHandlers, cleanupIpcHandlers } from './ipc-handlers';
 import { backendManager } from './backend-manager';
 
@@ -136,24 +135,31 @@ app.on('before-quit', async (event) => {
 
 /**
  * Security: Disable remote module (if somehow enabled)
+ * Note: These events are deprecated in newer Electron versions
+ * but kept for backwards compatibility with older versions
  */
-app.on('remote-require', (event) => {
+// @ts-ignore - remote events deprecated in newer Electron
+app.on('remote-require', (event: { preventDefault: () => void }) => {
   event.preventDefault();
 });
 
-app.on('remote-get-builtin', (event) => {
+// @ts-ignore - remote events deprecated in newer Electron
+app.on('remote-get-builtin', (event: { preventDefault: () => void }) => {
   event.preventDefault();
 });
 
-app.on('remote-get-global', (event) => {
+// @ts-ignore - remote events deprecated in newer Electron
+app.on('remote-get-global', (event: { preventDefault: () => void }) => {
   event.preventDefault();
 });
 
-app.on('remote-get-current-window', (event) => {
+// @ts-ignore - remote events deprecated in newer Electron
+app.on('remote-get-current-window', (event: { preventDefault: () => void }) => {
   event.preventDefault();
 });
 
-app.on('remote-get-current-web-contents', (event) => {
+// @ts-ignore - remote events deprecated in newer Electron
+app.on('remote-get-current-web-contents', (event: { preventDefault: () => void }) => {
   event.preventDefault();
 });
 

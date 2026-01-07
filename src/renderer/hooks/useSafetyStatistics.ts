@@ -21,7 +21,7 @@ export const useSafetyStatistics = (userId: number, sinceDays: number | null) =>
 
   useEffect(() => {
     const fetchStatistics = async () => {
-      try:
+      try {
         setIsLoading(true);
         setError(null);
 

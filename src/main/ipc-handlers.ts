@@ -39,7 +39,7 @@ export function setupIpcHandlers(): void {
  * Get backend status
  */
 async function handleBackendStatus(
-  event: IpcMainInvokeEvent
+  _event: IpcMainInvokeEvent
 ): Promise<any> {
   try {
     const status = backendManager.getStatus();
@@ -60,7 +60,7 @@ async function handleBackendStatus(
  * Check backend health
  */
 async function handleBackendHealth(
-  event: IpcMainInvokeEvent
+  _event: IpcMainInvokeEvent
 ): Promise<any> {
   try {
     if (!backendManager.isBackendRunning()) {
@@ -92,7 +92,7 @@ async function handleBackendHealth(
  * Start a new conversation session
  */
 async function handleStartConversation(
-  event: IpcMainInvokeEvent
+  _event: IpcMainInvokeEvent
 ): Promise<any> {
   try {
     console.log('IPC: Starting conversation...');
@@ -120,7 +120,7 @@ async function handleStartConversation(
  * Send a message and get bot response
  */
 async function handleSendMessage(
-  event: IpcMainInvokeEvent,
+  _event: IpcMainInvokeEvent,
   conversationId: number,
   message: string
 ): Promise<any> {
@@ -154,7 +154,7 @@ async function handleSendMessage(
  * End current conversation
  */
 async function handleEndConversation(
-  event: IpcMainInvokeEvent,
+  _event: IpcMainInvokeEvent,
   conversationId: number
 ): Promise<any> {
   try {
@@ -182,7 +182,7 @@ async function handleEndConversation(
  * Get current personality state
  */
 async function handleGetPersonality(
-  event: IpcMainInvokeEvent
+  _event: IpcMainInvokeEvent
 ): Promise<any> {
   try {
     console.log('IPC: Getting personality...');
@@ -210,7 +210,7 @@ async function handleGetPersonality(
  * Get user profile data
  */
 async function handleGetProfile(
-  event: IpcMainInvokeEvent
+  _event: IpcMainInvokeEvent
 ): Promise<any> {
   try {
     console.log('IPC: Getting profile...');
@@ -238,8 +238,8 @@ async function handleGetProfile(
  * Get parent dashboard data (password protected)
  */
 async function handleGetParentDashboard(
-  event: IpcMainInvokeEvent,
-  password: string
+  _event: IpcMainInvokeEvent,
+  _password: string
 ): Promise<any> {
   try {
     console.log('IPC: Getting parent dashboard...');
@@ -277,8 +277,8 @@ async function handleGetParentDashboard(
  * Update application settings
  */
 async function handleUpdateSettings(
-  event: IpcMainInvokeEvent,
-  settings: any
+  _event: IpcMainInvokeEvent,
+  _settings: any
 ): Promise<any> {
   try {
     console.log('IPC: Updating settings...');
@@ -302,7 +302,7 @@ async function handleUpdateSettings(
  * Export memory book as PDF/text
  */
 async function handleExportMemoryBook(
-  event: IpcMainInvokeEvent
+  _event: IpcMainInvokeEvent
 ): Promise<any> {
   try {
     console.log('IPC: Exporting memory book...');

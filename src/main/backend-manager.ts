@@ -44,7 +44,6 @@ export class BackendManager {
       return this.config.pythonPath;
     }
 
-    const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
     const backendDir = this.getBackendPath();
 
     // Try virtual environment first
@@ -314,7 +313,7 @@ export class BackendManager {
       throw new Error(`Backend request failed: ${response.status} ${errorText}`);
     }
 
-    return await response.json();
+    return await response.json() as T;
   }
 
   /**
