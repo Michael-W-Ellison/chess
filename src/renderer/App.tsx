@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ChatWindow from './components/ChatWindow';
 import ProfilePanel from './components/ProfilePanel';
 import SettingsPanel from './components/SettingsPanel';
@@ -26,16 +26,23 @@ function App() {
     return now - unlockTime < 3600000; // 1 hour
   }).length;
 
-  // Track session and login on mount and unmount
+  // Track if we've done initial login recording
+  const hasRecordedLogin = useRef(false);
+
+  // Track session and login on mount only (empty deps to run once)
   useEffect(() => {
-    recordLogin();
-    recordActivity('login'); // Also record in StreakContext
-    trackSessionStart();
+    if (!hasRecordedLogin.current) {
+      hasRecordedLogin.current = true;
+      recordLogin();
+      recordActivity('login'); // Also record in StreakContext
+      trackSessionStart();
+    }
 
     return () => {
       trackSessionEnd();
     };
-  }, [recordLogin, recordActivity, trackSessionStart, trackSessionEnd]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run once on mount
 
   // Get current login streak for display
   const loginStreakStats = getStats('login');
