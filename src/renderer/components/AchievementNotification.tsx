@@ -15,7 +15,7 @@ interface AchievementNotificationProps {
 export const AchievementNotification: React.FC<AchievementNotificationProps> = ({
   achievement,
   onClose,
-  duration = 5000,
+  duration = 3000,
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const tierColors = TIER_COLORS[achievement.tier];

@@ -249,8 +249,14 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
       setStats(newStats);
       saveStats(newStats);
 
-      // Trigger notification
-      setNotificationQueue((prev) => [...prev, achievement]);
+      // Trigger notification (only if not already in queue, limit to 1 at a time)
+      setNotificationQueue((prev) => {
+        // Don't add if already in queue or if we already have a notification showing
+        if (prev.some(a => a.id === achievement.id) || prev.length >= 1) {
+          return prev;
+        }
+        return [achievement];
+      });
       console.log(`🎉 Achievement Unlocked: ${achievement.name}`);
 
       return true;
