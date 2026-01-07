@@ -3,7 +3,7 @@
  * Manages achievement unlocking and progress tracking
  */
 
-import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { Achievement, ACHIEVEMENTS, getAchievementById } from '../../shared/achievements';
 import { AchievementNotification } from '../components/AchievementNotification';
 import { useLogin } from '../hooks/useLogin';
@@ -112,16 +112,9 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
   }, []);
 
   /**
-   * Check login streak achievements when login stats change
-   * Note: We use a separate effect that runs after checkAndUnlockAchievements is defined
+   * Track if we've done initial achievement check
    */
-  const [shouldCheckAchievements, setShouldCheckAchievements] = useState(false);
-
-  useEffect(() => {
-    if (loginContext.stats.currentStreak > 0) {
-      setShouldCheckAchievements(true);
-    }
-  }, [loginContext.stats.currentStreak]);
+  const hasCheckedInitialAchievements = useRef(false);
 
   /**
    * Save achievements to localStorage
@@ -334,17 +327,18 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
   }, [stats, loginContext.stats.currentStreak, isUnlocked, unlockAchievement]);
 
   /**
-   * Effect to check achievements after the function is defined
+   * Check achievements once on initial load
    */
   useEffect(() => {
-    if (shouldCheckAchievements) {
+    if (!hasCheckedInitialAchievements.current && loginContext.stats.currentStreak > 0) {
+      hasCheckedInitialAchievements.current = true;
+      // Delay to ensure all state is ready
       const timer = setTimeout(() => {
         checkAndUnlockAchievements();
-        setShouldCheckAchievements(false);
-      }, 100);
+      }, 500);
       return () => clearTimeout(timer);
     }
-  }, [shouldCheckAchievements, checkAndUnlockAchievements]);
+  }, [loginContext.stats.currentStreak, checkAndUnlockAchievements]);
 
   /**
    * Update stats
