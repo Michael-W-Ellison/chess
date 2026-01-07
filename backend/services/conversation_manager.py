@@ -188,10 +188,16 @@ class ConversationManager:
         context = self._build_context(user_message, user_id, personality, db)
 
         # 7. Generate response
-        if llm_service.is_loaded:
-            prompt = self._build_prompt(context, user_message, personality)
-            raw_response = llm_service.generate(prompt, max_tokens=150, temperature=0.7)
-        else:
+        # Try to ensure model is loaded (lazy loading)
+        try:
+            if llm_service.ensure_loaded(timeout=60.0):
+                prompt = self._build_prompt(context, user_message, personality)
+                raw_response = llm_service.generate(prompt, max_tokens=300, temperature=0.7)
+            else:
+                logger.warning("LLM model not available, using fallback response")
+                raw_response = self._fallback_response(context)
+        except Exception as e:
+            logger.error(f"Error loading/generating from LLM: {e}")
             raw_response = self._fallback_response(context)
 
         # 8. Apply personality to response
