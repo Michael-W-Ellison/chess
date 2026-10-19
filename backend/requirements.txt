@@ -51,5 +51,8 @@ mypy==1.8.0
 # Logging
 loguru==0.7.2
 
+# System resource monitoring (utils/memory_profiler.py)
+psutil==5.9.8
+
 # Background Task Scheduling
 APScheduler==3.10.4

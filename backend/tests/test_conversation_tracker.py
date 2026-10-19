@@ -109,9 +109,9 @@ class TestConversationStart:
 
     def test_streak_bonus_3_days(self, test_user, test_personality, db_session):
         """Test 3-day streak bonus"""
-        # Create conversations for 3 consecutive days
+        # Create conversations for the 3 previous consecutive days
         for i in range(3):
-            date = datetime.now() - timedelta(days=(2 - i))
+            date = datetime.now() - timedelta(days=(3 - i))
             conversation = Conversation(
                 user_id=test_user.id,
                 timestamp=date,
@@ -387,6 +387,7 @@ class TestConversationStats:
                 duration_seconds=300,
             )
             db_session.add(conversation)
+            db_session.flush()  # Assign conversation.id before creating messages
 
             # Add messages
             for j in range(10):
@@ -462,12 +463,23 @@ class TestEdgeCases:
 
     def test_multiple_conversations_same_day(self, test_user, test_personality, db_session):
         """Test multiple conversations on same day"""
+        # Each conversation is saved before tracking starts, as ConversationManager does
+        def start_conversation():
+            conversation = Conversation(
+                user_id=test_user.id, timestamp=datetime.now(), message_count=0
+            )
+            db_session.add(conversation)
+            db_session.commit()
+            return on_conversation_start(
+                test_user.id, test_personality, db_session, conversation_id=conversation.id
+            )
+
         # First conversation
-        result1 = on_conversation_start(test_user.id, test_personality, db_session)
+        result1 = start_conversation()
         assert result1["is_first_today"] is True
 
         # Second conversation same day
-        result2 = on_conversation_start(test_user.id, test_personality, db_session)
+        result2 = start_conversation()
         assert result2["is_first_today"] is False
 
         # Both should work without errors

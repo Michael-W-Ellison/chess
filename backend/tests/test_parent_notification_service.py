@@ -4,7 +4,7 @@ Comprehensive test coverage for parent notification system
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, patch
 from datetime import datetime
 
 from services.parent_notification_service import (
@@ -66,10 +66,17 @@ class TestCrisisEventNotification:
             "notify_parent": True,
         }
 
-        result = self.service.notify_crisis_event(
-            user_id=1, conversation_id=100, safety_result=safety_result, db=self.mock_db
-        )
+        self.mock_user.parent_email = "parent@example.com"
 
+        with patch("services.parent_notification_service.email_service") as mock_email:
+            mock_email.is_configured.return_value = True
+            mock_email.send_email.return_value = {"sent": True}
+
+            result = self.service.notify_crisis_event(
+                user_id=1, conversation_id=100, safety_result=safety_result, db=self.mock_db
+            )
+
+        mock_email.send_email.assert_called_once()
         assert result["success"] is True
         assert result["category"] == "crisis_suicide"
         assert result["severity"] == "critical"

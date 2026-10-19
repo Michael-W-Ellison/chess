@@ -189,8 +189,9 @@ class TestRelevanceRanking:
         assert len(top) <= 3, "Should respect limit"
         assert len(top) > 0, "Should return some results"
 
-        # Most recent should be first
-        assert top[0].key == "very_recent", "Most recent memory should rank first"
+        # Most recent should be first ("recent_low" is mentioned now, "very_recent" 1 hour ago)
+        most_recent = max(diverse_memories, key=lambda m: m.last_mentioned)
+        assert top[0].key == most_recent.key, "Most recent memory should rank first"
 
     def test_get_top_memories_by_frequency(self, db_session, test_user, diverse_memories):
         """Test getting top memories by frequency"""

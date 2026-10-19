@@ -1407,7 +1407,7 @@ class MemoryManager:
         if strategy == "recency":
             # Score based on how recently the memory was mentioned
             if memory.last_mentioned:
-                days_ago = (datetime.now() - memory.last_mentioned).days
+                days_ago = (datetime.now() - memory.last_mentioned).total_seconds() / 86400
                 # Exponential decay: 100 for today, 50 for 7 days ago, etc.
                 score = 100 * (0.9 ** days_ago)
                 return min(100.0, max(0.0, score))

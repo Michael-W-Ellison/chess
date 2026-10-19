@@ -327,8 +327,10 @@ class TemplatePersonalizationService:
         placeholders = re.findall(r"\{(\w+)\}", text)
 
         for placeholder in placeholders:
+            if filled_context.get(placeholder) is not None:
+                text = text.replace(f"{{{placeholder}}}", str(filled_context[placeholder]))
             # If we don't have this variable, try to provide a reasonable default
-            if placeholder not in filled_context:
+            else:
                 default_value = self._get_default_placeholder_value(placeholder)
                 if default_value:
                     text = text.replace(f"{{{placeholder}}}", default_value)

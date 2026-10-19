@@ -5,7 +5,7 @@ Tracks conversation metrics, streaks, and awards friendship points
 
 from typing import Dict, List, Optional, Tuple
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -31,7 +31,8 @@ class ConversationTracker:
         self,
         user_id: int,
         personality: BotPersonality,
-        db: Session
+        db: Session,
+        conversation_id: Optional[int] = None
     ) -> Dict:
         """
         Handle conversation start event
@@ -41,6 +42,8 @@ class ConversationTracker:
             user_id: User ID
             personality: BotPersonality object
             db: Database session
+            conversation_id: ID of the conversation being started, if it has already been
+                saved; it is ignored when checking for earlier conversations today
 
         Returns:
             Dictionary with check-in info and points awarded
@@ -53,7 +56,9 @@ class ConversationTracker:
         }
 
         # Check if this is first conversation today
-        is_first_today = self.is_first_conversation_today(user_id, db)
+        is_first_today = self.is_first_conversation_today(
+            user_id, db, exclude_conversation_id=conversation_id
+        )
 
         if is_first_today:
             result["is_first_today"] = True
@@ -288,29 +293,39 @@ class ConversationTracker:
 
         return result
 
-    def is_first_conversation_today(self, user_id: int, db: Session) -> bool:
+    def is_first_conversation_today(
+        self, user_id: int, db: Session, exclude_conversation_id: Optional[int] = None
+    ) -> bool:
         """
         Check if this is the first conversation today
 
         Args:
             user_id: User ID
             db: Database session
+            exclude_conversation_id: Conversation to ignore (the one currently being started)
 
         Returns:
             True if first conversation today
         """
         today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
-        conversation_today = (
-            db.query(Conversation)
-            .filter(
-                Conversation.user_id == user_id,
-                Conversation.timestamp >= today_start
-            )
-            .first()
+        query = db.query(Conversation).filter(
+            Conversation.user_id == user_id,
+            Conversation.timestamp >= today_start
         )
+        if exclude_conversation_id is not None:
+            query = query.filter(Conversation.id != exclude_conversation_id)
+
+        conversation_today = query.first()
 
         return conversation_today is None
+
+    @staticmethod
+    def _to_date(value) -> date:
+        """Convert a DATE() query result (date object or ISO string) to a date"""
+        if isinstance(value, str):
+            return date.fromisoformat(value)
+        return value
 
     def calculate_streak(self, user_id: int, db: Session) -> int:
         """
@@ -337,8 +352,8 @@ class ConversationTracker:
         if not conversations:
             return 0
 
-        # Convert to date objects
-        dates = [conv.date for conv in conversations]
+        # Convert to date objects (SQLite returns DATE() results as 'YYYY-MM-DD' strings)
+        dates = [self._to_date(conv.date) for conv in conversations]
 
         # Check for streak starting from today
         today = datetime.now().date()
@@ -530,7 +545,7 @@ class ConversationTracker:
         if not conversations:
             return 0
 
-        dates = [conv.date for conv in conversations]
+        dates = [self._to_date(conv.date) for conv in conversations]
 
         max_streak = 1
         current_streak = 1
@@ -553,10 +568,11 @@ conversation_tracker = ConversationTracker()
 def on_conversation_start(
     user_id: int,
     personality: BotPersonality,
-    db: Session
+    db: Session,
+    conversation_id: Optional[int] = None
 ) -> Dict:
     """Handle conversation start event"""
-    return conversation_tracker.on_conversation_start(user_id, personality, db)
+    return conversation_tracker.on_conversation_start(user_id, personality, db, conversation_id)
 
 
 def on_message_sent(

@@ -130,7 +130,7 @@ class DriftRateLimiter:
             return True, requested_drift, f"Within {period_days}-day limit"
 
         # Would exceed limit, calculate how much drift is still allowed
-        remaining_drift = max_drift - total_drift
+        remaining_drift = round(max_drift - total_drift, 6)
 
         if remaining_drift <= 0:
             # No drift allowed
@@ -327,7 +327,7 @@ class DriftRateLimiter:
             personality.user_id, trait_name, period_start, db
         )
 
-        remaining = max_drift - total_drift
+        remaining = round(max_drift - total_drift, 6)
 
         return {
             "period_days": period_days,
@@ -393,7 +393,7 @@ class DriftRateLimiter:
         )
 
         # Sum absolute values of drift
-        total = sum(abs(drift.change_amount) for drift in drifts)
+        total = round(sum(abs(drift.change_amount) for drift in drifts), 6)
 
         return total
 

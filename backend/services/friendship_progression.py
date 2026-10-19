@@ -255,8 +255,8 @@ class FriendshipProgressionManager:
         old_points = personality.friendship_points
         old_level = personality.friendship_level
 
-        # Add points
-        personality.friendship_points += points
+        # Add points (never below zero)
+        personality.friendship_points = max(0, personality.friendship_points + points)
 
         # Calculate new level
         new_level = self.get_level_from_points(personality.friendship_points)

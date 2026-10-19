@@ -49,12 +49,14 @@ class AdviceCategoryDetector:
             r"\bcan you (?:help|advise)\b",
             r"\bneed (?:help|advice|guidance)\b",
             r"\bdon't know what to do\b",
+            r"\b(?:idk|dont know|not sure) what to do\b",
             r"\bwhat would you do\b",
             r"\bhow (?:do|can) i\b",
             # Question patterns
             r"\?$",  # Ends with question mark
             # Seeking guidance
             r"\bhelp me\b",
+            r"\bhelp\b[!?.\s]*$",  # Ends with a plea for help ("...help!!!")
             r"\btell me\b",
             r"\bgive me (?:advice|help|tips)\b",
         ]
@@ -98,7 +100,7 @@ class AdviceCategoryDetector:
                 ],
                 "secondary": [
                     "grandma", "grandpa", "aunt", "uncle", "cousin",
-                    "stepmother", "stepfather", "step", "half-brother"
+                    "stepmother", "stepfather", "stepmom", "stepdad", "step", "half-brother"
                 ],
                 "context": [
                     "won't let me", "said i can't", "grounded", "punished",
@@ -123,10 +125,11 @@ class AdviceCategoryDetector:
             "hobby": {
                 "primary": [
                     "hobby", "hobbies", "activity", "activities",
-                    "fun", "play", "game", "games", "sport", "sports"
+                    "fun", "play", "game", "games", "sport", "sports",
+                    "bored", "nothing to do"
                 ],
                 "secondary": [
-                    "bored", "boring", "nothing to do", "what to do",
+                    "boring", "what to do",
                     "learn", "try", "start", "interest", "interested"
                 ],
                 "context": [
@@ -197,6 +200,14 @@ class AdviceCategoryDetector:
         self.compiled_patterns = [
             re.compile(pattern, re.IGNORECASE) for pattern in self.advice_patterns
         ]
+
+        # Whole-word matchers for category keywords (so "or" does not match "bothering")
+        self.keyword_patterns = {
+            keyword: re.compile(r"\b" + re.escape(keyword) + r"\b")
+            for keywords in self.category_keywords.values()
+            for keyword_list in keywords.values()
+            for keyword in keyword_list
+        }
 
         logger.info("AdviceCategoryDetector initialized")
 
@@ -292,6 +303,10 @@ class AdviceCategoryDetector:
 
         return False, 0.0
 
+    def _has_keyword(self, message: str, keyword: str) -> bool:
+        """Check whether keyword appears in message as a whole word or phrase"""
+        return bool(self.keyword_patterns[keyword].search(message))
+
     def _score_categories(self, message: str) -> Dict[str, float]:
         """
         Score all categories based on keyword matches
@@ -309,17 +324,17 @@ class AdviceCategoryDetector:
 
             # Primary keywords (highest weight)
             for keyword in keywords.get("primary", []):
-                if keyword in message:
+                if self._has_keyword(message, keyword):
                     score += 0.5
 
             # Secondary keywords (medium weight)
             for keyword in keywords.get("secondary", []):
-                if keyword in message:
+                if self._has_keyword(message, keyword):
                     score += 0.3
 
             # Context keywords (lower weight)
             for keyword in keywords.get("context", []):
-                if keyword in message:
+                if self._has_keyword(message, keyword):
                     score += 0.2
 
             # Normalize score to 0-1 range
@@ -373,7 +388,7 @@ class AdviceCategoryDetector:
 
         for keyword_type in ["primary", "secondary", "context"]:
             for keyword in keywords.get(keyword_type, []):
-                if keyword in message:
+                if self._has_keyword(message, keyword):
                     found.append(keyword)
 
         return found[:5]  # Limit to 5 keywords

@@ -37,7 +37,8 @@ def test_user(db_session):
     db_session.commit()
     yield user
     # Cleanup
-    db_session.query(Message).filter(Message.user_id == user.id).delete()
+    conversation_ids = [c.id for c in db_session.query(Conversation).filter(Conversation.user_id == user.id)]
+    db_session.query(Message).filter(Message.conversation_id.in_(conversation_ids)).delete()
     db_session.query(Conversation).filter(Conversation.user_id == user.id).delete()
     db_session.query(UserProfile).filter(UserProfile.user_id == user.id).delete()
     db_session.delete(user)
@@ -49,7 +50,6 @@ def test_conversation(db_session, test_user):
     """Create a test conversation with messages"""
     conversation = Conversation(
         user_id=test_user.id,
-        title="Test Conversation",
         timestamp=datetime.now()
     )
     db_session.add(conversation)
@@ -59,21 +59,18 @@ def test_conversation(db_session, test_user):
     messages = [
         Message(
             conversation_id=conversation.id,
-            user_id=test_user.id,
             role="user",
             content="I love playing soccer",
             timestamp=datetime.now() - timedelta(minutes=5)
         ),
         Message(
             conversation_id=conversation.id,
-            user_id=test_user.id,
             role="assistant",
             content="That's great! Soccer is a fun sport.",
             timestamp=datetime.now() - timedelta(minutes=4)
         ),
         Message(
             conversation_id=conversation.id,
-            user_id=test_user.id,
             role="user",
             content="I want to make the soccer team",
             timestamp=datetime.now() - timedelta(minutes=3)
