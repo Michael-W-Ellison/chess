@@ -4,7 +4,7 @@ FastAPI dependencies for protecting parent dashboard endpoints
 """
 
 import logging
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 
@@ -93,6 +93,34 @@ async def verify_parent_access(
     """
     await get_current_user(credentials)
     return True
+
+
+async def require_parent_auth(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> Optional[dict]:
+    """
+    Router-level guard for the parent API
+
+    Requires authentication for every parent endpoint except the /auth/* endpoints,
+    which must stay reachable so a parent can log in or set up a password.
+
+    Args:
+        request: Incoming request
+        credentials: HTTP Authorization credentials from request
+
+    Returns:
+        User payload from token, or None for /auth/* endpoints
+
+    Raises:
+        HTTPException: 401 if authentication fails
+    """
+    route = request.scope.get("route")
+    path = getattr(route, "path", request.url.path)
+    if "/auth/" in path:
+        return None
+
+    return await get_current_user(credentials)
 
 
 # Dependency that can be used in route parameters

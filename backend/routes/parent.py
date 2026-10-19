@@ -4,9 +4,10 @@ Endpoints for parents to monitor child safety and view safety flags
 
 Authentication:
     These routes support JWT-based authentication. When PARENT_DASHBOARD_REQUIRE_PASSWORD
-    is enabled, endpoints require a valid JWT token in the Authorization header.
+    is enabled, every endpoint except /auth/* requires a valid JWT token in the
+    Authorization header (enforced by the router-level require_parent_auth dependency).
 
-    To protect an endpoint, add the RequireAuth dependency:
+    Endpoints that need the token payload can also add the RequireAuth dependency:
         async def my_endpoint(..., current_user: dict = RequireAuth):
 
     See docs/AUTHENTICATION_SETUP.md for complete setup instructions.
@@ -30,7 +31,7 @@ from services.conversation_summary_service import conversation_summary_service
 from services.weekly_report_service import weekly_report_service
 from services.report_scheduler import report_scheduler
 from services.auth_service import auth_service
-from utils.auth_dependencies import get_current_user, RequireAuth
+from utils.auth_dependencies import get_current_user, require_parent_auth, RequireAuth
 from utils.config import settings
 from utils.rate_limiter import auth_rate_limiter
 from utils.password_validation import (
@@ -41,7 +42,8 @@ from utils.password_validation import (
 
 logger = logging.getLogger("chatbot.routes.parent")
 
-router = APIRouter()
+# Every parent endpoint requires authentication except /auth/* (login, setup, status)
+router = APIRouter(dependencies=[Depends(require_parent_auth)])
 
 
 # ============================================================================

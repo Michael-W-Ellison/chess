@@ -14,12 +14,6 @@ from models.user import User
 
 
 @pytest.fixture
-def client():
-    """Create test client"""
-    return TestClient(app)
-
-
-@pytest.fixture
 def mock_user():
     """Create mock user"""
     user = Mock(spec=User)
