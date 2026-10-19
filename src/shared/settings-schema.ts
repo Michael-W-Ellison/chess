@@ -150,7 +150,7 @@ export interface PrivacySettings {
 
   // Content Filters
   profanityFilterEnabled: boolean;
-  bullying DetectionEnabled: boolean;
+  bullyingDetectionEnabled: boolean;
   crisisDetectionEnabled: boolean;
   inappropriateContentFilterEnabled: boolean;
 
