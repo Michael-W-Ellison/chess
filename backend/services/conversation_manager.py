@@ -92,7 +92,9 @@ class ConversationManager:
         db.commit()
 
         # Track conversation start (daily check-in, streaks, points)
-        checkin_info = conversation_tracker.on_conversation_start(user_id, personality, db)
+        checkin_info = conversation_tracker.on_conversation_start(
+            user_id, personality, db, conversation_id=conversation.id
+        )
 
         # Generate greeting based on time since last conversation
         greeting = self._generate_greeting(user, personality, db)
@@ -167,9 +169,56 @@ class ConversationManager:
                 },
             }
 
+        # Blocked (high severity) or supportive (medium severity) messages get the
+        # safety filter's prepared response instead of an LLM-generated one
+        if not safety_result["safe"] or safety_result["action"] == "supportive_response":
+            response = safety_result.get("response_message") or (
+                safety_filter.get_bullying_response()
+                if "bullying" in safety_result["flags"]
+                else safety_filter.get_inappropriate_decline()
+            )
+
+            user_msg = self._store_message(conversation_id, "user", user_message, db, flagged=True)
+            self._store_message(conversation_id, "assistant", response, db)
+            self.message_count += 1
+
+            safety_filter.log_safety_event(db, user_id, safety_result, message_id=user_msg.id)
+
+            if safety_result.get("notify_parent", False):
+                from services.parent_notification_service import parent_notification_service
+
+                parent_notification_service.notify_high_severity_event(
+                    user_id=user_id,
+                    conversation_id=conversation_id,
+                    safety_result=safety_result,
+                    db=db,
+                )
+
+            logger.warning(
+                f"Safety response used for user {user_id}: "
+                f"flags={safety_result['flags']}, severity={safety_result['severity']}"
+            )
+
+            return {
+                "content": response,
+                "metadata": {
+                    "safety_flag": True,
+                    "severity": safety_result["severity"],
+                    "flags": safety_result["flags"],
+                    "notify_parent": safety_result.get("notify_parent", False),
+                },
+            }
+
         # 2. Store user message
-        user_msg = self._store_message(conversation_id, "user", user_message, db)
+        user_msg = self._store_message(
+            conversation_id, "user", user_message, db,
+            flagged=safety_result["severity"] != "none",
+        )
         self.message_count += 1
+
+        # Log low-severity flags (e.g. mild profanity) that are allowed through
+        if safety_result["severity"] != "none":
+            safety_filter.log_safety_event(db, user_id, safety_result, message_id=user_msg.id)
 
         # 3. Get personality (needed early for tracking)
         personality = (

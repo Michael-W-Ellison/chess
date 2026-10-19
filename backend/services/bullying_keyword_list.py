@@ -46,6 +46,8 @@ class BullyingKeywordList:
             # Pushing/shoving
             "pushes me around",
             "pushing me around",
+            "push me around",
+            "pushed me around",
             "shoves me",
             "shoving me",
 
@@ -54,6 +56,12 @@ class BullyingKeywordList:
             "takes my stuff",
             "took my lunch",
             "takes my lunch money",
+            "take my lunch money",
+            "took my lunch money",
+            "take my stuff",
+            "took my stuff",
+            "stole my stuff",
+            "steal my stuff",
             "steals my lunch",
 
             # Tripping/physical harassment
@@ -67,8 +75,12 @@ class BullyingKeywordList:
             # Name-calling
             "calls me names",
             "calling me names",
+            "call me names",
+            "called me names",
             "makes fun of me",
             "making fun of me",
+            "make fun of me",
+            "made fun of me",
             "laughs at me",
             "laughing at me",
             "teases me",
@@ -79,7 +91,10 @@ class BullyingKeywordList:
             # Insults
             "says mean things",
             "saying mean things",
+            "say mean things",
+            "said mean things",
             "talks about me",
+            "talk about me behind my back",
             "talking behind my back",
 
             # Mocking
@@ -100,6 +115,10 @@ class BullyingKeywordList:
             "excludes me",
             "excluding me",
             "excluded me",
+            "nobody lets me play",
+            "no one lets me play",
+            "nobody will let me play",
+            "no one will let me play",
 
             # Social isolation
             "no one talks to me",
@@ -123,6 +142,8 @@ class BullyingKeywordList:
             "wont sit with me",
             "won't include me",
             "wont include me",
+            "nobody will include me",
+            "no one will include me",
             "keeps me out",
             "shut me out",
         }
@@ -140,12 +161,19 @@ class BullyingKeywordList:
             "group chat without me",
             "left out of group chat",
             "kicked from group chat",
+            "kicked from the group chat",
+            "kicked me from the group chat",
+            "kicked me out of the group chat",
+            "kicked out of the group chat",
+            "removed me from the group chat",
 
             # Online exclusion
             "unfriended me",
             "blocked me",
             "won't add me",
             "wont add me",
+            "nobody will add me",
+            "no one will add me",
 
             # Spreading rumors online
             "posted lies about me",
@@ -159,11 +187,25 @@ class BullyingKeywordList:
             "threatens to tell",
             "says they'll tell",
             "says theyll tell",
+            "threaten to tell",
+            "threatened to tell",
+            "she'll tell everyone",
+            "he'll tell everyone",
+            "they'll tell everyone",
+            "shell tell everyone",
+            "hell tell everyone",
+            "theyll tell everyone",
+            "threaten me",
+            "threatened me",
+            "threatens me",
+            "threatening me",
 
             # Intimidation
             "intimidates me",
             "intimidating me",
             "scares me at school",
+            "scare me at school",
+            "scared me at school",
         }
 
         # EMOTIONAL_IMPACT - How bullying makes the child feel
@@ -201,6 +243,15 @@ class BullyingKeywordList:
 
         logger.info("Bullying keyword list initialized with comprehensive categories")
 
+    @staticmethod
+    def _normalize(text: str) -> str:
+        """
+        Lowercase text, convert typographic apostrophes to ASCII, and collapse whitespace
+        so that keyword matching is not defeated by formatting differences
+        """
+        text = text.lower().replace("\u2019", "'").replace("\u2018", "'")
+        return " ".join(text.split())
+
     def contains_bullying_keywords(self, text: str) -> bool:
         """
         Check if text contains any bullying keywords
@@ -211,7 +262,7 @@ class BullyingKeywordList:
         Returns:
             True if any bullying keyword is found
         """
-        text_lower = text.lower()
+        text_lower = self._normalize(text)
 
         # Check all categories
         return (
@@ -240,7 +291,7 @@ class BullyingKeywordList:
                 }
             ]
         """
-        text_lower = text.lower()
+        text_lower = self._normalize(text)
         found_keywords = []
 
         # Check physical bullying keywords
@@ -311,7 +362,7 @@ class BullyingKeywordList:
             'social_exclusion', 'cyberbullying', 'threats',
             'emotional_impact', or 'none'
         """
-        text_lower = text.lower()
+        text_lower = self._normalize(text)
 
         # Priority order (most severe/actionable first)
         if self._contains_any(text_lower, self.threat_keywords):
@@ -339,7 +390,7 @@ class BullyingKeywordList:
         Returns:
             List of category names found
         """
-        text_lower = text.lower()
+        text_lower = self._normalize(text)
         categories = []
 
         if self._contains_any(text_lower, self.physical_bullying_keywords):
