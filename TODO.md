@@ -345,7 +345,9 @@ These are not in the original 183-task plan; they were found while evaluating an
 - [x] F4. Fix the end-conversation call: frontend calls `POST /api/conversation/end/{id}`, backend expects `POST /api/conversation/end` with the ID in the body (backend now accepts both; the app also ends the conversation when the window closes)
 - [x] F5. Chat header now shows the friendship level number (`ChatWindow.tsx` read `personality.friendshipLevel`; the start-conversation response sends `friendship_level`); fixed with F2
 - [ ] F8. `ExportDialog` (always mounted in the Profile and Achievements panels) and `MemoryExport` (Settings panel) call `useChat()`, which starts a new backend conversation on mount and ends it on unmount; their exports also only see that new, empty conversation, not the chat window's messages
-- [ ] F6. In development, React StrictMode mounts the app twice, so each launch starts two conversations (the first is never ended) and counts two sessions; production builds are not affected
+- [x] F6. React StrictMode (development) no longer starts two conversations per launch: `useChat` and `App` defer their mount side effects (starting a conversation; recording the login, streak activity and session start) to a timer that the cleanup cancels, so only the second StrictMode mount runs them; a conversation whose start request finishes after unmount is ended. Checked in the Vite dev server: 3 page loads went from 6 conversation starts (4 never ended) to 3. StrictMode stays on
+- [ ] F9. Every launch replaces the stored login history with only today's entry, so login streaks never grow: `LoginContext` loads the history from localStorage in a `useEffect`, which runs after `App`'s mount effect has already recorded the login against the empty default history (checked: seeded history for the two previous days was gone after one launch)
+- [ ] F10. `trackSessionStart` (`AchievementContext`) calls `updateStats` and then `updateDailyStreak`, which calls `updateStats` again with the same old `stats`; on the first session of a day the second write drops the first (`conversationCount + 1`, `currentSessionStartTime`), so session length is not tracked
 - [ ] F7. Several Electron IPC handlers are stubs: `get-parent-dashboard` returns mock data and `update-settings` does not save (`src/main/ipc-handlers.ts`)
 
 ### Backend
@@ -378,6 +380,6 @@ These are not in the original 183-task plan; they were found while evaluating an
 **In Progress:** 0
 **Pending:** 16 (task 72, tasks 167-177, 179, 181-183)
 
-**Follow-up Items:** 5 pending, 18 completed
+**Follow-up Items:** 6 pending, 19 completed
 
 **Current Phase:** Phase 7 - Testing & Refinement

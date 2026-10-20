@@ -33,14 +33,23 @@ function App() {
   // Track session and login on mount and unmount.
   // Runs once: depending on the callbacks re-ran it after every stats update,
   // which looped and counted a new session on each render.
+  // Deferred to a timer that the cleanup cancels: in development, React StrictMode mounts,
+  // unmounts and remounts synchronously, so only the second mount records a login and session.
   useEffect(() => {
-    const tracking = sessionTracking.current;
-    tracking.recordLogin();
-    tracking.recordActivity('login'); // Also record in StreakContext
-    tracking.trackSessionStart();
+    let started = false;
+    const timer = setTimeout(() => {
+      started = true;
+      const tracking = sessionTracking.current;
+      tracking.recordLogin();
+      tracking.recordActivity('login'); // Also record in StreakContext
+      tracking.trackSessionStart();
+    }, 0);
 
     return () => {
-      sessionTracking.current.trackSessionEnd();
+      clearTimeout(timer);
+      if (started) {
+        sessionTracking.current.trackSessionEnd();
+      }
     };
   }, []);
 

@@ -53,6 +53,9 @@ export function useChat(): UseChatState {
   // Ref to track if conversation is active
   const isConversationActiveRef = useRef(false);
 
+  // False after unmount, so a conversation whose start request finishes later is ended
+  const isMountedRef = useRef(false);
+
   // Current conversation ID, readable from unmount/unload handlers registered on mount
   const conversationIdRef = useRef<number | null>(null);
   useEffect(() => {
@@ -69,6 +72,12 @@ export function useChat(): UseChatState {
       setMessages([]);
 
       const response = await api.conversation.start();
+
+      if (!isMountedRef.current) {
+        // Unmounted while the request was in flight: nothing will end this conversation later
+        api.conversation.end(response.conversation_id).catch(() => undefined);
+        return;
+      }
 
       setConversationId(response.conversation_id);
       setPersonality(response.personality);
@@ -199,7 +208,10 @@ export function useChat(): UseChatState {
    * Auto-start conversation on mount
    */
   useEffect(() => {
-    startConversation();
+    isMountedRef.current = true;
+    // Deferred to a timer that the cleanup cancels: in development, React StrictMode mounts,
+    // unmounts and remounts synchronously, so only the second mount starts a conversation
+    const startTimer = setTimeout(startConversation, 0);
 
     // End the conversation when the window closes (React does not unmount on window close),
     // so the backend runs its end-of-conversation updates (traits, drift, summary)
@@ -214,6 +226,8 @@ export function useChat(): UseChatState {
 
     // Cleanup: end conversation on unmount
     return () => {
+      isMountedRef.current = false;
+      clearTimeout(startTimer);
       window.removeEventListener('beforeunload', endActiveConversation);
       endActiveConversation();
     };
