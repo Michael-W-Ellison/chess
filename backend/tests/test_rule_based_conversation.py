@@ -114,3 +114,30 @@ def test_new_conversation_forgets_references(api, conversation_id):
     new_id = api.post(f"/api/conversation/start?user_id={USER_ID}").json()["conversation_id"]
     reply = send(api, new_id, "She is so annoying")
     assert "Maya" not in reply["content"]
+
+
+def engagement_rows(user_id):
+    from database.database import SessionLocal
+    from models.engagement import EngagementStat
+
+    session = SessionLocal()
+    try:
+        return {(r.feature, r.arm): r.count
+                for r in session.query(EngagementStat).filter(EngagementStat.user_id == user_id)}
+    finally:
+        session.close()
+
+
+def test_replies_are_scored_by_the_next_message(api, conversation_id):
+    before = engagement_rows(USER_ID)
+    send(api, conversation_id, "I won my soccer game today")
+    send(api, conversation_id, "It was so exciting because I scored the winning goal at the end")
+    after = engagement_rows(USER_ID)
+    assert after.get(("rule", "achievement"), 0) == before.get(("rule", "achievement"), 0) + 1
+
+
+def test_crisis_message_is_not_an_engagement_signal(api, conversation_id):
+    send(api, conversation_id, "I won my soccer game today")
+    before = engagement_rows(USER_ID)
+    send(api, conversation_id, "I want to hurt myself")
+    assert engagement_rows(USER_ID) == before

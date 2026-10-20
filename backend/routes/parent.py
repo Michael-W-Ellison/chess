@@ -1128,6 +1128,22 @@ async def get_safety_flag_detail(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/engagement")
+async def get_engagement(
+    user_id: int = Query(..., description="Child's user ID"),
+    db: Session = Depends(get_db),
+):
+    """
+    What the bot has learned about which kinds of replies this child engages with
+
+    Each entry is a reply choice (feature/arm, e.g. follow_up=yes, humor=pun) with the
+    number of times the child responded to it and the mean engagement score (0.0-1.0).
+    """
+    from services.engagement_tracker import engagement_tracker
+
+    return {"user_id": user_id, "stats": engagement_tracker.summary(user_id, db)}
+
+
 @router.get("/statistics", response_model=SafetyStatsResponse)
 async def get_safety_statistics(
     user_id: int = Query(..., description="Child's user ID"),

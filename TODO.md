@@ -358,7 +358,8 @@ These are not in the original 183-task plan; they were found while evaluating an
 - [ ] R6. Further coverage: sentences about other people's feelings ("my friend is sad"), requests ("can you tell me a joke?"), comparisons, and messages over 15 words that match no rule (currently get a topic or generic reply)
 - [x] R3. Track the last-mentioned person and topic across turns so follow-ups like "she said no" can be understood
 - [ ] R7. Reference limits: "it"/"that" are only resolved as the subject of "was fun/hard/..." or the object of like/love/hate; references to what the bot said, and to whole events ("that" = "going to the zoo"), are not resolved; when two unfamiliar people are mentioned together, "she"/"he" goes to the most recent one until the child's own usage shows otherwise
-- [ ] R4. Learn from engagement: favor reply types the child responds to (longer answers, returning to a topic)
+- [x] R4. Learn from engagement: favor reply types the child responds to (longer answers, returning to a topic)
+- [ ] R8. Engagement limits: scoring uses only the text of the next message (not response time or the child leaving); rules with two templates still alternate, so template preferences only apply to rules with three or more; with the LLM enabled, only pun/fact choices are learned
 - [ ] R5. The existing quirk filter appends puns and facts even right after a question, and emoji choice ignores the words (e.g. "orange 💜"); coordinate it with the engine
 
 ### Tests
@@ -373,6 +374,6 @@ These are not in the original 183-task plan; they were found while evaluating an
 **In Progress:** 0
 **Pending:** 16 (task 72, tasks 167-177, 179, 181-183)
 
-**Follow-up Items:** 12 pending, 6 completed
+**Follow-up Items:** 12 pending, 7 completed
 
 **Current Phase:** Phase 7 - Testing & Refinement

@@ -19,6 +19,7 @@ PROTECTED_REQUESTS = [
     ("post", "/api/parent/safety-flags/1/acknowledge?user_id=1"),
     ("get", "/api/parent/conversations?user_id=1"),
     ("get", "/api/parent/reports/preview?user_id=1"),
+    ("get", "/api/parent/engagement?user_id=1"),
 ]
 
 

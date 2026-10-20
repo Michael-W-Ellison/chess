@@ -46,6 +46,9 @@ _QUESTION_STARTERS = {"what", "who", "where", "when", "why", "how", "which", "do
 _SKIP_DEPS = {"intj"}
 _TRIM_DEPS = {"punct", "cc"}
 
+# Chance of mentioning a stored memory (friendship level 3+) before engagement data exists
+CALLBACK_PROBABILITY = 0.35
+
 # A second sentence in the same message gets its own reply only for substantive rules
 # (not greetings, thanks or low-priority memory-only matches)
 SECOND_REPLY_MIN_PRIORITY = 50
@@ -77,6 +80,11 @@ class Analysis:
 
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")[:50]
+
+
+def template_id(template: str) -> str:
+    """Short stable identifier for a template, used to key its engagement statistics"""
+    return format(zlib.crc32(template.encode("utf-8")), "08x")
 
 
 def _stable_index(seed: str, size: int) -> int:
@@ -472,6 +480,8 @@ class ResponseEngine:
         context: Optional[Dict[str, Any]] = None,
         user_name: Optional[str] = None,
         allow_reflection: bool = True,
+        policy=None,
+        features: Optional[Dict[str, str]] = None,
     ) -> Optional[str]:
         """
         Compose a reply for a message
@@ -482,10 +492,16 @@ class ResponseEngine:
             context: Conversation context; uses "relevant_memories" for callbacks
             user_name: Child's name for greetings
             allow_reflection: Whether the child's words may be echoed back
+            policy: Optional EngagementPolicy; once it has enough data for a choice
+                (template variant, follow-up question, memory reference), that choice
+                favors what this child has engaged with
+            features: Optional dict that receives the choices made in this reply, for
+                crediting the child's next message (see services/engagement_tracker.py)
 
         Returns:
             Reply text, or None if the parser is unavailable
         """
+        features = features if features is not None else {}
         analysis = self.analyze(message)
         if analysis is None:
             return None
@@ -509,7 +525,8 @@ class ResponseEngine:
             frame = responding[0]
             slots = _BlankDict({**globals_, **frame.slots})
             self._compute_slots(frame, slots, personality)
-            core = self._choose_template(frame.rule, slots, level, user_id)
+            core = self._choose_template(frame.rule, slots, level, user_id, policy, features)
+            features["rule"] = frame.rule_id
 
             # Multi-sentence messages: also answer the strongest match in another sentence
             # ("I won my game today! Do you like soccer?")
@@ -518,7 +535,7 @@ class ResponseEngine:
             if second is not None:
                 second_slots = _BlankDict({**globals_, **second.slots})
                 self._compute_slots(second, second_slots, personality)
-                second_core = self._choose_template(second.rule, second_slots, level, user_id)
+                second_core = self._choose_template(second.rule, second_slots, level, user_id, policy, features)
                 # Answer in the order the sentences were written
                 core = f"{core} {second_core}" if frame.sentence < second.sentence else f"{second_core} {core}"
             valence = frame.valence
@@ -527,7 +544,8 @@ class ResponseEngine:
             stored_keys = {key for f in analysis.frames for (_, key, _) in f.memories}
         else:
             slots = _BlankDict(globals_)
-            core, valence = self._fallback(analysis, slots, allow_reflection, user_id)
+            core, valence, kind = self._fallback(analysis, slots, allow_reflection, user_id, policy, features)
+            features["rule"] = f"fallback_{kind}"
             use_opener = False
             follow_ups = []
             stored_keys = set()
@@ -542,14 +560,22 @@ class ResponseEngine:
 
         curiosity = getattr(personality, "curiosity", 0.5)
         asked = core.rstrip().endswith("?")
-        if follow_ups and not asked and self.rng.random() < curiosity:
-            parts.append(self.rng.choice(follow_ups).format_map(slots))
-            asked = True
+        if follow_ups and not asked:
+            if self._decide("follow_up", curiosity, policy):
+                parts.append(self.rng.choice(follow_ups).format_map(slots))
+                asked = True
+                features["follow_up"] = "yes"
+            else:
+                features["follow_up"] = "no"
 
         if not asked and level >= 3:
-            callback = self._memory_callback(context.get("relevant_memories") or [], stored_keys)
-            if callback:
-                parts.append(callback)
+            eligible = self._callback_memories(context.get("relevant_memories") or [], stored_keys)
+            if eligible:
+                if self._decide("callback", CALLBACK_PROBABILITY, policy):
+                    parts.append(self._memory_callback(eligible))
+                    features["callback"] = "yes"
+                else:
+                    features["callback"] = "no"
 
         text = " ".join(p.strip() for p in parts if p and p.strip())
         return self._apply_style(text, personality)
@@ -574,7 +600,18 @@ class ResponseEngine:
                 if shares and thing:
                     slots["bot_shares_like"] = "yes"
 
-    def _choose_template(self, rule: Dict[str, Any], slots: Dict[str, str], level: int, user_id: int) -> str:
+    def _decide(self, feature: str, probability: float, policy) -> bool:
+        """
+        Yes/no choice for an optional part of a reply. Uses the personality-based probability
+        until the policy has enough engagement data for both options, then Thompson sampling
+        with that probability as the prior.
+        """
+        if policy is not None and policy.has_data(feature, ["yes", "no"]):
+            return policy.choose(feature, {"yes": probability, "no": 1.0 - probability}) == "yes"
+        return self.rng.random() < probability
+
+    def _choose_template(self, rule: Dict[str, Any], slots: Dict[str, str], level: int, user_id: int,
+                         policy=None, features: Optional[Dict[str, str]] = None) -> str:
         if "responses_by" in rule:
             by = rule["responses_by"]
             variants = by["variants"]
@@ -594,24 +631,47 @@ class ResponseEngine:
         # Prefer the most specific templates (those that use the most optional slots)
         most_specific = max((len(c.get("requires", [])) for c in candidates), default=0)
         candidates = [c["text"] for c in candidates if len(c.get("requires", [])) == most_specific]
-        return self._pick(candidates, user_id).format_map(slots)
+        return self._pick(candidates, user_id, f"template:{rule['id']}", policy, features).format_map(slots)
 
-    def _pick(self, options: List[str], user_id: int) -> str:
-        """Choose a template, avoiding ones used recently for this user"""
+    def _pick(self, options: List[str], user_id: int, feature: Optional[str] = None,
+              policy=None, features: Optional[Dict[str, str]] = None) -> str:
+        """
+        Choose a template, avoiding ones used recently for this user. Among the remaining
+        ones, prefer templates this child has engaged with once each has enough data.
+        """
         recent = list(self._recent[user_id])
-        # Exclude as many recently used options as possible while leaving at least one
-        window = recent[-(len(options) - 1):] if len(options) > 1 else []
+        learned = (feature is not None and policy is not None and len(options) > 2
+                   and policy.has_data(feature, [template_id(o) for o in options]))
+        if learned:
+            # Only avoid an exact repeat, so the learned preference has options to choose from
+            window = recent[-1:]
+        else:
+            # Exclude as many recently used options as possible while leaving at least one
+            window = recent[-(len(options) - 1):] if len(options) > 1 else []
         fresh = [o for o in options if o not in window] or options
-        choice = self.rng.choice(fresh)
+
+        if learned and len(fresh) > 1:
+            ids = {template_id(o): o for o in fresh}
+            choice = ids[policy.rank(feature, list(ids))[0]]
+        else:
+            choice = self.rng.choice(fresh)
+
         self._recent[user_id].append(choice)
+        if feature and features is not None:
+            features[feature] = template_id(choice)
         return choice
 
-    def _fallback(self, analysis: Analysis, slots: Dict[str, str], allow_reflection: bool, user_id: int) -> Tuple[str, str]:
+    def _fallback(self, analysis: Analysis, slots: Dict[str, str], allow_reflection: bool, user_id: int,
+                  policy=None, features: Optional[Dict[str, str]] = None) -> Tuple[str, str, str]:
+        """Reply when no rule matched. Returns (text, valence, fallback kind)."""
         fallbacks = self.kb["fallbacks"]
         doc = analysis.doc
 
+        def pick(kind: str) -> str:
+            return self._pick(fallbacks[kind], user_id, f"template:fallback_{kind}", policy, features)
+
         if analysis.is_question:
-            return self._pick(fallbacks["question"], user_id), "neutral"
+            return pick("question"), "neutral", "question"
 
         # Reflect the last sentence that is short and about the child
         if allow_reflection:
@@ -621,28 +681,29 @@ class ResponseEngine:
                         and (self._first_person_subject(root) or self._known_person_subject(root))):
                     _, clause = self._extract_slot(root, "clause")
                     slots["clause"] = clause
-                    return self._pick(fallbacks["reflection"], user_id).format_map(slots), "neutral"
+                    return pick("reflection").format_map(slots), "neutral", "reflection"
 
         # A he/she/they the reference tracker could not resolve
         if any(t.lower_ in ("he", "she", "they") and t.dep_ in ("nsubj", "nsubjpass") for t in doc):
-            return self._pick(fallbacks["unknown_person"], user_id), "neutral"
+            return pick("unknown_person"), "neutral", "unknown_person"
 
         if allow_reflection:
             chunks = [c for c in doc.noun_chunks if c.root.pos_ != "PRON"]
             if chunks:
                 slots["topic"] = self._join(list(chunks[-1]), reflect=True)
-                return self._pick(fallbacks["topic"], user_id).format_map(slots), "neutral"
+                return pick("topic").format_map(slots), "neutral", "topic"
 
-        return self._pick(fallbacks["generic"], user_id), "neutral"
+        return pick("generic"), "neutral", "generic"
 
-    def _memory_callback(self, memories, stored_keys) -> Optional[str]:
+    def _callback_memories(self, memories, stored_keys) -> List[Any]:
+        """Stored memories that can be mentioned (not the ones stored from this message)"""
         callbacks = self.kb["memory_callbacks"]
-        eligible = [m for m in memories
-                    if getattr(m, "category", None) in callbacks and getattr(m, "key", None) not in stored_keys]
-        if not eligible or self.rng.random() >= 0.35:
-            return None
+        return [m for m in memories
+                if getattr(m, "category", None) in callbacks and getattr(m, "key", None) not in stored_keys]
+
+    def _memory_callback(self, eligible) -> str:
         memory = self.rng.choice(eligible)
-        return self.rng.choice(callbacks[memory.category]).format(value=memory.value)
+        return self.rng.choice(self.kb["memory_callbacks"][memory.category]).format(value=memory.value)
 
     def _apply_style(self, text: str, personality) -> str:
         """Shape the reply with formality and energy, then fix capitalization"""
