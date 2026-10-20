@@ -363,10 +363,10 @@ These are not in the original 183-task plan; they were found while evaluating an
 - [x] R8. Engagement limits: scoring uses only the text of the next message (not response time or the child leaving); rules with two templates still alternate, so template preferences only apply to rules with three or more; with the LLM enabled, only pun/fact choices are learned
 - [x] R5. The quirk filter appended puns, facts and the catchphrase after the bot's closing question; they now go before it
 - [ ] R11. Engagement timing thresholds (2 minutes = slow, 15 minutes = left) are estimates; tune them with real usage data
-- [ ] R9. Remaining quirk-filter issues: emoji choice ignores the words and emojis are inserted mid-sentence ("orange 💜", "game 🎯?"); a fact and a pun can both be added to one reply (more often at high humor since R4 scales their probability up to 1.5x); transition phrases produce "By the way, What..." and double spaces
+- [x] R9. Quirk filter fixes: emojis go after the sentence punctuation, are chosen by whole-word keyword matches (caring emojis for sad sentences), at most 1 per reply (2 at intensity >= 0.6); one joke (fact or pun) per reply, capped at 50%; transitions lowercase the next word ("By the way, what...") or drop a repeated "Did you know?"; repeated spaces are collapsed
 
 ### Tests
-- [ ] T1. `tests/test_emoji_quirk.py::TestMoodBasedEmojis::test_happy_mood_emojis` fails about half the time (random emoji choice checked against a narrower set)
+- [x] T1. `test_happy_mood_emojis` was flaky (random emoji checked against a narrower set); the test now accepts the keyword and mood emojis and checks placement
 
 ---
 
@@ -377,6 +377,6 @@ These are not in the original 183-task plan; they were found while evaluating an
 **In Progress:** 0
 **Pending:** 16 (task 72, tasks 167-177, 179, 181-183)
 
-**Follow-up Items:** 11 pending, 11 completed
+**Follow-up Items:** 9 pending, 13 completed
 
 **Current Phase:** Phase 7 - Testing & Refinement

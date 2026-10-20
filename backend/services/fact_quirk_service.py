@@ -6,6 +6,8 @@ Handles the shares_facts personality quirk
 import random
 from typing import List, Optional
 
+from services.pun_quirk_service import join_transition
+
 
 class FactQuirkService:
     """
@@ -202,13 +204,13 @@ class FactQuirkService:
                 return f"{response} {fact}"
             else:
                 # With transition phrase
-                transitions = [
-                    f"{response} Here's something cool: {fact}",
-                    f"{response} Fun fact: {fact}",
-                    f"{response} By the way, {fact}",
-                    f"{response} Also, {fact}",
-                ]
-                return random.choice(transitions)
+                transition = random.choice([
+                    "Here's something cool:",
+                    "Fun fact:",
+                    "By the way,",
+                    "Also,",
+                ])
+                return f"{response} {join_transition(transition, fact)}"
         else:
             return fact
 

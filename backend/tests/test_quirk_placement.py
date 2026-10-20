@@ -28,15 +28,17 @@ def manager():
 
 @pytest.fixture
 def always_pun():
-    with patch("services.conversation_manager.pun_quirk_service.add_pun",
-               side_effect=lambda response, context="", probability=0.0: f"{response} PUN!".strip()):
+    with patch.object(ConversationManager, "_choose_joke", return_value="pun"), \
+            patch("services.conversation_manager.pun_quirk_service.add_pun",
+                  side_effect=lambda response, context="", probability=0.0: f"{response} PUN!".strip()):
         yield
 
 
 @pytest.fixture
 def always_fact():
-    with patch("services.conversation_manager.fact_quirk_service.add_fact",
-               side_effect=lambda response, context="", probability=0.0: f"{response} FACT.".strip()):
+    with patch.object(ConversationManager, "_choose_joke", return_value="fact"), \
+            patch("services.conversation_manager.fact_quirk_service.add_fact",
+                  side_effect=lambda response, context="", probability=0.0: f"{response} FACT.".strip()):
         yield
 
 
@@ -123,3 +125,47 @@ def test_jokes_can_be_turned_off(manager, always_pun, always_fact):
         make_personality(["tells_puns", "shares_facts"]), features=features, allow_jokes=False)
     assert "PUN" not in response and "FACT" not in response
     assert "humor" not in features
+
+
+class TestOneJokePerReply:
+    @staticmethod
+    def personality(humor=1.0, level=10):
+        personality = make_personality(["tells_puns", "shares_facts"])
+        personality.humor = humor
+        personality.friendship_level = level
+        return personality
+
+    def test_choose_joke_never_returns_both_and_is_capped(self):
+        import random
+        from services.conversation_manager import MAX_JOKE_PROBABILITY
+        random.seed(0)
+        choices = [ConversationManager._choose_joke(["tells_puns", "shares_facts"], self.personality(), 1.5)
+                   for _ in range(2000)]
+        assert set(choices) <= {"pun", "fact", None}
+        joke_rate = sum(c is not None for c in choices) / len(choices)
+        assert joke_rate == pytest.approx(MAX_JOKE_PROBABILITY, abs=0.04)
+
+    def test_no_quirks_no_joke(self):
+        assert ConversationManager._choose_joke([], self.personality(), 1.0) is None
+
+    def test_only_enabled_quirk_is_used(self):
+        import random
+        random.seed(1)
+        choices = {ConversationManager._choose_joke(["tells_puns"], self.personality(), 1.5) for _ in range(200)}
+        assert choices <= {"pun", None}
+
+    def test_real_services_add_one_joke_at_most(self, manager):
+        from services.fact_quirk_service import FactQuirkService
+        from services.pun_quirk_service import PunQuirkService
+        puns = [p for n in dir(PunQuirkService) if n.endswith("_PUNS") for p in getattr(PunQuirkService, n)]
+        facts = [f.replace("Did you know? ", "") for n in dir(FactQuirkService) if n.endswith("_FACTS")
+                 for f in getattr(FactQuirkService, n)]
+        for _ in range(200):
+            features = {}
+            response = manager._apply_personality_filter(
+                "That's awesome! What was the best part?", self.personality(), "soccer", features=features)
+            has_pun = any(p[1:] in response for p in puns)
+            has_fact = any(f[1:] in response for f in facts)
+            assert not (has_pun and has_fact)
+            assert response.endswith("What was the best part?")
+            assert "  " not in response

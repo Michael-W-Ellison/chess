@@ -353,3 +353,20 @@ class TestEdgeCases:
         # Should handle multiple keywords gracefully
         assert "Cool!" in result
         assert len(result) > len("Cool!")
+
+
+class TestTransitions:
+    """Lead-in phrases read as one sentence"""
+
+    @pytest.mark.parametrize("transition,text,expected", [
+        ("By the way,", "What do you call a fake noodle? An impasta!",
+         "By the way, what do you call a fake noodle? An impasta!"),
+        ("Fun fact:", "Did you know? Octopuses have three hearts!", "Fun fact: Octopuses have three hearts!"),
+        ("Also,", "Did you know? Octopuses have three hearts!", "Also, did you know? Octopuses have three hearts!"),
+        ("That reminds me:", "Why did the cookie cry? Its mom was a wafer!",
+         "That reminds me: Why did the cookie cry? Its mom was a wafer!"),
+        ("By the way,", "I love puns!", "By the way, I love puns!"),
+    ])
+    def test_join_transition(self, transition, text, expected):
+        from services.pun_quirk_service import join_transition
+        assert join_transition(transition, text) == expected

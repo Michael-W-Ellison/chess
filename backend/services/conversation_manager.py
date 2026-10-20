@@ -5,6 +5,7 @@ Orchestrates the conversation flow and message processing
 
 from typing import Dict, Optional, List, Tuple
 import logging
+import random
 import re
 from datetime import datetime, timedelta
 
@@ -28,6 +29,9 @@ from services.conversation_summary_service import conversation_summary_service
 from services.response_engine import response_engine
 from services.engagement_tracker import engagement_tracker
 from utils.config import settings
+
+# Most replies should not carry a joke, however high the bot's humor
+MAX_JOKE_PROBABILITY = 0.5
 
 logger = logging.getLogger("chatbot.conversation_manager")
 
@@ -638,12 +642,11 @@ INSTRUCTIONS:
 
         Facts, puns and the catchphrase go before a closing question, so the reply still
         ends with what the bot asked ("That's awesome! <pun> What was the best part?").
+        A reply gets at most one fact or pun.
 
         If features is given, records whether a fun fact or pun was added ("humor" =
         "fact", "pun" or "none") so the child's reaction can be credited to it.
         """
-        import random
-
         quirks = personality.get_quirks()
         response, closing_question = self._split_closing_question(response)
         # Higher humor means more puns and facts (0.5x at humor 0.0, 1.5x at humor 1.0)
@@ -654,33 +657,14 @@ INSTRUCTIONS:
         # A reply that is only a question gets no fact or pun in front of it
         joke_allowed = bool(response) and allow_jokes
 
-        # Apply shares_facts quirk
-        if "shares_facts" in quirks and joke_allowed:
-            # Probability increases slightly with friendship level
-            base_probability = 0.20
-            level_bonus = (personality.friendship_level - 1) * 0.02
-            probability = min(0.35, base_probability + level_bonus) * humor_scale
-
-            before = response
-            response = fact_quirk_service.add_fact(
-                response, context=context, probability=probability
-            )
-            if response != before:
-                humor_added = "fact"
-
-        # Apply tells_puns quirk
-        if "tells_puns" in quirks and joke_allowed:
-            # Probability increases slightly with friendship level
-            base_probability = 0.25
-            level_bonus = (personality.friendship_level - 1) * 0.02
-            probability = min(0.40, base_probability + level_bonus) * humor_scale
-
-            before = response
-            response = pun_quirk_service.add_pun(
-                response, context=context, probability=probability
-            )
-            if response != before:
-                humor_added = "pun"
+        # At most one fact or pun per reply (shares_facts / tells_puns quirks)
+        joke = self._choose_joke(quirks, personality, humor_scale) if joke_allowed else None
+        if joke == "fact":
+            response = fact_quirk_service.add_fact(response, context=context, probability=1.0)
+            humor_added = "fact"
+        elif joke == "pun":
+            response = pun_quirk_service.add_pun(response, context=context, probability=1.0)
+            humor_added = "pun"
 
         if features is not None and joke_allowed and ("shares_facts" in quirks or "tells_puns" in quirks):
             features["humor"] = humor_added or "none"
@@ -708,7 +692,30 @@ INSTRUCTIONS:
             body, closing_question = self._split_closing_question(response)
             response = " ".join(p for p in (body, personality.catchphrase, closing_question) if p)
 
-        return response
+        return re.sub(r" {2,}", " ", response)
+
+    @staticmethod
+    def _choose_joke(quirks: List[str], personality: BotPersonality, humor_scale: float) -> Optional[str]:
+        """
+        Whether this reply gets a fun fact or a pun (never both). Each quirk has its own
+        chance (rising with friendship level and humor); one roll uses their combined chance,
+        capped at MAX_JOKE_PROBABILITY, then picks which one in proportion to the chances.
+        """
+        level_bonus = (personality.friendship_level - 1) * 0.02
+        chances = {}
+        if "shares_facts" in quirks:
+            chances["fact"] = min(0.35, 0.20 + level_bonus) * humor_scale
+        if "tells_puns" in quirks:
+            chances["pun"] = min(0.40, 0.25 + level_bonus) * humor_scale
+        if not chances:
+            return None
+
+        none_chance = 1.0
+        for chance in chances.values():
+            none_chance *= 1.0 - min(chance, 1.0)
+        if random.random() >= min(1.0 - none_chance, MAX_JOKE_PROBABILITY):
+            return None
+        return random.choices(list(chances), weights=list(chances.values()))[0]
 
     @staticmethod
     def _split_closing_question(text: str) -> Tuple[str, str]:
