@@ -213,6 +213,10 @@ response engine instead of the LLM:
 - `services/response_engine.py` matches the rules, binds tree nodes to slots, stores what
   it learns (favorites, dislikes, people, goals, achievements, name, age), detects mood,
   and composes replies shaped by the bot's personality traits and friendship level.
+- `services/reference_tracker.py` remembers the people and things mentioned in the last
+  few turns and replaces pronouns before analysis ("She yelled at me" after "My teacher
+  gave us a test" is analyzed as "My teacher yelled at me"). The stored message and any
+  LLM prompt keep the child's original wording; references reset with each new conversation.
 
 If spaCy is not installed, the backend falls back to keyword extraction and fixed replies.
 

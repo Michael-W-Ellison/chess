@@ -22,9 +22,12 @@
     "bad_grade_modifiers": ["bad", "low", "terrible", "failing", "poor", "awful", "horrible"],
     "bad_results": ["f", "d", "detention", "zero", "f-", "d-", "0"],
     "team_words": ["team", "cut", "varsity", "squad", "roll"],
-    "negative_person_actions": ["yell", "scream", "shout", "ground", "punish", "ignore", "tease", "blame"],
-    "positive_person_actions": ["buy", "give", "teach", "help", "surprise", "bring", "show", "read", "cook", "bake", "hug"],
+    "negative_person_actions": ["yell", "scream", "shout", "ground", "punish", "ignore", "tease", "blame", "break", "ruin", "steal"],
+    "positive_person_actions": ["buy", "teach", "help", "surprise", "bring", "show", "read", "cook", "bake", "hug"],
     "identity_words": ["robot", "human", "person", "ai", "real", "alive", "computer", "bot", "machine", "kid", "child"],
+    "common_capitalized": ["school", "today", "tomorrow", "yesterday", "recess", "lunch", "math", "science", "art",
+                           "gym", "music", "reading", "class", "practice", "homework", "everything", "everyone",
+                           "weekend", "summer", "camp", "church", "dinner", "breakfast", "it", "that", "this"],
     "nothing_words": ["nothing", "nm", "nothin", "nada", "idk"],
     "category_nouns": ["color", "colour", "animal", "food", "sport", "game", "book", "movie", "show", "song", "band",
                        "subject", "season", "holiday", "snack", "dessert", "fruit", "number", "place", "toy",
@@ -136,6 +139,7 @@
     "question": ["Ooh, good question! What do you think?", "Hmm, I'm not sure! What do you think about it?", "That's a tricky one! What's your guess?"],
     "reflection": ["{clause}? Tell me more!", "So {clause}? What happened next?", "{clause}? How did that go?"],
     "topic": ["Tell me more about {topic}!", "What do you think about {topic}?"],
+    "unknown_person": ["Wait, who do you mean?", "Who are you talking about?"],
     "generic": ["That's really interesting! Tell me more about that.", "I hear you! How are you feeling about it?", "Thanks for sharing that with me! What else is going on?"]
   },
 
@@ -443,21 +447,25 @@
       "follow_ups": ["What do you like most about it?", "Is there anything else you really like?"]
     },
     {
+      "id": "person_named",
+      "priority": 30,
+      "patterns": [[
+        {"RIGHT_ID": "rel", "RIGHT_ATTRS": {"LEMMA": {"IN": "@relations"}}},
+        {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "my"}},
+        {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": "appos", "POS": "PROPN"}}
+      ]],
+      "slots": {"name": {"node": "name", "span": "text"}, "relation": {"node": "rel", "span": "noun_phrase"}},
+      "memories": [{"category": "person", "key": "{relation_slug}_{name_slug}", "value": "{name_raw}"}]
+    },
+    {
       "id": "person_relation",
       "priority": 30,
-      "patterns": [
-        [
-          {"RIGHT_ID": "rel", "RIGHT_ATTRS": {"LEMMA": {"IN": "@relations"}}},
-          {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "my"}},
-          {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": "appos", "POS": "PROPN"}}
-        ],
-        [
-          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
-          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": "nsubj", "POS": "PROPN"}},
-          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "rel", "RIGHT_ATTRS": {"DEP": "attr", "LEMMA": {"IN": "@relations"}}},
-          {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "my"}}
-        ]
-      ],
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": "nsubj", "POS": "PROPN"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "rel", "RIGHT_ATTRS": {"DEP": "attr", "LEMMA": {"IN": "@relations"}}},
+        {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "my"}}
+      ]],
       "slots": {"name": {"node": "name", "span": "text"}, "relation": {"node": "rel", "span": "noun_phrase"}},
       "memories": [{"category": "person", "key": "{relation_slug}_{name_slug}", "value": "{name_raw}"}],
       "valence": "positive",
@@ -627,15 +635,26 @@
       "conditions": {"evaluation": "adj"},
       "slots": {
         "subject": {"node": "subj", "span": "subtree", "lowercase": true},
-        "be": {"node": "be", "span": "text"},
+        "be": {"node": "be", "span": "verb_group"},
         "evaluation": {"node": "adj", "span": "text"}
       },
       "responses_by": {
         "slot": "evaluation_valence",
         "variants": {
-          "positive": ["Sounds like {subject} {be} {negation}{evaluation}! What was the best part?", "Yay, {subject} {be} {negation}{evaluation}! Tell me more!"],
-          "negative": ["Sounds like {subject} {be} {negation}{evaluation}. What made it {negation}{evaluation}?", "Aw, {subject} {be} {negation}{evaluation}? What happened?"],
-          "neutral": ["{subject} {be} {negation}{evaluation}? Okay! Did anything interesting happen?"]
+          "positive": [
+            {"text": "You think {subject} {be} {negation}{evaluation}? That sounds great! What are you looking forward to?", "requires": ["future"]},
+            "Sounds like {subject} {be} {negation}{evaluation}! What was the best part?",
+            "Yay, {subject} {be} {negation}{evaluation}! Tell me more!"
+          ],
+          "negative": [
+            {"text": "You think {subject} {be} {negation}{evaluation}? What's worrying you about it?", "requires": ["future"]},
+            "Sounds like {subject} {be} {negation}{evaluation}. What made it {negation}{evaluation}?",
+            "Aw, {subject} {be} {negation}{evaluation}? What happened?"
+          ],
+          "neutral": [
+            {"text": "You think {subject} {be} {negation}{evaluation}? We'll see how it goes!", "requires": ["future"]},
+            "{subject} {be} {negation}{evaluation}? Okay! Did anything interesting happen?"
+          ]
         }
       }
     },
@@ -645,7 +664,7 @@
       "patterns": [
         [
           {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
-          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "POS": "PROPN", "ENT_TYPE": "PERSON"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "POS": "PROPN", "LOWER": {"NOT_IN": "@common_capitalized"}}},
           {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "acomp"}}
         ],
         [
@@ -657,7 +676,7 @@
       "conditions": {"evaluation": "adj"},
       "slots": {
         "subject": {"node": "subj", "span": "subtree"},
-        "be": {"node": "be", "span": "text"},
+        "be": {"node": "be", "span": "verb_group"},
         "evaluation": {"node": "adj", "span": "text"}
       },
       "responses_by": {

@@ -90,3 +90,27 @@ def test_name_replaces_placeholder_user_name(api, conversation_id):
     send(api, conversation_id, "my name is Sam")
     reply = send(api, conversation_id, "hello")
     assert "Sam" in reply["content"]
+
+
+def test_pronouns_refer_to_earlier_turns(api, conversation_id):
+    send(api, conversation_id, "I played with Zoe today")
+    send(api, conversation_id, "She is my cousin")
+    assert stored_memories(api)[("person", "cousin_zoe")] == "Zoe"
+
+
+def test_stored_message_keeps_original_wording(api, conversation_id):
+    send(api, conversation_id, "My teacher gave us a test")
+    reply = send(api, conversation_id, "She yelled at me")
+    assert "your teacher yelled at you" in reply["content"].lower()
+
+    conversation = api.get(f"/api/conversation/{conversation_id}").json()
+    user_messages = [m["content"] for m in conversation["messages"] if m["role"] == "user"]
+    assert "She yelled at me" in user_messages
+    assert "My teacher yelled at me" not in user_messages
+
+
+def test_new_conversation_forgets_references(api, conversation_id):
+    send(api, conversation_id, "My best friend Maya moved away")
+    new_id = api.post(f"/api/conversation/start?user_id={USER_ID}").json()["conversation_id"]
+    reply = send(api, new_id, "She is so annoying")
+    assert "Maya" not in reply["content"]

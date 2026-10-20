@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from services.reference_tracker import ReferenceTracker
 from services.utterance_parser import utterance_parser
 
 logger = logging.getLogger("chatbot.response_engine")
@@ -101,6 +102,9 @@ class ResponseEngine:
         self._pattern_nodes: Dict[str, List[str]] = {}
         self._recent: Dict[int, deque] = defaultdict(lambda: deque(maxlen=8))
         self._load_knowledge_base()
+        self.references = ReferenceTracker(
+            parser, self.kb["lexicons"]["relations"], self.kb["lexicons"]["common_capitalized"]
+        )
 
     # ------------------------------------------------------------------
     # Setup
@@ -127,6 +131,20 @@ class ResponseEngine:
     def is_available(self) -> bool:
         """True if the parser (spaCy and its model) is available"""
         return self.parser.is_available()
+
+    def resolve_references(self, message: str, user_id: int) -> str:
+        """
+        Replace pronouns ("she", "it") with the people and things they refer to from earlier
+        turns, and remember what this message mentions. Call once per message, before
+        analysis; pass the result to extract_memories, detect_mood and generate_response.
+        """
+        if not self.is_available():
+            return message
+        return self.references.resolve(message, user_id)
+
+    def reset_references(self, user_id: int) -> None:
+        """Forget earlier people and things (new conversation)"""
+        self.references.reset(user_id)
 
     def _get_matcher(self):
         if self._matcher is None:
@@ -186,6 +204,10 @@ class ResponseEngine:
         valence = rule.get("valence", "neutral")
         sentence = next(iter(nodes.values())).sent
 
+        # Lets templates distinguish "it will be hard" from "it was hard"
+        if any(t.dep_ == "aux" and t.lower_ in ("will", "'ll", "gonna") for t in sentence):
+            slots["future"] = "yes"
+
         if "question" in conditions and conditions["question"] != self._is_question(sentence):
             return None
         if "max_tokens" in conditions and \
@@ -221,8 +243,10 @@ class ResponseEngine:
             raw, reflected = self._extract_slot(nodes[spec["node"]], spec["span"])
             if spec.get("capitalize") and raw:
                 raw = reflected = raw[:1].upper() + raw[1:]
-            # Lowercase a capitalized common word ("School was boring"), but not a person's name
-            if spec.get("lowercase") and raw and nodes[spec["node"]].ent_type_ != "PERSON":
+            # Lowercase a capitalized common word ("School was boring", "Today was fun"), not a name
+            node = nodes[spec["node"]]
+            if spec.get("lowercase") and raw and (
+                    node.pos_ != "PROPN" or node.lower_ in self.kb["lexicons"]["common_capitalized"]):
                 raw = raw[:1].lower() + raw[1:]
                 reflected = reflected[:1].lower() + reflected[1:]
             slots[f"{slot_name}_raw"] = raw
@@ -273,6 +297,10 @@ class ResponseEngine:
             tokens = [t for t in token.subtree if t.dep_ not in _SKIP_DEPS]
             if token.dep_ == "xcomp" and tokens and tokens[0].lower_ == "to":
                 tokens = tokens[1:]
+        elif span == "verb_group":
+            # "will be", "has been": auxiliaries with the verb, without negation
+            tokens = sorted([c for c in token.children if c.dep_ in ("aux", "auxpass")] + [token],
+                            key=lambda t: t.i)
         elif span == "noun_phrase":
             tokens = [t for t in token.subtree
                       if t == token or (t.head == token and t.dep_ in ("amod", "compound"))]
@@ -391,6 +419,18 @@ class ResponseEngine:
         if lower in _REFLECT_WORDS:
             return _REFLECT_WORDS[lower]
         return token.text
+
+    def _known_person_subject(self, token) -> bool:
+        """True if the clause's subject is "my <relation>" or a recognized name ("Maya said no")"""
+        relations = set(self.kb["lexicons"]["relations"])
+        for child in token.children:
+            if child.dep_ != "nsubj":
+                continue
+            if child.lemma_.lower() in relations and any(c.dep_ == "poss" and c.lower_ == "my" for c in child.children):
+                return True
+            if child.pos_ == "PROPN" and child.ent_type_ == "PERSON":
+                return True
+        return False
 
     @staticmethod
     def _first_person_subject(token) -> bool:
@@ -578,10 +618,14 @@ class ResponseEngine:
             for sentence in reversed(list(doc.sents)):
                 root = sentence.root
                 if (len(sentence) <= 15 and root.pos_ in ("VERB", "AUX")
-                        and self._first_person_subject(root)):
+                        and (self._first_person_subject(root) or self._known_person_subject(root))):
                     _, clause = self._extract_slot(root, "clause")
                     slots["clause"] = clause
                     return self._pick(fallbacks["reflection"], user_id).format_map(slots), "neutral"
+
+        # A he/she/they the reference tracker could not resolve
+        if any(t.lower_ in ("he", "she", "they") and t.dep_ in ("nsubj", "nsubjpass") for t in doc):
+            return self._pick(fallbacks["unknown_person"], user_id), "neutral"
 
         if allow_reflection:
             chunks = [c for c in doc.noun_chunks if c.root.pos_ != "PRON"]

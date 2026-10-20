@@ -85,6 +85,8 @@ class ConversationManager:
         db.refresh(conversation)
 
         self.current_conversation_id = conversation.id
+        # Pronouns in a new conversation should not refer to people from the last one
+        response_engine.reset_references(user_id)
         self.message_count = 0
         self.conversation_start_time = datetime.now()
 
@@ -231,11 +233,15 @@ class ConversationManager:
             user_id, personality, user_message, db
         )
 
+        # Resolve pronouns to earlier people and things ("she" -> "my best friend Maya")
+        # for the rule-based analysis; the stored message and the LLM prompt keep the original
+        analysis_message = self._resolve_references(user_message, user_id)
+
         # 5. Extract and store memories
-        memory_manager.extract_and_store_memories(user_message, user_id, db)
+        memory_manager.extract_and_store_memories(analysis_message, user_id, db)
 
         # 6. Build context
-        context = self._build_context(user_message, user_id, personality, db)
+        context = self._build_context(analysis_message, user_id, personality, db)
 
         # 7. Generate response
         # Use the LLM when enabled and loadable (lazy loading); otherwise the rule-based engine.
@@ -249,12 +255,12 @@ class ConversationManager:
                 if settings.USE_LLM:
                     logger.warning("LLM model not available, using rule-based responses")
                 raw_response = self._rule_based_response(
-                    user_message, context, personality, allow_reflection
+                    analysis_message, context, personality, allow_reflection
                 )
         except Exception as e:
             logger.error(f"Error loading/generating from LLM: {e}")
             raw_response = self._rule_based_response(
-                user_message, context, personality, allow_reflection
+                analysis_message, context, personality, allow_reflection
             )
 
         # 8. Apply personality to response
@@ -706,6 +712,14 @@ INSTRUCTIONS:
         db.commit()
         db.refresh(message)
         return message
+
+    def _resolve_references(self, user_message: str, user_id: int) -> str:
+        """Resolve pronouns with the rule-based engine's reference tracker, if available"""
+        try:
+            return response_engine.resolve_references(user_message, user_id)
+        except Exception as e:
+            logger.error(f"Error resolving references: {e}", exc_info=True)
+            return user_message
 
     def _rule_based_response(
         self,
