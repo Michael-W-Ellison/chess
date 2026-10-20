@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ChatWindow from './components/ChatWindow';
 import ProfilePanel from './components/ProfilePanel';
 import SettingsPanel from './components/SettingsPanel';
@@ -26,16 +26,23 @@ function App() {
     return now - unlockTime < 3600000; // 1 hour
   }).length;
 
-  // Track session and login on mount and unmount
+  // Latest tracking callbacks; they are recreated whenever achievement stats change
+  const sessionTracking = useRef({ recordLogin, recordActivity, trackSessionStart, trackSessionEnd });
+  sessionTracking.current = { recordLogin, recordActivity, trackSessionStart, trackSessionEnd };
+
+  // Track session and login on mount and unmount.
+  // Runs once: depending on the callbacks re-ran it after every stats update,
+  // which looped and counted a new session on each render.
   useEffect(() => {
-    recordLogin();
-    recordActivity('login'); // Also record in StreakContext
-    trackSessionStart();
+    const tracking = sessionTracking.current;
+    tracking.recordLogin();
+    tracking.recordActivity('login'); // Also record in StreakContext
+    tracking.trackSessionStart();
 
     return () => {
-      trackSessionEnd();
+      sessionTracking.current.trackSessionEnd();
     };
-  }, [recordLogin, recordActivity, trackSessionStart, trackSessionEnd]);
+  }, []);
 
   // Get current login streak for display
   const loginStreakStats = getStats('login');

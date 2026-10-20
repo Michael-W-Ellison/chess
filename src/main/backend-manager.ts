@@ -44,7 +44,6 @@ export class BackendManager {
       return this.config.pythonPath;
     }
 
-    const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
     const backendDir = this.getBackendPath();
 
     // Try virtual environment first
@@ -66,8 +65,9 @@ export class BackendManager {
     const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
     if (isDev) {
-      // Development: backend is in project root
-      return path.join(app.getAppPath(), '..', 'backend');
+      // Development: app.getAppPath() is the project root (where package.json is),
+      // and the backend directory sits directly inside it
+      return path.join(app.getAppPath(), 'backend');
     } else {
       // Production: backend is packaged with app
       return path.join(process.resourcesPath, 'backend');
@@ -314,7 +314,7 @@ export class BackendManager {
       throw new Error(`Backend request failed: ${response.status} ${errorText}`);
     }
 
-    return await response.json();
+    return (await response.json()) as T;
   }
 
   /**

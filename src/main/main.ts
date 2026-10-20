@@ -1,14 +1,8 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
 import { setupIpcHandlers, cleanupIpcHandlers } from './ipc-handlers';
 import { backendManager } from './backend-manager';
 import { trackAppLaunch, getStorePath } from './store';
-
-// Handle creating/removing shortcuts on Windows when installing/uninstalling
-if (require('electron-squirrel-startup')) {
-  app.quit();
-}
 
 // Global reference to the main window
 let mainWindow: BrowserWindow | null = null;
@@ -141,27 +135,9 @@ app.on('before-quit', async (event) => {
 });
 
 /**
- * Security: Disable remote module (if somehow enabled)
+ * Security: the remote module and its 'remote-*' app events were removed in Electron 14,
+ * so there is nothing to disable here on Electron 28.
  */
-app.on('remote-require', (event) => {
-  event.preventDefault();
-});
-
-app.on('remote-get-builtin', (event) => {
-  event.preventDefault();
-});
-
-app.on('remote-get-global', (event) => {
-  event.preventDefault();
-});
-
-app.on('remote-get-current-window', (event) => {
-  event.preventDefault();
-});
-
-app.on('remote-get-current-web-contents', (event) => {
-  event.preventDefault();
-});
 
 // Export for testing
 export { mainWindow };

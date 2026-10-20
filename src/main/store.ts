@@ -121,7 +121,7 @@ export const store = new Store<StoreSchema>({
 
   // Migrations for version changes
   migrations: {
-    '0.1.0': (store) => {
+    '0.1.0': (_store) => {
       // Initial version, no migrations needed
     },
   },
@@ -206,7 +206,7 @@ export function getAllStoreData(): StoreSchema {
  */
 export function trackAppLaunch(): void {
   const now = new Date().toISOString();
-  const currentCount = store.get('app.launchCount');
+  const currentCount = (store.get('app.launchCount') as number | undefined) ?? 0;
   const firstLaunch = store.get('app.firstLaunchDate');
 
   if (!firstLaunch) {

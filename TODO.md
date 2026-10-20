@@ -340,12 +340,15 @@ These are not in the original 183-task plan; they were found while evaluating an
 
 ### Frontend
 - [ ] F1. Add a parent login step to the frontend: call `POST /api/parent/auth/login`, store the token, and send `Authorization: Bearer <token>` on all `/api/parent/*` requests (these endpoints now require authentication)
-- [ ] F2. Fix the remaining renderer TypeScript errors (`npx tsc --noEmit -p tsconfig.json`: 80 errors, e.g. `MessageBubble.tsx` uses snake_case metadata fields, `ExportDialog.tsx`/`MemoryExport.tsx` type mismatches)
-- [ ] F3. Fix the Electron main-process TypeScript errors (`npx tsc --noEmit -p tsconfig.main.json`: 37 errors), which block `npm run build:main` and `npm run dev`
-- [ ] F4. Fix the end-conversation call: frontend calls `POST /api/conversation/end/{id}`, backend expects `POST /api/conversation/end` with the ID in the body
+- [ ] F2. Fix the remaining renderer TypeScript errors (`npx tsc --noEmit -p tsconfig.json`: 78 errors, e.g. `MessageBubble.tsx` uses snake_case metadata fields, `ExportDialog.tsx`/`MemoryExport.tsx` type mismatches)
+- [x] F3. Fix the Electron main-process TypeScript errors (`npx tsc --noEmit -p tsconfig.main.json`: 37 errors), which block `npm run build:main` and `npm run dev`
+- [x] F4. Fix the end-conversation call: frontend calls `POST /api/conversation/end/{id}`, backend expects `POST /api/conversation/end` with the ID in the body (backend now accepts both; the app also ends the conversation when the window closes)
+- [ ] F5. Chat header shows "Level" without the friendship level number (renderer reads a field name that does not match the API response; part of F2)
+- [ ] F6. In development, React StrictMode mounts the app twice, so each launch starts two conversations (the first is never ended) and counts two sessions; production builds are not affected
+- [ ] F7. Several Electron IPC handlers are stubs: `get-parent-dashboard` returns mock data and `update-settings` does not save (`src/main/ipc-handlers.ts`)
 
 ### Backend
-- [ ] B1. Move `GET /api/conversation/stats`, `/recent` and `/streak` above `GET /api/conversation/{conversation_id}` in `routes/conversation.py`; they currently return 422
+- [x] B1. Move `GET /api/conversation/stats`, `/recent` and `/streak` above `GET /api/conversation/{conversation_id}` in `routes/conversation.py`; they returned 422
 - [ ] B2. Parent endpoints return 500 (not 401/503) when password protection is required but no password is configured
 - [ ] B3. Advice templates (`advice_template_service`) are not called from the conversation pipeline; detected advice requests only add a category hint to the LLM prompt, so the stored templates are never used (and with no model loaded, advice requests get the generic fallback reply)
 
@@ -358,6 +361,6 @@ These are not in the original 183-task plan; they were found while evaluating an
 **In Progress:** 0
 **Pending:** 16 (task 72, tasks 167-177, 179, 181-183)
 
-**Follow-up Items:** 7 pending
+**Follow-up Items:** 7 pending, 3 completed
 
 **Current Phase:** Phase 7 - Testing & Refinement
