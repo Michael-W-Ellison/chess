@@ -721,7 +721,7 @@ class ResponseEngine:
         with that probability as the prior.
         """
         if policy is not None and policy.has_data(feature, ["yes", "no"]):
-            return policy.choose(feature, {"yes": probability, "no": 1.0 - probability}) == "yes"
+            return policy.decide(feature, probability)
         return self.rng.random() < probability
 
     def _choose_template(self, rule: Dict[str, Any], slots: Dict[str, str], level: int, user_id: int,
@@ -754,7 +754,7 @@ class ResponseEngine:
         ones, prefer templates this child has engaged with once each has enough data.
         """
         recent = list(self._recent[user_id])
-        learned = (feature is not None and policy is not None and len(options) > 2
+        learned = (feature is not None and policy is not None and len(options) > 1
                    and policy.has_data(feature, [template_id(o) for o in options]))
         if learned:
             # Only avoid an exact repeat, so the learned preference has options to choose from

@@ -222,9 +222,12 @@ response engine instead of the LLM:
   LLM prompt keep the child's original wording; references reset with each new conversation.
 - `services/engagement_tracker.py` scores each of the child's messages for engagement
   (length, answering the bot's question, staying on topic, asking back, sharing feelings;
-  brush-offs like "ok"/"idk" score near zero) and credits the score to the choices in the
-  bot's previous reply: follow-up question or not, mentioning an old memory or not, template
-  variant, pun/fact or not. Per-child totals are stored in the `engagement_stats` table. Once
+  brush-offs like "ok"/"idk" score near zero; replies after 2+ minutes count for less, and
+  after 15 minutes, or a conversation ending without a goodbye, count as the child leaving)
+  and credits the score to the choices in the bot's previous reply: follow-up question or
+  not, mentioning an old memory or not, template variant, pun/fact or not. With the LLM, the
+  follow-up and memory choices are given to the model as instructions and credited by what
+  the reply actually did. Per-child totals are stored in the `engagement_stats` table. Once
   a choice has enough data, the engine makes it with Thompson sampling, favoring what this
   child engages with; at conversation end, clear preferences nudge the curiosity and humor
   traits (within the usual drift limits). Parents can see the totals at

@@ -261,8 +261,10 @@ class ConversationManager:
         reply_features: Dict[str, str] = {}
         try:
             if settings.USE_LLM and llm_service.ensure_loaded(timeout=60.0):
-                prompt = self._build_prompt(context, user_message, personality)
+                reply_plan = self._plan_llm_reply(context, personality, db)
+                prompt = self._build_prompt(context, user_message, personality, reply_plan)
                 raw_response = llm_service.generate(prompt, max_tokens=300, temperature=0.7)
+                reply_features.update(self._observed_llm_features(raw_response, context, reply_plan))
             else:
                 if settings.USE_LLM:
                     logger.warning("LLM model not available, using rule-based responses")
@@ -292,7 +294,7 @@ class ConversationManager:
             reply_features.clear()
 
         # Remember this reply's choices; the child's next message will be scored against them
-        engagement_tracker.set_pending(user_id, final_response, reply_features)
+        engagement_tracker.set_pending(user_id, final_response, reply_features, user_message)
 
         # Let the child refer to what the bot just said ("That's so cool!")
         try:
@@ -332,6 +334,13 @@ class ConversationManager:
         if not conversation:
             logger.warning(f"Conversation {conversation_id} not found")
             return
+
+        # The child left after the bot's last reply (unless they had said goodbye)
+        try:
+            engagement_tracker.record_conversation_end(conversation.user_id, db)
+        except Exception as e:
+            logger.error(f"Error recording engagement at conversation end: {e}", exc_info=True)
+            db.rollback()
 
         # Calculate duration
         if self.conversation_start_time:
@@ -512,8 +521,37 @@ class ConversationManager:
 
         return all_messages
 
+    def _plan_llm_reply(self, context: Dict, personality: BotPersonality, db: Session) -> Dict[str, bool]:
+        """
+        Decide the optional parts of an LLM reply the same way the rule-based engine does:
+        from the personality at first, then from what this child engages with
+        """
+        policy = engagement_tracker.policy(personality.user_id, db)
+        plan = {"follow_up": policy.decide("follow_up", personality.curiosity)}
+        if personality.friendship_level >= 3 and context.get("relevant_memories"):
+            plan["callback"] = policy.decide("callback", 0.35)
+        return plan
+
+    @staticmethod
+    def _observed_llm_features(reply: str, context: Dict, plan: Dict[str, bool]) -> Dict[str, str]:
+        """
+        What the LLM reply actually did, for engagement learning. The model may not follow
+        the plan's instructions, so the reply itself is checked.
+        """
+        features = {"rule": "llm", "follow_up": "yes" if reply.rstrip().endswith("?") else "no"}
+        if "callback" in plan:
+            reply_lower = reply.lower()
+            mentioned = any(str(getattr(m, "value", "")).lower() in reply_lower
+                            for m in context.get("relevant_memories", []) if getattr(m, "value", None))
+            features["callback"] = "yes" if mentioned else "no"
+        return features
+
     def _build_prompt(
-        self, context: Dict, user_message: str, personality: BotPersonality
+        self,
+        context: Dict,
+        user_message: str,
+        personality: BotPersonality,
+        reply_plan: Optional[Dict[str, bool]] = None,
     ) -> str:
         """Build LLM prompt with personality and context"""
         # Get user info
@@ -568,6 +606,13 @@ INSTRUCTIONS:
 - Never pretend to be human - you're an AI friend
 - Encourage healthy behaviors and real friendships
 """
+        # Choices learned from what this child engages with
+        reply_plan = reply_plan or {}
+        if "follow_up" in reply_plan:
+            system += ("- End with one short question about what they said\n" if reply_plan["follow_up"]
+                       else "- Do not ask a question this time; just respond warmly\n")
+        if reply_plan.get("callback"):
+            system += "- Briefly mention one thing you remember about them\n"
 
         # Build conversation history
         history = ""

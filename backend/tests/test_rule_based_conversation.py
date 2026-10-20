@@ -147,3 +147,19 @@ def test_child_can_refer_to_what_the_bot_said(api, conversation_id):
     send(api, conversation_id, "tell me a fun fact")
     reply = send(api, conversation_id, "That's so cool")
     assert "fun fact" in reply["content"].lower()
+
+
+def test_ending_after_unanswered_reply_counts_as_leaving(api):
+    conversation_id = api.post(f"/api/conversation/start?user_id={USER_ID}").json()["conversation_id"]
+    send(api, conversation_id, "I won my soccer game today")
+    before = engagement_rows(USER_ID).get(("rule", "achievement"), 0)
+    api.post(f"/api/conversation/end/{conversation_id}")
+    assert engagement_rows(USER_ID).get(("rule", "achievement"), 0) == before + 1
+
+
+def test_ending_after_goodbye_is_not_leaving(api):
+    conversation_id = api.post(f"/api/conversation/start?user_id={USER_ID}").json()["conversation_id"]
+    send(api, conversation_id, "bye")
+    before = engagement_rows(USER_ID)
+    api.post(f"/api/conversation/end/{conversation_id}")
+    assert engagement_rows(USER_ID) == before

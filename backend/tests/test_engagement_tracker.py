@@ -261,3 +261,134 @@ def test_parent_engagement_endpoint(client):
     assert response.status_code == 200
     assert response.json()["user_id"] == 1
     assert isinstance(response.json()["stats"], list)
+
+
+class TestTiming:
+    @pytest.mark.parametrize("seconds,expected", [
+        (None, 0.8), (30, 0.8), (120, 0.8), (15 * 60, 0.1), (60 * 60, 0.1),
+    ])
+    def test_adjust_for_timing(self, seconds, expected):
+        from services.engagement_tracker import adjust_for_timing
+        assert adjust_for_timing(0.8, seconds) == pytest.approx(expected)
+
+    def test_slow_reply_counts_for_less(self):
+        from services.engagement_tracker import adjust_for_timing, SLOWEST_REPLY_FACTOR
+        just_before_away = adjust_for_timing(1.0, 15 * 60 - 1)
+        assert SLOWEST_REPLY_FACTOR <= just_before_away < 0.61
+        assert 0.6 < adjust_for_timing(1.0, 8 * 60) < 1.0
+
+    def test_record_response_uses_reply_time(self, tracker, db):
+        from datetime import datetime, timedelta
+        message = "the best part was the slide at the water park"
+        tracker.set_pending(1, "What was the best part?", {"follow_up": "yes"})
+        quick = tracker.record_response(1, message, db, now=datetime.now() + timedelta(seconds=20))
+        tracker.set_pending(1, "What was the best part?", {"follow_up": "yes"})
+        late = tracker.record_response(1, message, db, now=datetime.now() + timedelta(minutes=30))
+        assert quick > 0.5
+        assert late == pytest.approx(0.1)
+
+
+class TestLeaving:
+    def test_conversation_end_after_reply_scores_left(self, tracker, db):
+        from services.engagement_tracker import LEFT_SCORE
+        tracker.set_pending(1, "What was the best part?", {"follow_up": "yes"}, "We went to the zoo")
+        assert tracker.record_conversation_end(1, db) == LEFT_SCORE
+        assert db.query(EngagementStat).one().score_sum == pytest.approx(LEFT_SCORE)
+
+    @pytest.mark.parametrize("message", ["bye!", "gtg, see you later", "goodnight"])
+    def test_goodbye_is_not_leaving(self, tracker, db, message):
+        tracker.set_pending(1, "See you later!", {"rule": "greeting"}, message)
+        assert tracker.record_conversation_end(1, db) is None
+        assert db.query(EngagementStat).count() == 0
+
+    def test_farewell_rule_is_not_leaving(self, tracker, db):
+        tracker.set_pending(1, "Bye, Sam!", {"rule": "farewell"})
+        assert tracker.record_conversation_end(1, db) is None
+
+    def test_nothing_pending(self, tracker, db):
+        assert tracker.record_conversation_end(1, db) is None
+
+    @pytest.mark.parametrize("message,expected", [
+        ("bye", True), ("ok bye", True), ("see you tomorrow", True),
+        ("I said bye to my friend after school today and then went home", False), ("hello", False),
+    ])
+    def test_is_farewell(self, message, expected):
+        from services.engagement_tracker import is_farewell
+        assert is_farewell(message) is expected
+
+
+class TestDecide:
+    def test_uses_probability_without_data(self):
+        policy = EngagementPolicy({}, random.Random(0))
+        assert all(policy.decide("follow_up", 1.0) for _ in range(20))
+        assert not any(policy.decide("follow_up", 0.0) for _ in range(20))
+
+    def test_uses_learned_data(self):
+        policy = policy_with({("follow_up", "yes"): (0.1, 30), ("follow_up", "no"): (0.8, 30)})
+        assert sum(policy.decide("follow_up", 1.0) for _ in range(100)) < 20
+
+
+@needs_parser
+class TestTwoTemplateRules:
+    def test_learned_preference_applies_to_two_template_rules(self):
+        from services.response_engine import ResponseEngine, template_id
+        engine = ResponseEngine(rng=random.Random(0))
+        templates = engine.rules["bad_result"]["responses"]
+        assert len(templates) == 2
+        favorite = template_id(templates[1])
+        policy = policy_with({("template:bad_result", template_id(t)): (0.9 if template_id(t) == favorite else 0.1, 30)
+                              for t in templates})
+        personality = TestEngineUsesPolicy.personality(0.0)
+        chosen = []
+        for _ in range(10):
+            features = {}
+            engine.generate_response("I got a bad grade", personality, policy=policy, features=features)
+            chosen.append(features["template:bad_result"])
+            engine.generate_response("hi", personality)  # another reply in between
+        assert chosen == [favorite] * 10
+
+
+class TestLLMReplies:
+    @pytest.fixture
+    def manager(self):
+        from services.conversation_manager import ConversationManager
+        return ConversationManager()
+
+    @staticmethod
+    def personality(curiosity=0.5, level=1):
+        from unittest.mock import Mock
+        personality = Mock()
+        personality.user_id = 1
+        personality.curiosity = curiosity
+        personality.friendship_level = level
+        return personality
+
+    def test_plan_follows_curiosity_without_data(self, manager, db):
+        assert manager._plan_llm_reply({}, self.personality(curiosity=1.0), db)["follow_up"] is True
+        assert manager._plan_llm_reply({}, self.personality(curiosity=0.0), db)["follow_up"] is False
+
+    def test_plan_uses_learned_data(self, manager, db):
+        db.add_all([EngagementStat(user_id=1, feature="follow_up", arm="yes", score_sum=3.0, count=30),
+                    EngagementStat(user_id=1, feature="follow_up", arm="no", score_sum=24.0, count=30)])
+        db.commit()
+        from services.engagement_tracker import engagement_tracker
+        engagement_tracker.forget_cache(1)
+        try:
+            plans = [manager._plan_llm_reply({}, self.personality(curiosity=1.0), db)["follow_up"] for _ in range(50)]
+        finally:
+            engagement_tracker.forget_cache(1)
+        assert sum(plans) < 15
+
+    def test_callback_planned_only_with_memories_and_level_3(self, manager, db):
+        memories = {"relevant_memories": [SimpleNamespace(value="soccer")]}
+        assert "callback" not in manager._plan_llm_reply(memories, self.personality(level=2), db)
+        assert "callback" in manager._plan_llm_reply(memories, self.personality(level=3), db)
+        assert "callback" not in manager._plan_llm_reply({}, self.personality(level=3), db)
+
+    def test_observed_features_come_from_the_reply(self, manager):
+        context = {"relevant_memories": [SimpleNamespace(value="soccer")]}
+        observed = manager._observed_llm_features(
+            "Cool! Do you still play soccer?", context, {"follow_up": False, "callback": True})
+        assert observed == {"rule": "llm", "follow_up": "yes", "callback": "yes"}
+        observed = manager._observed_llm_features("That's great.", context, {"follow_up": True, "callback": False})
+        assert observed == {"rule": "llm", "follow_up": "no", "callback": "no"}

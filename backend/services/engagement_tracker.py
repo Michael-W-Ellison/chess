@@ -32,12 +32,17 @@ logger = logging.getLogger("chatbot.engagement_tracker")
 MIN_SAMPLES = 5  # scores per option before learning overrides personality defaults
 PRIOR_STRENGTH = 2.0  # how many "virtual" scores the personality prior is worth
 SIGNAL_MIN_SAMPLES = 8  # scores per option before engagement nudges personality traits
+LEFT_SCORE = 0.1  # the child left after the reply (conversation ended, or came back much later)
+SLOW_REPLY_SECONDS = 120  # replies slower than this count for less...
+AWAY_SECONDS = 15 * 60  # ...and after this long the child is treated as having left
+SLOWEST_REPLY_FACTOR = 0.6  # score factor for a reply that took just under AWAY_SECONDS
 SIGNAL_MIN_DIFFERENCE = 0.1  # mean score difference that counts as a clear preference
 
 _WORD_RE = re.compile(r"[a-z']+")
 _DISMISSIVE = {"ok", "okay", "k", "kk", "idk", "whatever", "meh", "boring", "stop", "nothing",
                "hmm", "fine", "sure", "nah", "dunno", "bye", "lol"}
 _YES_NO = {"yes", "yeah", "yep", "no", "nope", "maybe"}
+_FAREWELLS = {"bye", "goodbye", "goodnight", "cya", "later", "gtg", "g2g", "night", "ttyl"}
 _SHARING = {"because", "cause", "feel", "felt", "think", "favorite", "love", "wish", "remember"}
 _STOPWORDS = {"the", "a", "an", "and", "or", "but", "to", "of", "in", "on", "at", "for", "with", "is",
               "was", "are", "were", "be", "it", "that", "this", "i", "you", "me", "my", "your", "we",
@@ -52,6 +57,7 @@ class PendingReply:
     text: str
     features: Dict[str, str]
     sent_at: datetime = field(default_factory=datetime.now)
+    closing: bool = False  # the child had said goodbye, so ending here is not disengagement
 
 
 def score_engagement(reply_text: str, next_message: str) -> float:
@@ -85,6 +91,25 @@ def score_engagement(reply_text: str, next_message: str) -> float:
     return round(min(score, 1.0), 3)
 
 
+def adjust_for_timing(score: float, seconds: Optional[float]) -> float:
+    """
+    Lower the score for slow replies: unchanged up to SLOW_REPLY_SECONDS, then scaled down
+    to SLOWEST_REPLY_FACTOR at AWAY_SECONDS; after that the child is treated as having left.
+    """
+    if seconds is None or seconds <= SLOW_REPLY_SECONDS:
+        return score
+    if seconds >= AWAY_SECONDS:
+        return LEFT_SCORE
+    fraction = (seconds - SLOW_REPLY_SECONDS) / (AWAY_SECONDS - SLOW_REPLY_SECONDS)
+    return round(score * (1.0 - fraction * (1.0 - SLOWEST_REPLY_FACTOR)), 3)
+
+
+def is_farewell(message: str) -> bool:
+    """A short goodbye ("bye!", "gtg, see you later")"""
+    words = _WORD_RE.findall(message.lower())
+    return 0 < len(words) <= 6 and (bool(_FAREWELLS & set(words)) or "see you" in message.lower())
+
+
 class EngagementPolicy:
     """Chooses between reply options for one child, using their engagement stats"""
 
@@ -105,6 +130,15 @@ class EngagementPolicy:
         alpha = 1.0 + PRIOR_STRENGTH * prior_mean + score_sum
         beta = 1.0 + PRIOR_STRENGTH * (1.0 - prior_mean) + (count - score_sum)
         return self.rng.betavariate(alpha, beta)
+
+    def decide(self, feature: str, probability: float) -> bool:
+        """
+        Yes/no choice: the personality-based probability until both options have enough
+        data, then Thompson sampling with that probability as the prior
+        """
+        if self.has_data(feature, ["yes", "no"]):
+            return self.choose(feature, {"yes": probability, "no": 1.0 - probability}) == "yes"
+        return self.rng.random() < probability
 
     def choose(self, feature: str, priors: Dict[str, float]) -> str:
         """Pick the option with the highest sampled engagement rate"""
@@ -128,10 +162,12 @@ class EngagementTracker:
     # Turn handling
     # ------------------------------------------------------------------
 
-    def set_pending(self, user_id: int, reply_text: str, features: Dict[str, str]) -> None:
-        """Remember the reply just sent and the choices it contained"""
+    def set_pending(self, user_id: int, reply_text: str, features: Dict[str, str],
+                    child_message: str = "") -> None:
+        """Remember the reply just sent, the choices it contained, and whether it was a goodbye"""
         if features:
-            self._pending[user_id] = PendingReply(text=reply_text, features=dict(features))
+            closing = is_farewell(child_message) or features.get("rule") == "farewell"
+            self._pending[user_id] = PendingReply(text=reply_text, features=dict(features), closing=closing)
         else:
             self._pending.pop(user_id, None)
 
@@ -139,9 +175,11 @@ class EngagementTracker:
         """Drop the pending reply without scoring it (e.g. the next message was a crisis)"""
         self._pending.pop(user_id, None)
 
-    def record_response(self, user_id: int, message: str, db: Session) -> Optional[float]:
+    def record_response(self, user_id: int, message: str, db: Session,
+                        now: Optional[datetime] = None) -> Optional[float]:
         """
-        Score the child's message against the pending reply and credit the reply's choices
+        Score the child's message against the pending reply and credit the reply's choices.
+        The score is lowered if the child took long to reply (see adjust_for_timing).
 
         Returns:
             The engagement score, or None if there was no pending reply
@@ -150,7 +188,27 @@ class EngagementTracker:
         if pending is None:
             return None
 
-        score = score_engagement(pending.text, message)
+        seconds = ((now or datetime.now()) - pending.sent_at).total_seconds()
+        score = adjust_for_timing(score_engagement(pending.text, message), seconds)
+        self._credit(user_id, pending, score, db)
+        return score
+
+    def record_conversation_end(self, user_id: int, db: Session) -> Optional[float]:
+        """
+        The conversation ended after the bot's reply without an answer from the child.
+        Unless the child had said goodbye, that reply gets LEFT_SCORE.
+
+        Returns:
+            The score credited, or None if nothing was credited
+        """
+        pending = self._pending.pop(user_id, None)
+        if pending is None or pending.closing:
+            return None
+        self._credit(user_id, pending, LEFT_SCORE, db)
+        return LEFT_SCORE
+
+    def _credit(self, user_id: int, pending: PendingReply, score: float, db: Session) -> None:
+        """Add a score to every choice the pending reply contained"""
         stats = self._stats(user_id, db)
         for feature, arm in pending.features.items():
             row = (
@@ -170,7 +228,6 @@ class EngagementTracker:
             entry[1] += 1
         db.commit()
         logger.debug(f"Engagement {score:.2f} for user {user_id}: {pending.features}")
-        return score
 
     # ------------------------------------------------------------------
     # Stats and policy
