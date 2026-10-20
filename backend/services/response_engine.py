@@ -41,7 +41,13 @@ _REFLECT_WORDS = {
 _QUESTION_STARTERS = {"what", "who", "where", "when", "why", "how", "which", "do", "does", "did",
                       "are", "is", "can", "could", "would", "will", "should", "have", "has"}
 
-_SKIP_DEPS = {"punct", "intj"}
+# Interjections ("um", "oh") are dropped from echoed phrases; punctuation is trimmed only at the ends
+_SKIP_DEPS = {"intj"}
+_TRIM_DEPS = {"punct", "cc"}
+
+# A second sentence in the same message gets its own reply only for substantive rules
+# (not greetings, thanks or low-priority memory-only matches)
+SECOND_REPLY_MIN_PRIORITY = 50
 
 
 @dataclass
@@ -54,6 +60,7 @@ class Frame:
     memories: List[Tuple[str, str, str]] = field(default_factory=list)
     mood: Optional[str] = None
     valence: str = "neutral"
+    sentence: int = 0
     rule: Dict[str, Any] = field(default_factory=dict, repr=False)
 
 
@@ -62,7 +69,7 @@ class Analysis:
     """Result of analyzing one message"""
 
     frames: List[Frame]
-    is_question: bool
+    is_question: bool  # whether the last sentence is a question
     mood: Optional[str]
     doc: Any = field(default=None, repr=False)
 
@@ -144,7 +151,8 @@ class ResponseEngine:
         if doc is None:
             return None
 
-        is_question = self._is_question(doc)
+        sentences = list(doc.sents)
+        is_question = self._is_question(sentences[-1]) if sentences else False
         frames: List[Frame] = []
         seen_rules = set()
 
@@ -154,7 +162,7 @@ class ResponseEngine:
             if rule_id in seen_rules:
                 continue
             nodes = dict(zip(self._pattern_nodes[key], (doc[i] for i in token_ids)))
-            frame = self._build_frame(self.rules[rule_id], nodes, doc, is_question)
+            frame = self._build_frame(self.rules[rule_id], nodes, doc)
             if frame is not None:
                 frames.append(frame)
                 seen_rules.add(rule_id)
@@ -166,17 +174,22 @@ class ResponseEngine:
         return Analysis(frames=frames, is_question=is_question, mood=mood, doc=doc)
 
     @staticmethod
-    def _is_question(doc) -> bool:
-        text = doc.text.strip()
-        return text.endswith("?") or (len(doc) > 0 and doc[0].lower_ in _QUESTION_STARTERS)
+    def _is_question(span) -> bool:
+        """Question if the sentence ends with "?" or starts with a question word"""
+        text = span.text.strip()
+        return text.endswith("?") or (len(span) > 0 and span[0].lower_ in _QUESTION_STARTERS)
 
-    def _build_frame(self, rule: Dict[str, Any], nodes: Dict[str, Any], doc, is_question: bool) -> Optional[Frame]:
+    def _build_frame(self, rule: Dict[str, Any], nodes: Dict[str, Any], doc) -> Optional[Frame]:
         conditions = rule.get("conditions", {})
         slots: Dict[str, str] = {}
         mood = rule.get("mood")
         valence = rule.get("valence", "neutral")
+        sentence = next(iter(nodes.values())).sent
 
-        if "question" in conditions and conditions["question"] != is_question:
+        if "question" in conditions and conditions["question"] != self._is_question(sentence):
+            return None
+        if "max_tokens" in conditions and \
+                sum(1 for t in doc if not t.is_punct) > conditions["max_tokens"]:
             return None
         if "not_negated" in conditions and self._is_negated(nodes[conditions["not_negated"]]):
             return None
@@ -190,13 +203,28 @@ class ResponseEngine:
             if emotion is None:
                 return None
             slots["emotion_mood"] = emotion["mood"]
+            slots["emotion_variant"] = emotion.get("variant", emotion["mood"])
             mood = emotion["mood"]
             valence = emotion["valence"]
+        if "evaluation" in conditions:
+            token = nodes[conditions["evaluation"]]
+            valence = self.kb["evaluations"].get(token.lower_)
+            if valence is None:
+                return None
+            # "not bad" is positive, "not fun" is negative
+            if any(self._is_negated(t) for t in (token, token.head)):
+                valence = {"positive": "negative", "negative": "positive"}.get(valence, valence)
+            slots["evaluation_valence"] = valence
+            slots["negation"] = "not " if any(self._is_negated(t) for t in (token, token.head)) else ""
 
         for slot_name, spec in rule.get("slots", {}).items():
             raw, reflected = self._extract_slot(nodes[spec["node"]], spec["span"])
             if spec.get("capitalize") and raw:
                 raw = reflected = raw[:1].upper() + raw[1:]
+            # Lowercase a capitalized common word ("School was boring"), but not a person's name
+            if spec.get("lowercase") and raw and nodes[spec["node"]].ent_type_ != "PERSON":
+                raw = raw[:1].lower() + raw[1:]
+                reflected = reflected[:1].lower() + reflected[1:]
             slots[f"{slot_name}_raw"] = raw
             slots[slot_name] = reflected
             slots[f"{slot_name}_slug"] = _slug(raw)
@@ -215,6 +243,7 @@ class ResponseEngine:
             memories=memories,
             mood=mood,
             valence=valence,
+            sentence=sentence.start,
             rule=rule,
         )
 
@@ -251,8 +280,6 @@ class ResponseEngine:
             tokens = [t for t in token.subtree if t.dep_ not in _SKIP_DEPS]
             while tokens and tokens[0].dep_ == "mark":
                 tokens = tokens[1:]
-            while tokens and tokens[-1].dep_ in ("cc",):
-                tokens = tokens[:-1]
         elif span == "predicate":
             excluded = set()
             for child in token.children:
@@ -271,22 +298,85 @@ class ResponseEngine:
         else:
             raise ValueError(f"Unknown slot span type: {span}")
 
+        while tokens and tokens[0].dep_ in _TRIM_DEPS:
+            tokens = tokens[1:]
+        while tokens and tokens[-1].dep_ in _TRIM_DEPS:
+            tokens = tokens[:-1]
+
         raw = self._join(tokens, reflect=False)
         reflected = self._join(tokens, reflect=True)
         return raw, reflected
 
     @staticmethod
+    def _coordinated_subjects(tokens) -> Dict[int, Tuple[set, str]]:
+        """
+        Rewrite subjects like "my mom and I" / "me and my brother" / "my mom, my dad and I" as
+        "you and your mom" / "you and your brother" / "you, your mom and your dad" when reflecting.
+
+        Returns:
+            {first token index: (covered token indices, replacement text)}
+        """
+        rewrites = {}
+        included = {t.i for t in tokens}
+        for token in tokens:
+            if token.dep_ not in ("nsubj", "nsubjpass"):
+                continue
+            phrase = list(token.subtree)
+            pronouns = [t for t in phrase if t.lower_ in ("i", "me", "we", "us") and t.pos_ == "PRON"]
+            if not pronouns or len(phrase) < 3 or not {t.i for t in phrase} <= included:
+                continue
+            pronoun = pronouns[0]
+            removed = {pronoun.i}
+            position = phrase.index(pronoun)
+            for neighbor in (position - 1, position + 1):
+                if 0 <= neighbor < len(phrase) and phrase[neighbor].dep_ in ("cc", "punct"):
+                    removed.add(phrase[neighbor].i)
+                    break
+            rest = [t for t in phrase if t.i not in removed]
+            while rest and rest[-1].dep_ in ("cc", "punct"):
+                rest = rest[:-1]
+            others = ResponseEngine._join(rest, reflect=True)
+            if not others:
+                continue
+            if "," in others:
+                head, _, last = others.rpartition(",")
+                text = f"you, {head.strip()} and {last.strip()}"
+            else:
+                text = f"you and {others}"
+            rewrites[phrase[0].i] = ({t.i for t in phrase}, text)
+        return rewrites
+
+    @staticmethod
+    def _space_after(tokens, index: int) -> str:
+        """Original whitespace if the next token is adjacent; a space if tokens were skipped"""
+        if index >= len(tokens) - 1:
+            return ""
+        token, following = tokens[index], tokens[index + 1]
+        return token.whitespace_ if following.i == token.i + 1 else " "
+
+    @staticmethod
     def _join(tokens, reflect: bool) -> str:
+        tokens = list(tokens)
+        rewrites = ResponseEngine._coordinated_subjects(tokens) if reflect else {}
+        skip = set()
         parts = []
         for index, token in enumerate(tokens):
+            if token.i in skip:
+                continue
+            if token.i in rewrites:
+                covered, text = rewrites[token.i]
+                skip |= covered
+                last = max(covered)
+                after = next((i for i, t in enumerate(tokens) if t.i == last), None)
+                parts.append(text + (ResponseEngine._space_after(tokens, after) if after is not None else ""))
+                continue
             text = token.text
             if reflect:
                 text = ResponseEngine._reflect_token(token)
             # Lowercase a sentence-initial capital unless it is a name or "I"
             if index == 0 and token.i == 0 and token.pos_ != "PROPN" and text not in ("I",):
                 text = text[:1].lower() + text[1:]
-            ws = token.whitespace_ if index < len(tokens) - 1 else ""
-            parts.append(text + ws)
+            parts.append(text + ResponseEngine._space_after(tokens, index))
         return "".join(parts).strip()
 
     @staticmethod
@@ -307,7 +397,8 @@ class ResponseEngine:
         """True if the token's clause has I/we as subject, including conjuncts ("my mom and I")"""
         for candidate in (token, token.head):
             for child in candidate.children:
-                if child.dep_ == "nsubj" and any(t.lower_ in ("i", "we") for t in [child, *child.conjuncts]):
+                if child.dep_ == "nsubj" and any(t.lower_ in ("i", "me", "we", "us") and t.pos_ == "PRON"
+                                                 for t in child.subtree):
                     return True
         return False
 
@@ -379,6 +470,17 @@ class ResponseEngine:
             slots = _BlankDict({**globals_, **frame.slots})
             self._compute_slots(frame, slots, personality)
             core = self._choose_template(frame.rule, slots, level, user_id)
+
+            # Multi-sentence messages: also answer the strongest match in another sentence
+            # ("I won my game today! Do you like soccer?")
+            second = next((f for f in responding[1:]
+                           if f.sentence != frame.sentence and f.priority >= SECOND_REPLY_MIN_PRIORITY), None)
+            if second is not None:
+                second_slots = _BlankDict({**globals_, **second.slots})
+                self._compute_slots(second, second_slots, personality)
+                second_core = self._choose_template(second.rule, second_slots, level, user_id)
+                # Answer in the order the sentences were written
+                core = f"{core} {second_core}" if frame.sentence < second.sentence else f"{second_core} {core}"
             valence = frame.valence
             use_opener = frame.rule.get("opener", False)
             follow_ups = frame.rule.get("follow_ups", [])
@@ -471,12 +573,15 @@ class ResponseEngine:
         if analysis.is_question:
             return self._pick(fallbacks["question"], user_id), "neutral"
 
-        if allow_reflection and len(doc) <= 15:
-            root = next((t for t in doc if t.dep_ == "ROOT"), None)
-            if root is not None and root.pos_ in ("VERB", "AUX") and self._first_person_subject(root):
-                _, clause = self._extract_slot(root, "clause")
-                slots["clause"] = clause
-                return self._pick(fallbacks["reflection"], user_id).format_map(slots), "neutral"
+        # Reflect the last sentence that is short and about the child
+        if allow_reflection:
+            for sentence in reversed(list(doc.sents)):
+                root = sentence.root
+                if (len(sentence) <= 15 and root.pos_ in ("VERB", "AUX")
+                        and self._first_person_subject(root)):
+                    _, clause = self._extract_slot(root, "clause")
+                    slots["clause"] = clause
+                    return self._pick(fallbacks["reflection"], user_id).format_map(slots), "neutral"
 
         if allow_reflection:
             chunks = [c for c in doc.noun_chunks if c.root.pos_ != "PRON"]

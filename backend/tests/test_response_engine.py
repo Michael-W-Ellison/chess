@@ -205,3 +205,132 @@ class TestPersonalityShaping:
     def test_does_not_repeat_the_same_template_twice_in_a_row(self, engine):
         replies = [engine.generate_response("We went to the park", make_personality()) for _ in range(10)]
         assert all(a != b for a, b in zip(replies, replies[1:]))
+
+
+class TestSchoolAndDay:
+    @pytest.mark.parametrize("message,rule", [
+        ("I have a math test tomorrow", "school_upcoming"),
+        ("We have a big project due Friday", "school_upcoming"),
+        ("I got a bad grade", "bad_result"),
+        ("I got an F", "bad_result"),
+        ("I got in trouble at school", "bad_result"),
+        ("I got an A on my spelling test", "achievement"),
+        ("I made the soccer team", "achievement"),
+        ("School was boring", "evaluation"),
+        ("My day was good", "evaluation"),
+        ("good", "short_answer"),
+        ("not bad", "short_answer"),
+        ("nothing much", "nothing_much"),
+        ("What did you do today?", "bot_day_question"),
+        ("We're going to the beach tomorrow", "plan"),
+    ])
+    def test_top_rule(self, engine, message, rule):
+        assert rule_ids(engine, message)[0] == rule
+
+    def test_bad_grade_is_not_an_achievement(self, engine):
+        assert "achievement" not in rule_ids(engine, "I got a bad grade")
+        assert memories(engine, "I got a bad grade") == []
+
+    def test_upcoming_test_reply(self, engine):
+        reply = engine.generate_response("I have a math test tomorrow", make_personality())
+        assert "you have a math test tomorrow" in reply.lower()
+
+    def test_evaluation_keeps_negation(self, engine):
+        reply = engine.generate_response("It was not fun", make_personality())
+        assert "not fun" in reply
+
+    @pytest.mark.parametrize("message,valence", [
+        ("good", "positive"), ("pretty good", "positive"), ("not bad", "positive"),
+        ("awful", "negative"), ("not fun", "negative"), ("okay", "neutral"),
+    ])
+    def test_short_answer_valence(self, engine, message, valence):
+        frame = engine.analyze(message).frames[0]
+        assert frame.slots["evaluation_valence"] == valence
+
+    def test_common_noun_subject_is_lowercased(self, engine):
+        reply = engine.generate_response("School was boring", make_personality())
+        assert "school was boring" in reply.lower() and "School was" not in reply[1:]
+
+
+class TestPeople:
+    @pytest.mark.parametrize("message,rule", [
+        ("My teacher yelled at me", "person_upset"),
+        ("My mom grounded me", "person_upset"),
+        ("My dad bought me a puppy", "person_kindness"),
+        ("My grandma taught me how to knit", "person_kindness"),
+        ("Maya was nice", "person_evaluation"),
+        ("My brother is annoying", "person_evaluation"),
+        ("I have a dog named Max", "have_named"),
+        ("I have two sisters", "have_relation"),
+    ])
+    def test_top_rule(self, engine, message, rule):
+        assert rule_ids(engine, message)[0] == rule
+
+    def test_reply_reflects_object_pronoun(self, engine):
+        reply = engine.generate_response("My teacher yelled at me", make_personality())
+        assert "your teacher yelled at you" in reply.lower()
+
+    def test_named_pet_is_remembered(self, engine):
+        assert memories(engine, "I have a dog named Max") == [("person", "dog_max", "Max")]
+
+    def test_siblings_are_remembered(self, engine):
+        assert memories(engine, "I have two sisters") == [("basic", "has_sister", "two sisters")]
+
+    def test_person_evaluation_does_not_ask_for_best_part(self, engine):
+        reply = engine.generate_response("Maya was nice", make_personality())
+        assert "best part" not in reply
+
+
+class TestFeelingsAndBot:
+    @pytest.mark.parametrize("message", ["I cried today", "I'm going to cry", "I feel like crying", "I want to cry"])
+    def test_crying_sets_sad_mood(self, engine, message):
+        analysis = engine.analyze(message)
+        assert analysis.frames[0].rule_id == "crying"
+        assert analysis.mood == "sad"
+
+    def test_crying_is_not_a_goal(self, engine):
+        assert memories(engine, "I want to cry") == []
+
+    def test_bored_reply_suggests_something_to_do(self, engine):
+        reply = engine.generate_response("I'm bored", make_personality())
+        assert reply in [v["text"].replace("{emotion}", "bored")
+                         for v in engine.rules["feeling"]["responses_by"]["variants"]["bored"]]
+
+    @pytest.mark.parametrize("message", ["Are you a robot?", "Are you real?", "are you a human?"])
+    def test_bot_says_it_is_not_a_person(self, engine, message):
+        reply = engine.generate_response(message, make_personality())
+        assert "not a real person" in reply or "not a human" in reply
+
+
+class TestMultiSentenceAndWordOrder:
+    def test_two_sentences_get_two_answers_in_order(self, engine):
+        reply = engine.generate_response("I won my game today! Do you like soccer?", make_personality())
+        assert "You won your game today?" in reply
+        assert "soccer" in reply.lower()
+        assert reply.index("won your game") < reply.lower().index("soccer")
+
+    def test_question_in_one_sentence_does_not_block_rules_in_another(self, engine):
+        assert "achievement" in rule_ids(engine, "I won my game today! Do you like soccer?")
+
+    def test_greeting_is_not_added_as_second_answer(self, engine):
+        reply = engine.generate_response("Hi! I made the soccer team", make_personality())
+        assert "made the soccer team" in reply
+        assert "What's up" not in reply and "How's your day" not in reply
+
+    def test_reflection_uses_last_reflectable_sentence(self, engine):
+        reply = engine.generate_response("Guess what. We went to the zoo", make_personality())
+        assert "you went to the zoo" in reply.lower()
+
+    @pytest.mark.parametrize("message,expected", [
+        ("My mom and I baked cookies", "you and your mom baked cookies"),
+        ("Me and my brother played video games", "you and your brother played video games"),
+        ("Sam and I built a fort", "you and sam built a fort"),
+        ("My mom, my dad and I went camping", "you, your mom and your dad went camping"),
+    ])
+    def test_coordinated_subject_word_order(self, engine, message, expected):
+        reply = engine.generate_response(message, make_personality())
+        assert expected in reply.lower()
+
+    def test_inner_punctuation_keeps_spacing(self, engine):
+        reply = engine.generate_response("Um, I went to the store, the park and home", make_personality())
+        assert "the store, the park and home" in reply
