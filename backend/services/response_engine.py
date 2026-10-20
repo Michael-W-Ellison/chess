@@ -109,6 +109,7 @@ class ResponseEngine:
         self._matcher = None
         self._pattern_nodes: Dict[str, List[str]] = {}
         self._recent: Dict[int, deque] = defaultdict(lambda: deque(maxlen=8))
+        self._last_request: Dict[int, str] = {}
         self._load_knowledge_base()
         self.references = ReferenceTracker(
             parser, self.kb["lexicons"]["relations"], self.kb["lexicons"]["common_capitalized"]
@@ -227,6 +228,8 @@ class ResponseEngine:
             return None
         if "subject_is_user" in conditions and not self._has_user_subject(nodes[conditions["subject_is_user"]]):
             return None
+        if "addressed_to_bot" in conditions and not self._addressed_to_bot(nodes[conditions["addressed_to_bot"]]):
+            return None
         if "emotion" in conditions:
             token = nodes[conditions["emotion"]]
             emotion = self.kb["emotions"].get(token.lower_) or self.kb["emotions"].get(token.lemma_.lower())
@@ -248,6 +251,8 @@ class ResponseEngine:
             slots["negation"] = "not " if any(self._is_negated(t) for t in (token, token.head)) else ""
 
         for slot_name, spec in rule.get("slots", {}).items():
+            if spec["node"] not in nodes:  # optional node absent from this pattern
+                continue
             raw, reflected = self._extract_slot(nodes[spec["node"]], spec["span"])
             if spec.get("capitalize") and raw:
                 raw = reflected = raw[:1].upper() + raw[1:]
@@ -261,8 +266,23 @@ class ResponseEngine:
             slots[slot_name] = reflected
             slots[f"{slot_name}_slug"] = _slug(raw)
 
+        slots["message_text"] = doc.text
+        if "comparison_preference" in rule.get("compute", []):
+            self._comparison_preference(slots)
+
+        if "negation_flips" in rule and self._is_negated(nodes[rule["negation_flips"]]):
+            # "My friend isn't happy": respond as to a sad feeling, keep the words accurate
+            slots["emotion"] = f"not {slots.get('emotion', '')}".strip()
+            flipped = "sad" if valence == "positive" else "default"
+            slots["emotion_mood"] = flipped
+            mood = "sad" if flipped == "sad" else None
+            valence = "negative" if flipped == "sad" else "neutral"
+
         memories = []
         for memory in rule.get("memories", []):
+            referenced = re.findall(r"\{(\w+)\}", memory["key"] + memory["value"])
+            if any(not slots.get(name) for name in referenced):
+                continue  # e.g. "bigger than" states no preference
             value = memory["value"].format_map(_BlankDict(slots)).strip()
             key = memory["key"].format_map(_BlankDict(slots)).strip("_")
             if value and key:
@@ -278,6 +298,32 @@ class ResponseEngine:
             sentence=sentence.start,
             rule=rule,
         )
+
+    @staticmethod
+    def _addressed_to_bot(token) -> bool:
+        """
+        True for a request to the bot: no subject ("Tell me a joke"), or "you"/"we"/"us" as
+        subject ("Can you...", "Can we..."), but not "I want to tell you a joke"
+        """
+        if any(c.dep_ in ("nsubj", "nsubjpass") and c.lower_ not in ("you", "we", "us", "'s")
+               for c in token.children):
+            return False
+        if token.dep_ in ("xcomp", "ccomp") and any(
+                c.dep_ == "nsubj" and c.lower_ in ("i", "we") for c in token.head.children):
+            return False
+        return True
+
+    def _comparison_preference(self, slots: Dict[str, str]) -> None:
+        """Which side of "X is better/worse than Y" the child prefers"""
+        comp = slots.get("comp", "").lower()
+        if comp in self.kb["lexicons"]["comparatives_positive"]:
+            preferred, other = "x", "y"
+        elif comp == "worse":
+            preferred, other = "y", "x"
+        else:
+            return  # "bigger", "faster": a comparison, not a preference
+        slots["preferred"], slots["other"] = slots[preferred], slots[other]
+        slots["preferred_slug"], slots["other_slug"] = slots[f"{preferred}_slug"], slots[f"{other}_slug"]
 
     @staticmethod
     def _is_negated(token) -> bool:
@@ -309,6 +355,9 @@ class ResponseEngine:
             # "will be", "has been": auxiliaries with the verb, without negation
             tokens = sorted([c for c in token.children if c.dep_ in ("aux", "auxpass")] + [token],
                             key=lambda t: t.i)
+        elif span == "compound_phrase":
+            # The noun with compound words only ("chocolate ice cream", not "cats more")
+            tokens = [t for t in token.subtree if t == token or (t.head == token and t.dep_ == "compound")]
         elif span == "noun_phrase":
             tokens = [t for t in token.subtree
                       if t == token or (t.head == token and t.dep_ in ("amod", "compound"))]
@@ -591,6 +640,17 @@ class ResponseEngine:
                         slots["same_favorite"] = "yes"
                     else:
                         slots["bot_favorite"] = favorite
+            elif name == "requested_content":
+                self._requested_content(slots.get("kind", ""), slots, user_id=getattr(personality, "user_id", 0))
+            elif name == "repeat_request":
+                kind = self._last_request.get(getattr(personality, "user_id", 0))
+                if kind:
+                    self._requested_content(kind, slots, user_id=getattr(personality, "user_id", 0))
+            elif name == "bot_pick":
+                options = [slots.get("x", ""), slots.get("y", "")]
+                if all(options):
+                    pair = ":".join(sorted(o.lower() for o in options))
+                    slots["bot_pick"] = options[_stable_index(f"{seed_id}:{pair}", 2)]
             elif name == "bot_shares_like":
                 thing = slots.get("thing_raw", "").lower()
                 interests = [i.lower() for i in (personality.get_interests() if hasattr(personality, "get_interests") else [])]
@@ -599,6 +659,23 @@ class ResponseEngine:
                     _stable_index(f"{seed_id}:{slots.get('thing_slug', '')}", 3) == 0
                 if shares and thing:
                     slots["bot_shares_like"] = "yes"
+
+    def _requested_content(self, kind: str, slots: Dict[str, str], user_id: int) -> None:
+        """Fill {content} with a joke or fact (topical if the message names a topic)"""
+        from services.fact_quirk_service import fact_quirk_service
+        from services.pun_quirk_service import pun_quirk_service
+
+        if kind in ("joke", "pun", "riddle"):
+            slots["content"] = pun_quirk_service.random_pun(slots.get("message_text", ""))
+        elif kind == "fact":
+            slots["content"] = fact_quirk_service.random_fact(slots.get("message_text", ""))
+        else:
+            return
+        self._last_request[user_id] = kind
+
+    def rule_flag(self, rule_id: Optional[str], flag: str) -> bool:
+        """A rule's boolean option from the knowledge base (e.g. "no_jokes")"""
+        return bool(rule_id and self.rules.get(rule_id, {}).get(flag))
 
     def _decide(self, feature: str, probability: float, policy) -> bool:
         """
@@ -683,6 +760,13 @@ class ResponseEngine:
                     slots["clause"] = clause
                     return pick("reflection").format_map(slots), "neutral", "reflection"
 
+        # Long sentences: echo the last clause about the child ("...and then I fell down")
+        if allow_reflection:
+            clause = self._last_clause_about_child(doc)
+            if clause:
+                slots["clause"] = clause
+                return pick("long_reflection").format_map(slots), "neutral", "long_reflection"
+
         # A he/she/they the reference tracker could not resolve
         if any(t.lower_ in ("he", "she", "they") and t.dep_ in ("nsubj", "nsubjpass") for t in doc):
             return pick("unknown_person"), "neutral", "unknown_person"
@@ -694,6 +778,38 @@ class ResponseEngine:
                 return pick("topic").format_map(slots), "neutral", "topic"
 
         return pick("generic"), "neutral", "generic"
+
+    def _last_clause_about_child(self, doc) -> Optional[str]:
+        """
+        The last clause in a long message whose subject is the child or a known person,
+        as a short bot-perspective phrase. Clauses joined with "and" that have no subject
+        of their own take it from the clause they are joined to.
+        """
+        verbs = [t for t in doc if t.pos_ in ("VERB", "AUX") and t.dep_ in ("ROOT", "conj")]
+        for verb in reversed(verbs):
+            subject_owner = verb
+            while (not any(c.dep_ == "nsubj" for c in subject_owner.children)
+                   and subject_owner.dep_ == "conj"):
+                subject_owner = subject_owner.head
+            if not (self._first_person_subject(subject_owner) or self._known_person_subject(subject_owner)):
+                continue
+
+            # The clause's own words: not the clauses joined to it
+            joined = {t.i for c in verb.children if c.dep_ == "conj" for t in c.subtree}
+            tokens = [t for t in verb.subtree
+                      if t.i not in joined and t.dep_ not in _SKIP_DEPS
+                      and not (t.dep_ == "cc" and t.head == verb)
+                      and not (t.dep_ == "advmod" and t.lower_ == "then" and t.head == verb)]
+            if subject_owner is not verb:
+                subject = next(c for c in subject_owner.children if c.dep_ == "nsubj")
+                tokens = sorted(set(tokens) | set(subject.subtree), key=lambda t: t.i)
+            while tokens and tokens[0].dep_ in _TRIM_DEPS | {"advmod"} and tokens[0].lower_ in ("and", "then", "so", ","):
+                tokens = tokens[1:]
+            while tokens and tokens[-1].dep_ in _TRIM_DEPS:
+                tokens = tokens[:-1]
+            if 0 < len(tokens) <= 15:
+                return self._join(tokens, reflect=True)
+        return None
 
     def _callback_memories(self, memories, stored_keys) -> List[Any]:
         """Stored memories that can be mentioned (not the ones stored from this message)"""

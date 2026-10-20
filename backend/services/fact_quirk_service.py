@@ -241,6 +241,10 @@ class FactQuirkService:
         )
         return random.choice(all_facts)
 
+    def random_fact(self, context: str = "") -> str:
+        """A fact matching the context's keywords if possible, otherwise any fact"""
+        return self._get_contextual_fact(context) or self._get_random_fact()
+
     def get_fact_by_category(self, category: str) -> str:
         """Get a random fact from a specific category"""
         category_map = {

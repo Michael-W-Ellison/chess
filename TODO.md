@@ -355,7 +355,7 @@ These are not in the original 183-task plan; they were found while evaluating an
 ### Rule-Based Engine (no-LLM mode, prototype added 2026-10-20)
 - [x] R1. Parse messages into dependency trees (spaCy) and match structural rules from `backend/knowledge/conversation_rules.json` for replies, memory extraction and mood (`services/response_engine.py`)
 - [x] R2. Expand rule coverage: school events, questions about the child's day, multi-sentence messages, and word order in reflections ("your mom and you" should be "you and your mom")
-- [ ] R6. Further coverage: sentences about other people's feelings ("my friend is sad"), requests ("can you tell me a joke?"), comparisons, and messages over 15 words that match no rule (currently get a topic or generic reply)
+- [x] R6. Further coverage: sentences about other people's feelings ("my friend is sad"), requests ("can you tell me a joke?"), comparisons, and messages over 15 words that match no rule (currently get a topic or generic reply)
 - [x] R3. Track the last-mentioned person and topic across turns so follow-ups like "she said no" can be understood
 - [ ] R7. Reference limits: "it"/"that" are only resolved as the subject of "was fun/hard/..." or the object of like/love/hate; references to what the bot said, and to whole events ("that" = "going to the zoo"), are not resolved; when two unfamiliar people are mentioned together, "she"/"he" goes to the most recent one until the child's own usage shows otherwise
 - [x] R4. Learn from engagement: favor reply types the child responds to (longer answers, returning to a topic)
@@ -375,6 +375,6 @@ These are not in the original 183-task plan; they were found while evaluating an
 **In Progress:** 0
 **Pending:** 16 (task 72, tasks 167-177, 179, 181-183)
 
-**Follow-up Items:** 12 pending, 8 completed
+**Follow-up Items:** 11 pending, 9 completed
 
 **Current Phase:** Phase 7 - Testing & Refinement

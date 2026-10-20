@@ -113,3 +113,13 @@ class TestCatchphrasePlacement:
 ])
 def test_split_closing_question(text, expected):
     assert ConversationManager._split_closing_question(text) == expected
+
+
+def test_jokes_can_be_turned_off(manager, always_pun, always_fact):
+    """Used when the reply is already a requested joke or fact"""
+    features = {}
+    response = manager._apply_personality_filter(
+        "Okay, here's one: Why did the cookie cry? Its mom was a wafer so long!",
+        make_personality(["tells_puns", "shares_facts"]), features=features, allow_jokes=False)
+    assert "PUN" not in response and "FACT" not in response
+    assert "humor" not in features

@@ -278,7 +278,9 @@ class ConversationManager:
 
         # 8. Apply personality to response
         final_response = self._apply_personality_filter(
-            raw_response, personality, user_message, features=reply_features
+            raw_response, personality, user_message, features=reply_features,
+            # A requested joke or fact does not get another one added
+            allow_jokes=not response_engine.rule_flag(reply_features.get("rule"), "no_jokes"),
         )
 
         # 9. Safety check on response (optional)
@@ -578,6 +580,7 @@ INSTRUCTIONS:
         personality: BotPersonality,
         context: str = "",
         features: Optional[Dict[str, str]] = None,
+        allow_jokes: bool = True,
     ) -> str:
         """
         Apply personality quirks to response
@@ -598,7 +601,7 @@ INSTRUCTIONS:
         humor_added = None
 
         # A reply that is only a question gets no fact or pun in front of it
-        joke_allowed = bool(response)
+        joke_allowed = bool(response) and allow_jokes
 
         # Apply shares_facts quirk
         if "shares_facts" in quirks and joke_allowed:

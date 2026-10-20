@@ -334,3 +334,130 @@ class TestMultiSentenceAndWordOrder:
     def test_inner_punctuation_keeps_spacing(self, engine):
         reply = engine.generate_response("Um, I went to the store, the park and home", make_personality())
         assert "the store, the park and home" in reply
+
+
+class TestOtherPeoplesFeelings:
+    @pytest.mark.parametrize("message,mood", [
+        ("My friend is sad", "sad"), ("Maya feels lonely", "sad"), ("My mom was really angry", "angry"),
+        ("My brother is happy", "happy"), ("My friend isn't happy", "sad"),
+    ])
+    def test_rule_and_mood(self, engine, message, mood):
+        frame = engine.analyze(message).frames[0]
+        assert frame.rule_id == "other_feeling"
+        assert frame.slots["emotion_mood"] == mood
+
+    def test_reply_is_about_the_other_person(self, engine):
+        reply = engine.generate_response("My friend is sad", make_personality())
+        assert "your friend is sad" in reply.lower()
+        assert "That sounds really hard" not in reply
+
+    def test_negation_is_kept_in_reply(self, engine):
+        reply = engine.generate_response("My friend isn't happy", make_personality())
+        assert "not happy" in reply
+
+    def test_childs_own_feeling_is_still_the_feeling_rule(self, engine):
+        assert rule_ids(engine, "I am sad")[0] == "feeling"
+
+    def test_non_emotion_state_is_still_a_person_event(self, engine):
+        assert rule_ids(engine, "My dog is sick")[0] == "person_event"
+
+
+class TestRequests:
+    @pytest.mark.parametrize("message,rule", [
+        ("Can you tell me a joke?", "request"),
+        ("Tell me a joke", "request"),
+        ("tell me a fun fact", "request"),
+        ("Can you tell me a story?", "request"),
+        ("Can we play a game?", "play_request"),
+        ("Let's play a game", "play_request"),
+        ("Can you help me with my homework?", "help_request"),
+        ("help me", "help_request"),
+        ("Can you sing?", "ability_question"),
+        ("I want to tell you a joke", "offer_content"),
+        ("Do you want to hear a joke?", "offer_content"),
+    ])
+    def test_top_rule(self, engine, message, rule):
+        assert rule_ids(engine, message)[0] == rule
+
+    @pytest.mark.parametrize("message", ["My mom told me a story", "I played a game yesterday", "She helped me"])
+    def test_statements_are_not_requests(self, engine, message):
+        assert not {"request", "play_request", "help_request"} & set(rule_ids(engine, message))
+
+    def test_joke_request_tells_a_joke(self, engine):
+        from services.pun_quirk_service import pun_quirk_service
+        reply = engine.generate_response("Can you tell me a joke?", make_personality())
+        all_puns = [p for name in dir(pun_quirk_service) if name.endswith("_PUNS")
+                    for p in getattr(pun_quirk_service, name)]
+        assert any(p in reply for p in all_puns)
+
+    def test_another_one_repeats_the_last_kind(self, engine):
+        from services.fact_quirk_service import fact_quirk_service
+        engine.generate_response("tell me a fun fact", make_personality())
+        reply = engine.generate_response("another one", make_personality())
+        all_facts = [f for name in dir(fact_quirk_service) if name.endswith("_FACTS")
+                     for f in getattr(fact_quirk_service, name)]
+        assert any(f in reply for f in all_facts)
+
+    def test_another_without_earlier_request_asks(self, engine):
+        reply = engine.generate_response("another one", make_personality(user_id=99))
+        assert reply == "Another what? A joke or a fun fact?"
+
+    def test_offer_is_not_stored_as_goal(self, engine):
+        assert memories(engine, "I want to tell you a joke") == []
+
+    def test_help_does_not_offer_to_do_homework(self, engine):
+        reply = engine.generate_response("Can you help me with my homework?", make_personality())
+        assert "can't do your homework for you" in reply
+
+    def test_requested_content_rules_skip_extra_jokes(self, engine):
+        assert engine.rule_flag("request", "no_jokes")
+        assert not engine.rule_flag("like_thing", "no_jokes")
+
+
+class TestComparisons:
+    @pytest.mark.parametrize("message,expected", [
+        ("Cats are better than dogs", ("favorite", "prefers_cats_over_dogs", "cats over dogs")),
+        ("Math is worse than art", ("favorite", "prefers_art_over_math", "art over math")),
+        ("I like cats more than dogs", ("favorite", "prefers_cats_over_dogs", "cats over dogs")),
+        ("I like chocolate ice cream better than vanilla",
+         ("favorite", "prefers_chocolate_ice_cream_over_vanilla", "chocolate ice cream over vanilla")),
+    ])
+    def test_preference_is_remembered(self, engine, message, expected):
+        found = [(c, k, v.lower()) for c, k, v in memories(engine, message)]
+        assert expected in found
+
+    def test_like_more_also_stores_the_like(self, engine):
+        assert ("favorite", "likes_cats", "cats") in memories(engine, "I like cats more than dogs")
+
+    def test_neutral_comparison_stores_nothing(self, engine):
+        assert memories(engine, "Elephants are bigger than mice") == []
+
+    @pytest.mark.parametrize("message", [
+        "Is soccer better than basketball?", "Do you like cats or dogs?", "Which is better, cats or dogs?",
+    ])
+    def test_bot_picks_one_consistently(self, engine, message):
+        frame = engine.analyze(message).frames[0]
+        assert frame.rule_id == "comparison_question"
+        options = {frame.slots["x"].lower(), frame.slots["y"].lower()}
+        replies = [engine.generate_response(message, make_personality()).lower() for _ in range(4)]
+        # Each reply names only the bot's pick, and it is the same every time
+        picks = {option for option in options for reply in replies if option in reply}
+        assert len(picks) == 1
+
+
+class TestLongMessages:
+    def test_last_clause_about_child_is_echoed(self, engine):
+        reply = engine.generate_response(
+            "So yesterday my brother and his friend came over and they built a huge fort in the "
+            "living room and my dad got kind of mad", make_personality())
+        assert "your dad got kind of mad" in reply.lower()
+
+    def test_clause_without_subject_takes_it_from_the_joined_clause(self, engine):
+        doc = engine.parser.parse(
+            "Yesterday after school we went all the way across town to the giant new trampoline park and jumped for hours")
+        assert engine._last_clause_about_child(doc) == "you jumped for hours"
+
+    def test_long_message_without_known_subject_gets_no_echo(self, engine):
+        doc = engine.parser.parse(
+            "The thing about the new science museum downtown is that there are so many rooms full of really old stuff")
+        assert engine._last_clause_about_child(doc) is None

@@ -210,6 +210,10 @@ class PunQuirkService:
         )
         return random.choice(all_puns)
 
+    def random_pun(self, context: str = "") -> str:
+        """A pun matching the context's keywords if possible, otherwise any pun"""
+        return self._get_contextual_pun(context) or self._get_random_pun()
+
     def get_pun_by_category(self, category: str) -> str:
         """Get a random pun from a specific category"""
         category_map = {
