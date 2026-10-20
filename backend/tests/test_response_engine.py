@@ -478,3 +478,40 @@ class TestR7RuleFixes:
     def test_definite_thing_subject_is_echoed(self, engine):
         reply = engine.generate_response("The tower broke", make_personality())
         assert "the tower broke" in reply.lower()
+
+
+class TestReactionsToTheBot:
+    def reply(self, engine, message):
+        return engine.generate_response(message, make_personality())
+
+    @pytest.mark.parametrize("message,expected", [
+        ("Your name is cool", "my name"),
+        ("Your fun fact is so cool", "my fun fact"),
+        ("Your joke was funny", "my joke"),
+        ("Your shirt looks nice", "my shirt"),
+    ])
+    def test_praise_of_the_bots_things_is_thanked(self, engine, message, expected):
+        assert rule_ids(engine, message)[0] == "bot_thing_evaluation"
+        reply = self.reply(engine, message)
+        assert "thanks" in reply.lower() and expected in reply
+
+    def test_criticism_of_the_bots_things(self, engine):
+        reply = self.reply(engine, "Your name is weird")
+        assert reply.startswith("You think my name is weird?")
+
+    def test_statement_about_the_bots_name_is_not_a_question(self, engine):
+        assert "bot_name_question" not in rule_ids(engine, "Your name is cool")
+        assert "bot_name_question" in rule_ids(engine, "What's your name?")
+
+    @pytest.mark.parametrize("message,expected", [
+        ("That sounds fun", "sounds fun"),
+        ("The movie looks boring", "the movie looks boring to you"),
+    ])
+    def test_sounds_and_looks(self, engine, message, expected):
+        assert rule_ids(engine, message)[0] == "sounds_evaluation"
+        assert expected in self.reply(engine, message).lower()
+
+    @pytest.mark.parametrize("message", ["That's a hard question", "That's a good question", "It's a tough question"])
+    def test_hard_question(self, engine, message):
+        assert rule_ids(engine, message)[0] == "hard_question"
+        assert "no wrong answer" in self.reply(engine, message)

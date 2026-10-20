@@ -252,7 +252,7 @@ class TestBotReplies:
         ("What's your name?", "I like it", "I like your name"),
         ("How are you?", "That's good", "Being happy is good"),
         ("Are you a robot?", "That's weird", "Being an AI is weird"),
-        ("Can we play a game?", "That sounds fun", "Playing a game sounds fun"),
+        ("Can we play a game?", "I want to do that", "I want to do playing a game"),
         ("Can you fly?", "That's sad", "Being a computer program is sad"),
     ])
     def test_that_refers_to_the_bots_answer(self, engine, question, reply, expected):
@@ -269,7 +269,27 @@ class TestBotReplies:
     def test_noun_picks_the_thing_it_names(self, engine):
         self.reply_and_record(engine, "What is your favorite color?")
         self.reply_and_record(engine, "I love pizza")
-        assert run(engine, "That's a cool color") == "Your favorite color is a cool color"
+        assert run(engine, "That's a cool color") == "Your favorite color is cool"
+
+    def test_repeated_noun_is_dropped_with_its_spacing(self, engine):
+        self.reply_and_record(engine, "What's your name?")
+        assert run(engine, "That's a really cool name!") == "Your name is really cool!"
+
+    @pytest.mark.parametrize("message", ["That's a hard question", "That's a good question"])
+    def test_question_is_not_resolved(self, engine, message):
+        self.reply_and_record(engine, "Do you like pizza?")
+        assert run(engine, message) == message
+
+    @pytest.mark.parametrize("message", ["That sounds fun", "It looks cool"])
+    def test_reactions_are_not_resolved(self, engine, message):
+        self.reply_and_record(engine, "We went to the zoo")
+        assert run(engine, message) == message
+
+    def test_bots_self_description_is_not_a_thing(self, engine):
+        engine.resolve_references("Do you like pizza?", USER)
+        engine.record_bot_reply(USER, "Ooh, pizza? I'm a big fan! What about you?")
+        texts = [t.text for t in engine.references.state(USER).things]
+        assert not any("fan" in text for text in texts)
 
     def test_bot_echo_does_not_replace_the_childs_event(self, engine):
         self.reply_and_record(engine, "We went to the zoo")

@@ -27,10 +27,11 @@ mentioned in the last MAX_AGE turns.
 
 "it" prefers a thing and "that"/"this" prefer an event or what the bot just said.
 In "That's a cool color" the pronoun refers to a recent thing named by the noun if there
-is one ("the color orange"), even if something else was mentioned after it.
+is one, even if something else was mentioned after it, and the repeated noun is dropped
+("Your favorite color is cool"). In "That's a hard question" it is left as it is.
 They are only resolved as a subject, object or object of a preposition, and not in
-"It is raining", "It's time to go", "I get it", "I made it!", "I think that...",
-or "the game that I played".
+"It is raining", "It's time to go", "That sounds fun", "I get it", "I made it!",
+"I think that...", or "the game that I played".
 
 A person's pronoun is known once the child has used one for them, or from a gendered
 relation word ("my mom", "my brother"). If "she"/"he" could mean two or more recent people
@@ -57,6 +58,8 @@ _PERSON_PRONOUNS = {
 _THING_PRONOUNS = {"it", "that", "this"}
 _EVENT_PRONOUNS = {"that", "this"}
 _POSSESSIVE_FORMS = {"his", "hers", "their", "theirs"}
+# "That's a hard question" is about the question just asked, which is not tracked
+_UNTRACKED_COMPLEMENTS = {"question"}
 _GENDERED_RELATIONS = {
     **dict.fromkeys(("mom", "mother", "mum", "mommy", "grandma", "grandmother", "nana", "aunt",
                      "sister", "stepmom", "stepsister"), "she"),
@@ -73,6 +76,9 @@ _WEATHER_VERBS = {"rain", "snow", "hail", "thunder", "storm", "drizzle", "pour",
 _NON_REFERENTIAL_COMPLEMENTS = {"time", "turn", "cold", "hot", "warm", "sunny", "cloudy", "rainy", "windy",
                                 "dark", "late", "early", "night", "morning", "raining", "snowing", "freezing"}
 _NON_REFERENTIAL_SUBJECT_VERBS = {"seem", "happen", "matter", "depend"}
+# "That sounds fun" is a reaction whose reply does not need the referent, and a gerund
+# subject is misparsed ("Playing a game sounds fun" makes "fun" an object)
+_REACTION_VERBS = {"sound", "look"}
 # Idioms with "it" as object: "I made it" (succeeded), "I get it" (understand), "I mean it"
 _IDIOM_OBJECT_VERBS = {"make", "get", "take", "mean", "fake", "nail"}
 # Verbs that describe a state or wish rather than something the child did
@@ -214,9 +220,14 @@ class ReferenceTracker:
         parts = []
         resolved_people = set()
         named = {t.lower_ for t in doc}  # words naming who is in this message, for events
+        drop = set()  # indexes of words made redundant by a replacement
         replaced_previous = False
         for token in doc:
-            replacement = self._antecedent(token, state, resolved_people, doc.text, named)
+            if token.i in drop:
+                # Keep the dropped word's spacing: "a cool name!" -> "cool!"
+                parts[-1] = parts[-1].rstrip() + token.whitespace_
+                continue
+            replacement = self._antecedent(token, state, resolved_people, doc.text, named, drop)
             if replacement is None and replaced_previous and token.lower_ == "'s" and token.lemma_ == "be":
                 # "That's cool" -> "Your fun fact is cool", not the possessive "fact's"
                 parts[-1] = parts[-1].rstrip() + " "
@@ -251,7 +262,8 @@ class ReferenceTracker:
                         and not any(t.pos_ == "PRON" or t.tag_ in ("WDT", "WP") for t in chunk)
                         and root.lemma_.lower() not in self.relations
                         and root.lemma_.lower() not in _TIME_WORDS
-                        and root.lemma_.lower() not in state.last_child_words):
+                        and root.lemma_.lower() not in state.last_child_words
+                        and not self._describes_bot(root)):
                     self._remember_thing(self._thing_text(chunk), state, plural=root.tag_ in ("NNS", "NNPS"))
         for mention in mentions:
             mention_doc = self.parser.parse(mention)
@@ -268,7 +280,7 @@ class ReferenceTracker:
         return [item for item in items if state.turn - item.turn <= MAX_AGE]
 
     def _antecedent(self, token, state: DiscourseState, resolved_people: set, message: str,
-                    named: set) -> Optional[str]:
+                    named: set, drop: set) -> Optional[str]:
         lower = token.lower_
 
         if lower in _PERSON_PRONOUNS and token.pos_ == "PRON":
@@ -315,9 +327,13 @@ class ReferenceTracker:
             return self._match_case(person.phrase(possessive), token)
 
         if lower in _THING_PRONOUNS and self._is_thing_reference(token):
-            match = self._named_thing(token, state)
+            match, attr = self._named_thing(token, state)
             if match is not None:
                 match.turn = state.turn
+                if any(c.dep_ == "amod" for c in attr.children):
+                    # "That's a cool name" -> "Your name is cool", not "Your name is a cool name"
+                    drop.add(attr.i)
+                    drop.update(c.i for c in attr.children if c.dep_ == "det")
                 return self._match_case(match.text, token)
             things = self._recent(state.things, state)
             if lower == "it":
@@ -339,21 +355,33 @@ class ReferenceTracker:
 
         return None
 
-    def _named_thing(self, token, state: DiscourseState) -> Optional[Thing]:
-        """
-        In "That's a cool color", the recent thing the noun names ("the color orange"), if any
-        """
+    @staticmethod
+    def _attr_noun(token):
+        """The noun in "that is a <noun>", if the pronoun is the subject of one"""
         if token.dep_ != "nsubj" or token.head.lemma_ != "be":
             return None
-        attr = next((c for c in token.head.children if c.dep_ == "attr" and c.pos_ == "NOUN"), None)
+        return next((c for c in token.head.children if c.dep_ == "attr" and c.pos_ == "NOUN"), None)
+
+    def _named_thing(self, token, state: DiscourseState):
+        """
+        In "That's a cool color", the recent thing the noun names ("the color orange") and
+        the noun, or (None, None)
+        """
+        attr = self._attr_noun(token)
         if attr is None:
-            return None
+            return None, None
         noun = attr.lemma_.lower()
         for thing in self._recent(state.things, state):
             last = thing.text.lower().split()[-1]
             if last in (noun, noun + "s", noun + "es"):
-                return thing
-        return None
+                return thing, attr
+        return None, None
+
+    @staticmethod
+    def _describes_bot(token) -> bool:
+        """A noun in the bot's "I'm a big fan" / "I'm a computer program", which is not a thing"""
+        return token.dep_ == "attr" and any(
+            c.dep_ == "nsubj" and c.lower_ == "i" for c in token.head.children)
 
     @staticmethod
     def _is_thing_reference(token) -> bool:
@@ -364,8 +392,12 @@ class ReferenceTracker:
         head = token.head
         if token.dep_ in ("expl", "mark", "det") or head.dep_ == "relcl":
             return False
+        attr = ReferenceTracker._attr_noun(token)
+        if attr is not None and attr.lemma_.lower() in _UNTRACKED_COMPLEMENTS:
+            return False
         if token.dep_ in ("nsubj", "nsubjpass"):
-            if head.lemma_ in _WEATHER_VERBS or head.lemma_ in _NON_REFERENTIAL_SUBJECT_VERBS:
+            if head.lemma_ in _WEATHER_VERBS or head.lemma_ in _NON_REFERENTIAL_SUBJECT_VERBS \
+                    or head.lemma_ in _REACTION_VERBS:
                 return False
             complements = [c for c in head.children if c.dep_ in ("acomp", "attr")]
             if any(c.lemma_.lower() in _NON_REFERENTIAL_COMPLEMENTS for c in complements):
