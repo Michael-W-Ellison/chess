@@ -245,7 +245,8 @@ class TestCooldown:
         )
 
         assert in_cooldown is False
-        assert "expired" in msg.lower()
+        # A drift older than the cooldown window is not returned by the query at all
+        assert "expired" in msg.lower() or "no cooldown" in msg.lower()
 
 
 class TestApplyRateLimits:

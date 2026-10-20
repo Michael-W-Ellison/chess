@@ -69,6 +69,7 @@ class PersonalityDriftCalculator:
 
         # Analyze conversation
         analysis = self._analyze_conversation(conversation, db)
+        analysis["engagement"] = self._engagement_signals(personality, db)
 
         # Calculate drift for each trait
         humor_drift = self._calculate_humor_drift(personality, analysis)
@@ -213,6 +214,32 @@ class PersonalityDriftCalculator:
 
         return analysis
 
+    def _engagement_signals(self, personality: BotPersonality, db: Session) -> Dict:
+        """Clear engagement preferences learned for this child (see engagement_tracker)"""
+        from services.engagement_tracker import engagement_tracker
+
+        try:
+            return engagement_tracker.trait_signals(personality.user_id, db)
+        except Exception as e:
+            logger.error(f"Could not read engagement signals: {e}")
+            return {}
+
+    def _engagement_drift(self, trait: str, personality: BotPersonality, analysis: Dict, reasons: List[str]) -> float:
+        """
+        Nudge a trait toward what this child engages with: more curiosity if follow-up
+        questions get better responses, more humor if jokes and facts do (or less of either).
+        Stops near the ends of the range so one preference cannot pin a trait at 0 or 1.
+        """
+        signal = analysis.get("engagement", {}).get(trait)
+        if not signal:
+            return 0.0
+        direction, reason = signal
+        value = getattr(personality, trait)
+        if (direction > 0 and value >= 0.9) or (direction < 0 and value <= 0.1):
+            return 0.0
+        reasons.append(reason)
+        return direction * self.DRIFT_AMOUNT_SMALL
+
     def _calculate_humor_drift(
         self,
         personality: BotPersonality,
@@ -239,6 +266,8 @@ class PersonalityDriftCalculator:
         if analysis["feelings_count"] >= 3:
             drift -= self.DRIFT_AMOUNT_SMALL
             reasons.append(f"User shared feelings {analysis['feelings_count']} times")
+
+        drift += self._engagement_drift("humor", personality, analysis, reasons)
 
         analysis["humor_reasons"] = reasons
         return drift
@@ -305,6 +334,8 @@ class PersonalityDriftCalculator:
             if short_ratio > 0.7:
                 drift -= self.DRIFT_AMOUNT_SMALL
                 reasons.append("User gave mostly brief responses")
+
+        drift += self._engagement_drift("curiosity", personality, analysis, reasons)
 
         analysis["curiosity_reasons"] = reasons
         return drift

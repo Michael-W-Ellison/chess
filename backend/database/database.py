@@ -81,6 +81,7 @@ def init_db() -> None:
         level_up_event,
         personality_drift,
         parent_preferences,
+        engagement,
     )
 
     # Create all tables
@@ -171,6 +172,7 @@ def reset_database() -> None:
         level_up_event,
         personality_drift,
         parent_preferences,
+        engagement,
     )
 
     # Drop all tables

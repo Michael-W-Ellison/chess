@@ -258,7 +258,8 @@ class TestShortTermMemory:
                 conversation_id=conv.id,
                 role="user" if i % 2 == 0 else "assistant",
                 content=f"Message {i+1}",
-                timestamp=datetime.now() - timedelta(hours=1, minutes=i)
+                # Message 20 is the newest
+                timestamp=datetime.now() - timedelta(hours=1, minutes=20 - i)
             )
             messages_to_add.append(msg)
             db_session.add(msg)

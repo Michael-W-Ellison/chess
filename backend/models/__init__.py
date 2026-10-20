@@ -9,6 +9,9 @@ from models.conversation import Conversation, Message
 from models.memory import UserProfile
 from models.safety import SafetyFlag, AdviceTemplate
 from models.parent_preferences import ParentNotificationPreferences
+from models.level_up_event import LevelUpEvent
+from models.personality_drift import PersonalityDrift
+from models.engagement import EngagementStat
 
 __all__ = [
     "User",
@@ -19,4 +22,7 @@ __all__ = [
     "SafetyFlag",
     "AdviceTemplate",
     "ParentNotificationPreferences",
+    "LevelUpEvent",
+    "PersonalityDrift",
+    "EngagementStat",
 ]

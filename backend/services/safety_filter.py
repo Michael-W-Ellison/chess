@@ -170,7 +170,7 @@ class SafetyFilter:
             if inappropriate_result["is_inappropriate"]:
                 flags.append("inappropriate_request")
                 # Score severity using SeverityScorer
-                detector_severity = inappropriate_result["severity"]
+                detector_severity = inappropriate_result["highest_severity"]
                 detector_categories = inappropriate_result.get("categories", [])
                 severity = self.severity_scorer.score_inappropriate_request(
                     detector_severity, detector_categories

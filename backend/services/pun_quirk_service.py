@@ -7,6 +7,19 @@ import random
 from typing import List, Optional
 
 
+def join_transition(transition: str, text: str) -> str:
+    """
+    Join a lead-in phrase and a joke or fact so it reads as one sentence:
+    "By the way, what do you call..." (lowercase after a comma) and
+    "Fun fact: Octopuses have..." (no "Did you know?" after a label ending in ":")
+    """
+    if transition.endswith(":") and text.startswith("Did you know? "):
+        text = text[len("Did you know? "):]
+    elif transition.endswith(",") and text[:2] != "I " and not text.startswith("I'"):
+        text = text[:1].lower() + text[1:]
+    return f"{transition} {text}"
+
+
 class PunQuirkService:
     """
     Service for applying the tells_puns quirk to bot responses
@@ -172,13 +185,13 @@ class PunQuirkService:
                 return f"{response} {pun}"
             else:
                 # With transition phrase
-                transitions = [
-                    f"{response} Oh, and here's a fun one: {pun}",
-                    f"{response} Speaking of which... {pun}",
-                    f"{response} That reminds me: {pun}",
-                    f"{response} By the way, {pun}",
-                ]
-                return random.choice(transitions)
+                transition = random.choice([
+                    "Oh, and here's a fun one:",
+                    "Speaking of which...",
+                    "That reminds me:",
+                    "By the way,",
+                ])
+                return f"{response} {join_transition(transition, pun)}"
         else:
             return pun
 
@@ -209,6 +222,10 @@ class PunQuirkService:
             self.TECH_PUNS
         )
         return random.choice(all_puns)
+
+    def random_pun(self, context: str = "") -> str:
+        """A pun matching the context's keywords if possible, otherwise any pun"""
+        return self._get_contextual_pun(context) or self._get_random_pun()
 
     def get_pun_by_category(self, category: str) -> str:
         """Get a random pun from a specific category"""

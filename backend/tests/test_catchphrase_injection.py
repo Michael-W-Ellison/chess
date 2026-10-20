@@ -224,8 +224,8 @@ class TestCatchphraseFormat:
                 ""
             )
 
-        # Should just have the catchphrase with leading space
-        assert response == " Cool beans!"
+        # Should just have the catchphrase, without a leading space
+        assert response == "Cool beans!"
 
     def test_catchphrase_with_different_phrases(self, test_db, test_user):
         """Test different catchphrases are injected correctly"""

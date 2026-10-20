@@ -15,7 +15,7 @@ class EmojiQuirkService:
     This service adds appropriate emojis to responses based on:
     - Bot's current mood
     - Message sentiment and keywords
-    - Natural placement within sentences
+    - Placement after a sentence's punctuation, at most one or two per reply
     """
 
     # Emoji sets organized by mood
@@ -68,17 +68,26 @@ class EmojiQuirkService:
     # Generic positive emojis for variety
     GENERIC_POSITIVE = ["😊", "🙂", "✨", "💙", "🌟"]
 
-    # Punctuation marks where emojis can be inserted
-    EMOJI_INSERTION_POINTS = ['.', '!', '?']
+    # Words that make a sentence sad or difficult: use a caring emoji, not a cheerful one
+    NEGATIVE_WORDS = {
+        "sorry", "sad", "hard", "tough", "frustrating", "upset", "worried", "worry", "sick",
+        "hurt", "miss", "lonely", "scared", "angry", "mad", "wrong", "bad", "cry", "crying",
+        "afraid", "nervous", "stressed", "awful", "terrible", "mean", "lost", "broke", "broken",
+    }
+    COMFORT_EMOJIS = ["💙", "🫂"]
 
     def apply_emojis(self, text: str, mood: str = "happy", intensity: float = 0.5) -> str:
         """
-        Apply emojis to text based on mood and intensity
+        Apply emojis to text based on its words, the bot's mood, and intensity
+
+        At most one emoji is added (two when intensity is 0.6 or more), after a sentence's
+        closing punctuation. Sentences whose words match an emoji keyword are preferred,
+        then the last sentence. Sad or difficult sentences get a caring emoji.
 
         Args:
             text: Original response text
             mood: Bot's current mood
-            intensity: How often to add emojis (0.0-1.0)
+            intensity: How likely emojis are (0.0-1.0)
 
         Returns:
             Text with emojis added
@@ -86,70 +95,53 @@ class EmojiQuirkService:
         if not text:
             return text
 
-        # Split into sentences
         sentences = self._split_into_sentences(text)
+        eligible = [i for i, sentence in enumerate(sentences) if len(sentence.strip()) >= 5]
+        max_emojis = 2 if intensity >= 0.6 else 1
 
-        # Process each sentence
-        modified_sentences = []
-        for i, sentence in enumerate(sentences):
-            # Skip very short sentences
-            if len(sentence.strip()) < 5:
-                modified_sentences.append(sentence)
-                continue
+        # Sentences with a matching keyword first, then later sentences before earlier ones
+        eligible.sort(key=lambda i: (not self._context_matches(sentences[i]), -i))
+        chosen = []
+        for index in eligible:
+            if len(chosen) >= max_emojis:
+                break
+            if random.random() < intensity:
+                chosen.append(index)
 
-            # Determine if we should add emoji to this sentence
-            should_add = random.random() < intensity
+        for index in chosen:
+            emoji = self._choose_emoji(sentences[index], mood)
+            sentences[index] = self._add_emoji_to_sentence(sentences[index], emoji)
 
-            if should_add:
-                # Try to add contextual emoji first
-                emoji = self._get_contextual_emoji(sentence, mood)
-                if not emoji:
-                    # Fall back to mood-based emoji
-                    emoji = self._get_mood_emoji(mood)
-
-                # Add emoji at end of sentence
-                sentence = self._add_emoji_to_sentence(sentence, emoji)
-
-            modified_sentences.append(sentence)
-
-        # Rejoin sentences
-        result = " ".join(modified_sentences)
-
-        # Sometimes add an emoji at the very end for extra personality
-        if random.random() < (intensity * 0.6):
-            result = self._add_final_emoji(result, mood)
-
-        return result
+        return " ".join(sentences)
 
     def _split_into_sentences(self, text: str) -> List[str]:
-        """Split text into sentences"""
-        # Simple sentence splitting on punctuation
-        sentences = re.split(r'([.!?]+\s+)', text)
+        """Split text into sentences, each keeping its closing punctuation"""
+        parts = re.split(r'(?<=[.!?])\s+', text.strip())
+        return [part.strip() for part in parts if part.strip()]
 
-        # Recombine sentences with their punctuation
-        result = []
-        for i in range(0, len(sentences), 2):
-            if i + 1 < len(sentences):
-                result.append(sentences[i] + sentences[i + 1])
-            else:
-                result.append(sentences[i])
+    def _context_matches(self, text: str) -> List[str]:
+        """Emojis for keywords that appear as whole words ("game", "games"; not "art" in "part")"""
+        text_lower = text.lower()
+        matches = []
+        for keyword, emojis in self.CONTEXT_EMOJIS.items():
+            if re.search(rf"\b{re.escape(keyword)}(s|es|ed|ing|er)?\b", text_lower):
+                matches.extend(emojis)
+        return matches
 
-        return [s for s in result if s.strip()]
+    def _is_negative(self, text: str) -> bool:
+        words = set(re.findall(r"[a-z']+", text.lower()))
+        return bool(words & self.NEGATIVE_WORDS) or "oh no" in text.lower()
+
+    def _choose_emoji(self, sentence: str, mood: str) -> str:
+        """Caring emoji for sad/difficult sentences, else a keyword emoji, else a mood emoji"""
+        if self._is_negative(sentence) or mood == "concerned":
+            return random.choice(self.COMFORT_EMOJIS)
+        return self._get_contextual_emoji(sentence, mood) or self._get_mood_emoji(mood)
 
     def _get_contextual_emoji(self, text: str, mood: str) -> str:
         """Get emoji based on text content and keywords"""
-        text_lower = text.lower()
-
-        # Find matching keywords
-        matches = []
-        for keyword, emojis in self.CONTEXT_EMOJIS.items():
-            if keyword in text_lower:
-                matches.extend(emojis)
-
-        if matches:
-            return random.choice(matches)
-
-        return ""
+        matches = self._context_matches(text)
+        return random.choice(matches) if matches else ""
 
     def _get_mood_emoji(self, mood: str) -> str:
         """Get emoji based on mood"""
@@ -157,27 +149,8 @@ class EmojiQuirkService:
         return random.choice(emojis)
 
     def _add_emoji_to_sentence(self, sentence: str, emoji: str) -> str:
-        """Add emoji to sentence (at the end, before punctuation if possible)"""
-        sentence = sentence.rstrip()
-
-        # Check if sentence ends with punctuation
-        if sentence and sentence[-1] in self.EMOJI_INSERTION_POINTS:
-            # Insert before the punctuation
-            return sentence[:-1] + f" {emoji}" + sentence[-1]
-        else:
-            # Add at the end
-            return sentence + f" {emoji}"
-
-    def _add_final_emoji(self, text: str, mood: str) -> str:
-        """Add a final emoji at the end of the entire message"""
-        text = text.rstrip()
-        emoji = self._get_mood_emoji(mood)
-
-        # If already ends with an emoji, don't add another
-        if text and text[-1] in ["😊", "🙂", "😄", "🎉", "😃", "🤩", "💙", "🫂", "😆", "😌", "✨", "🤔"]:
-            return text
-
-        return text + f" {emoji}"
+        """Add emoji after the sentence, following its punctuation ("That's awesome! 🎉")"""
+        return f"{sentence.rstrip()} {emoji}"
 
 
 # Global singleton instance

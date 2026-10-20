@@ -4,9 +4,10 @@ Endpoints for parents to monitor child safety and view safety flags
 
 Authentication:
     These routes support JWT-based authentication. When PARENT_DASHBOARD_REQUIRE_PASSWORD
-    is enabled, endpoints require a valid JWT token in the Authorization header.
+    is enabled, every endpoint except /auth/* requires a valid JWT token in the
+    Authorization header (enforced by the router-level require_parent_auth dependency).
 
-    To protect an endpoint, add the RequireAuth dependency:
+    Endpoints that need the token payload can also add the RequireAuth dependency:
         async def my_endpoint(..., current_user: dict = RequireAuth):
 
     See docs/AUTHENTICATION_SETUP.md for complete setup instructions.
@@ -30,7 +31,7 @@ from services.conversation_summary_service import conversation_summary_service
 from services.weekly_report_service import weekly_report_service
 from services.report_scheduler import report_scheduler
 from services.auth_service import auth_service
-from utils.auth_dependencies import get_current_user, RequireAuth
+from utils.auth_dependencies import get_current_user, require_parent_auth, RequireAuth
 from utils.config import settings
 from utils.rate_limiter import auth_rate_limiter
 from utils.password_validation import (
@@ -41,7 +42,8 @@ from utils.password_validation import (
 
 logger = logging.getLogger("chatbot.routes.parent")
 
-router = APIRouter()
+# Every parent endpoint requires authentication except /auth/* (login, setup, status)
+router = APIRouter(dependencies=[Depends(require_parent_auth)])
 
 
 # ============================================================================
@@ -1124,6 +1126,22 @@ async def get_safety_flag_detail(
     except Exception as e:
         logger.error(f"Error getting safety flag detail: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/engagement")
+async def get_engagement(
+    user_id: int = Query(..., description="Child's user ID"),
+    db: Session = Depends(get_db),
+):
+    """
+    What the bot has learned about which kinds of replies this child engages with
+
+    Each entry is a reply choice (feature/arm, e.g. follow_up=yes, humor=pun) with the
+    number of times the child responded to it and the mean engagement score (0.0-1.0).
+    """
+    from services.engagement_tracker import engagement_tracker
+
+    return {"user_id": user_id, "stats": engagement_tracker.summary(user_id, db)}
 
 
 @router.get("/statistics", response_model=SafetyStatsResponse)

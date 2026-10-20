@@ -139,6 +139,17 @@ class AdviceTemplate(Base):
     created_at = Column(DateTime, default=datetime.now, nullable=False)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=True)
 
+    def __init__(self, **kwargs):
+        # Column defaults only apply on INSERT; set them here so unsaved instances are usable
+        kwargs.setdefault("min_friendship_level", 1)
+        kwargs.setdefault("max_friendship_level", 10)
+        kwargs.setdefault("min_age", 8)
+        kwargs.setdefault("max_age", 14)
+        kwargs.setdefault("expert_reviewed", False)
+        kwargs.setdefault("usage_count", 0)
+        kwargs.setdefault("rating", 0)
+        super().__init__(**kwargs)
+
     def get_keywords(self):
         """Parse keywords JSON array"""
         if self.keywords:

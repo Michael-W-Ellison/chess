@@ -7,6 +7,13 @@ import pytest
 from services.fact_quirk_service import FactQuirkService, fact_quirk_service
 
 
+def contains_fact(text: str) -> bool:
+    """True if one of the service's facts was added (lead-ins may drop or lowercase "Did you know?")"""
+    facts = [fact for name in dir(FactQuirkService) if name.endswith("_FACTS")
+             for fact in getattr(FactQuirkService, name)]
+    return any(fact.replace("Did you know? ", "") in text for fact in facts)
+
+
 class TestFactQuirkService:
     """Test fact quirk service initialization and basic functionality"""
 
@@ -45,7 +52,7 @@ class TestFactAddition:
         # With probability=1.0, fact should always be added
         assert len(result) > len(response)
         assert "That's interesting!" in result
-        assert "Did you know?" in result
+        assert contains_fact(result)
 
     def test_add_fact_with_zero_probability(self):
         """Test that no fact is added with zero probability"""
@@ -73,7 +80,7 @@ class TestFactAddition:
 
         # Should just return a fact
         assert len(result) > 0
-        assert "Did you know?" in result
+        assert contains_fact(result)
 
 
 class TestContextualFacts:
@@ -87,7 +94,7 @@ class TestContextualFacts:
 
         # Should add a fact (science-related preferred)
         assert len(result) > len("Cool!")
-        assert "Did you know?" in result
+        assert contains_fact(result)
 
     def test_animal_context_fact(self):
         """Test fact for animal-related context"""
@@ -121,7 +128,7 @@ class TestContextualFacts:
 
         # Should add a general fact
         assert len(result) > len("Cool!")
-        assert "Did you know?" in result
+        assert contains_fact(result)
 
 
 class TestGetContextualFact:
@@ -299,7 +306,7 @@ class TestIntegrationScenarios:
 
         assert "science homework" in result
         assert len(result) > len(response)
-        assert "Did you know?" in result
+        assert contains_fact(result)
 
     def test_animal_pet_scenario(self):
         """Test fact for pet scenario"""
@@ -309,7 +316,7 @@ class TestIntegrationScenarios:
         result = service.add_fact(response, context=context, probability=1.0)
 
         assert "Pets are wonderful" in result
-        assert "Did you know?" in result
+        assert contains_fact(result)
 
     def test_space_learning_scenario(self):
         """Test fact for space scenario"""
@@ -360,4 +367,4 @@ class TestEdgeCases:
         # Should handle multiple keywords gracefully
         assert "Cool!" in result
         assert len(result) > len("Cool!")
-        assert "Did you know?" in result
+        assert contains_fact(result)

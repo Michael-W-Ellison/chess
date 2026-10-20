@@ -113,11 +113,11 @@ class TraitAdjuster:
         # Get current value
         old_value = getattr(personality, trait_name)
 
-        # Clamp new value to bounds
-        new_value_clamped = self.clamp_value(new_value)
+        # Clamp new value to bounds (rounded to avoid floating-point drift such as 0.30000000000000004)
+        new_value_clamped = round(self.clamp_value(new_value), 6)
 
         # Calculate actual change
-        actual_change = new_value_clamped - old_value
+        actual_change = round(new_value_clamped - old_value, 6)
 
         # Apply change
         setattr(personality, trait_name, new_value_clamped)

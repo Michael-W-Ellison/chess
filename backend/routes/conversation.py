@@ -138,7 +138,7 @@ async def send_message(request: SendMessageRequest, db: Session = Depends(get_db
 @router.post("/conversation/end")
 async def end_conversation(request: EndConversationRequest, db: Session = Depends(get_db)):
     """
-    End a conversation session
+    End a conversation session (conversation ID in the request body)
 
     Args:
         request: End conversation request
@@ -147,10 +147,32 @@ async def end_conversation(request: EndConversationRequest, db: Session = Depend
     Returns:
         Success confirmation
     """
-    try:
-        conversation_manager.end_conversation(request.conversation_id, db)
+    return _end_conversation(request.conversation_id, db)
 
-        logger.info(f"Ended conversation {request.conversation_id}")
+
+@router.post("/conversation/end/{conversation_id}")
+async def end_conversation_by_id(conversation_id: int, db: Session = Depends(get_db)):
+    """
+    End a conversation session (conversation ID in the path)
+
+    This is the form used by the frontend API client and the Electron IPC handler.
+
+    Args:
+        conversation_id: Conversation ID
+        db: Database session
+
+    Returns:
+        Success confirmation
+    """
+    return _end_conversation(conversation_id, db)
+
+
+def _end_conversation(conversation_id: int, db: Session) -> dict:
+    """End a conversation and run end-of-conversation updates (traits, drift, summary)"""
+    try:
+        conversation_manager.end_conversation(conversation_id, db)
+
+        logger.info(f"Ended conversation {conversation_id}")
 
         return {"success": True, "message": "Conversation ended successfully"}
 
@@ -159,38 +181,9 @@ async def end_conversation(request: EndConversationRequest, db: Session = Depend
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/conversation/{conversation_id}")
-async def get_conversation(conversation_id: int, db: Session = Depends(get_db)):
-    """
-    Get conversation details
-
-    Args:
-        conversation_id: Conversation ID
-        db: Database session
-
-    Returns:
-        Conversation details with messages
-    """
-    try:
-        from models.conversation import Conversation
-
-        conversation = (
-            db.query(Conversation).filter(Conversation.id == conversation_id).first()
-        )
-
-        if not conversation:
-            raise HTTPException(status_code=404, detail="Conversation not found")
-
-        return conversation.to_dict(include_messages=True)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error retrieving conversation: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 # Conversation tracking endpoints
+# These must be declared before /conversation/{conversation_id}, otherwise that route
+# matches first and rejects "stats", "recent" and "streak" as invalid integer IDs.
 @router.get("/conversation/stats")
 async def get_conversation_stats(user_id: int = 1, db: Session = Depends(get_db)):
     """
@@ -276,4 +269,35 @@ async def get_conversation_streak(user_id: int = 1, db: Session = Depends(get_db
 
     except Exception as e:
         logger.error(f"Error getting streak info: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/conversation/{conversation_id}")
+async def get_conversation(conversation_id: int, db: Session = Depends(get_db)):
+    """
+    Get conversation details
+
+    Args:
+        conversation_id: Conversation ID
+        db: Database session
+
+    Returns:
+        Conversation details with messages
+    """
+    try:
+        from models.conversation import Conversation
+
+        conversation = (
+            db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        )
+
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
+        return conversation.to_dict(include_messages=True)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving conversation: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

@@ -3,8 +3,10 @@ Conversation Manager Service
 Orchestrates the conversation flow and message processing
 """
 
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Tuple
 import logging
+import random
+import re
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
@@ -24,7 +26,12 @@ from services.pun_quirk_service import pun_quirk_service
 from services.fact_quirk_service import fact_quirk_service
 from services.advice_category_detector import advice_category_detector
 from services.conversation_summary_service import conversation_summary_service
+from services.response_engine import response_engine
+from services.engagement_tracker import engagement_tracker
 from utils.config import settings
+
+# Most replies should not carry a joke, however high the bot's humor
+MAX_JOKE_PROBABILITY = 0.5
 
 logger = logging.getLogger("chatbot.conversation_manager")
 
@@ -84,6 +91,10 @@ class ConversationManager:
         db.refresh(conversation)
 
         self.current_conversation_id = conversation.id
+        # Pronouns in a new conversation should not refer to people from the last one
+        response_engine.reset_references(user_id)
+        # The last reply of the previous conversation is not scored against this one
+        engagement_tracker.discard_pending(user_id)
         self.message_count = 0
         self.conversation_start_time = datetime.now()
 
@@ -92,7 +103,9 @@ class ConversationManager:
         db.commit()
 
         # Track conversation start (daily check-in, streaks, points)
-        checkin_info = conversation_tracker.on_conversation_start(user_id, personality, db)
+        checkin_info = conversation_tracker.on_conversation_start(
+            user_id, personality, db, conversation_id=conversation.id
+        )
 
         # Generate greeting based on time since last conversation
         greeting = self._generate_greeting(user, personality, db)
@@ -128,6 +141,10 @@ class ConversationManager:
         """
         # 1. Safety check
         safety_result = safety_filter.check_message(user_message, user_id=user_id)
+
+        # Crisis, blocked and bullying messages are not engagement signals for the last reply
+        if not safety_result["safe"] or safety_result["action"] in ("supportive_response", "crisis_response"):
+            engagement_tracker.discard_pending(user_id)
 
         if safety_result["severity"] == "critical":
             # Get personality to update mood
@@ -167,9 +184,59 @@ class ConversationManager:
                 },
             }
 
+        # Blocked (high severity) or supportive (medium severity) messages get the
+        # safety filter's prepared response instead of an LLM-generated one
+        if not safety_result["safe"] or safety_result["action"] == "supportive_response":
+            response = safety_result.get("response_message") or (
+                safety_filter.get_bullying_response()
+                if "bullying" in safety_result["flags"]
+                else safety_filter.get_inappropriate_decline()
+            )
+
+            user_msg = self._store_message(conversation_id, "user", user_message, db, flagged=True)
+            self._store_message(conversation_id, "assistant", response, db)
+            self.message_count += 1
+
+            safety_filter.log_safety_event(db, user_id, safety_result, message_id=user_msg.id)
+
+            if safety_result.get("notify_parent", False):
+                from services.parent_notification_service import parent_notification_service
+
+                parent_notification_service.notify_high_severity_event(
+                    user_id=user_id,
+                    conversation_id=conversation_id,
+                    safety_result=safety_result,
+                    db=db,
+                )
+
+            logger.warning(
+                f"Safety response used for user {user_id}: "
+                f"flags={safety_result['flags']}, severity={safety_result['severity']}"
+            )
+
+            return {
+                "content": response,
+                "metadata": {
+                    "safety_flag": True,
+                    "severity": safety_result["severity"],
+                    "flags": safety_result["flags"],
+                    "notify_parent": safety_result.get("notify_parent", False),
+                },
+            }
+
         # 2. Store user message
-        user_msg = self._store_message(conversation_id, "user", user_message, db)
+        user_msg = self._store_message(
+            conversation_id, "user", user_message, db,
+            flagged=safety_result["severity"] != "none",
+        )
         self.message_count += 1
+
+        # Log low-severity flags (e.g. mild profanity) that are allowed through
+        if safety_result["severity"] != "none":
+            safety_filter.log_safety_event(db, user_id, safety_result, message_id=user_msg.id)
+
+        # Score how engaged this message is and credit the choices in the bot's last reply
+        self._record_engagement(user_id, user_message, db)
 
         # 3. Get personality (needed early for tracking)
         personality = (
@@ -181,27 +248,46 @@ class ConversationManager:
             user_id, personality, user_message, db
         )
 
+        # Resolve pronouns to earlier people and things ("she" -> "my best friend Maya")
+        # for the rule-based analysis; the stored message and the LLM prompt keep the original
+        analysis_message = self._resolve_references(user_message, user_id)
+
         # 5. Extract and store memories
-        memory_manager.extract_and_store_memories(user_message, user_id, db)
+        memory_manager.extract_and_store_memories(analysis_message, user_id, db)
 
         # 6. Build context
-        context = self._build_context(user_message, user_id, personality, db)
+        context = self._build_context(analysis_message, user_id, personality, db)
 
         # 7. Generate response
-        # Try to ensure model is loaded (lazy loading)
+        # Use the LLM when enabled and loadable (lazy loading); otherwise the rule-based engine.
+        # The child's words are only echoed back when the safety filter found nothing.
+        allow_reflection = safety_result["severity"] == "none"
+        reply_features: Dict[str, str] = {}
         try:
-            if llm_service.ensure_loaded(timeout=60.0):
-                prompt = self._build_prompt(context, user_message, personality)
+            if settings.USE_LLM and llm_service.ensure_loaded(timeout=60.0):
+                reply_plan = self._plan_llm_reply(context, personality, db)
+                prompt = self._build_prompt(context, user_message, personality, reply_plan)
                 raw_response = llm_service.generate(prompt, max_tokens=300, temperature=0.7)
+                reply_features.update(self._observed_llm_features(raw_response, context, reply_plan))
             else:
-                logger.warning("LLM model not available, using fallback response")
-                raw_response = self._fallback_response(context)
+                if settings.USE_LLM:
+                    logger.warning("LLM model not available, using rule-based responses")
+                raw_response = self._rule_based_response(
+                    analysis_message, context, personality, allow_reflection, db, reply_features
+                )
         except Exception as e:
             logger.error(f"Error loading/generating from LLM: {e}")
-            raw_response = self._fallback_response(context)
+            reply_features.clear()
+            raw_response = self._rule_based_response(
+                analysis_message, context, personality, allow_reflection, db, reply_features
+            )
 
         # 8. Apply personality to response
-        final_response = self._apply_personality_filter(raw_response, personality, user_message)
+        final_response = self._apply_personality_filter(
+            raw_response, personality, user_message, features=reply_features,
+            # A requested joke or fact does not get another one added
+            allow_jokes=not response_engine.rule_flag(reply_features.get("rule"), "no_jokes"),
+        )
 
         # 9. Safety check on response (optional)
         response_safety = safety_filter.check_message(final_response)
@@ -209,6 +295,16 @@ class ConversationManager:
             final_response = (
                 "Hmm, I'm not sure how to respond to that. Want to talk about something else?"
             )
+            reply_features.clear()
+
+        # Remember this reply's choices; the child's next message will be scored against them
+        engagement_tracker.set_pending(user_id, final_response, reply_features, user_message)
+
+        # Let the child refer to what the bot just said ("That's so cool!")
+        try:
+            response_engine.record_bot_reply(user_id, raw_response, reply_features.get("humor"))
+        except Exception as e:
+            logger.error(f"Error recording bot reply for references: {e}", exc_info=True)
 
         # 10. Store assistant response
         self._store_message(conversation_id, "assistant", final_response, db)
@@ -242,6 +338,13 @@ class ConversationManager:
         if not conversation:
             logger.warning(f"Conversation {conversation_id} not found")
             return
+
+        # The child left after the bot's last reply (unless they had said goodbye)
+        try:
+            engagement_tracker.record_conversation_end(conversation.user_id, db)
+        except Exception as e:
+            logger.error(f"Error recording engagement at conversation end: {e}", exc_info=True)
+            db.rollback()
 
         # Calculate duration
         if self.conversation_start_time:
@@ -422,8 +525,37 @@ class ConversationManager:
 
         return all_messages
 
+    def _plan_llm_reply(self, context: Dict, personality: BotPersonality, db: Session) -> Dict[str, bool]:
+        """
+        Decide the optional parts of an LLM reply the same way the rule-based engine does:
+        from the personality at first, then from what this child engages with
+        """
+        policy = engagement_tracker.policy(personality.user_id, db)
+        plan = {"follow_up": policy.decide("follow_up", personality.curiosity)}
+        if personality.friendship_level >= 3 and context.get("relevant_memories"):
+            plan["callback"] = policy.decide("callback", 0.35)
+        return plan
+
+    @staticmethod
+    def _observed_llm_features(reply: str, context: Dict, plan: Dict[str, bool]) -> Dict[str, str]:
+        """
+        What the LLM reply actually did, for engagement learning. The model may not follow
+        the plan's instructions, so the reply itself is checked.
+        """
+        features = {"rule": "llm", "follow_up": "yes" if reply.rstrip().endswith("?") else "no"}
+        if "callback" in plan:
+            reply_lower = reply.lower()
+            mentioned = any(str(getattr(m, "value", "")).lower() in reply_lower
+                            for m in context.get("relevant_memories", []) if getattr(m, "value", None))
+            features["callback"] = "yes" if mentioned else "no"
+        return features
+
     def _build_prompt(
-        self, context: Dict, user_message: str, personality: BotPersonality
+        self,
+        context: Dict,
+        user_message: str,
+        personality: BotPersonality,
+        reply_plan: Optional[Dict[str, bool]] = None,
     ) -> str:
         """Build LLM prompt with personality and context"""
         # Get user info
@@ -478,6 +610,13 @@ INSTRUCTIONS:
 - Never pretend to be human - you're an AI friend
 - Encourage healthy behaviors and real friendships
 """
+        # Choices learned from what this child engages with
+        reply_plan = reply_plan or {}
+        if "follow_up" in reply_plan:
+            system += ("- End with one short question about what they said\n" if reply_plan["follow_up"]
+                       else "- Do not ask a question this time; just respond warmly\n")
+        if reply_plan.get("callback"):
+            system += "- Briefly mention one thing you remember about them\n"
 
         # Build conversation history
         history = ""
@@ -491,34 +630,46 @@ INSTRUCTIONS:
         return prompt
 
     def _apply_personality_filter(
-        self, response: str, personality: BotPersonality, context: str = ""
+        self,
+        response: str,
+        personality: BotPersonality,
+        context: str = "",
+        features: Optional[Dict[str, str]] = None,
+        allow_jokes: bool = True,
     ) -> str:
-        """Apply personality quirks to response"""
-        import random
+        """
+        Apply personality quirks to response
 
+        Facts, puns and the catchphrase go before a closing question, so the reply still
+        ends with what the bot asked ("That's awesome! <pun> What was the best part?").
+        A reply gets at most one fact or pun.
+
+        If features is given, records whether a fun fact or pun was added ("humor" =
+        "fact", "pun" or "none") so the child's reaction can be credited to it.
+        """
         quirks = personality.get_quirks()
+        response, closing_question = self._split_closing_question(response)
+        # Higher humor means more puns and facts (0.5x at humor 0.0, 1.5x at humor 1.0)
+        humor = getattr(personality, "humor", 0.5)
+        humor_scale = 0.5 + humor if isinstance(humor, (int, float)) else 1.0
+        humor_added = None
 
-        # Apply shares_facts quirk
-        if "shares_facts" in quirks:
-            # Probability increases slightly with friendship level
-            base_probability = 0.20
-            level_bonus = (personality.friendship_level - 1) * 0.02
-            probability = min(0.35, base_probability + level_bonus)
+        # A reply that is only a question gets no fact or pun in front of it
+        joke_allowed = bool(response) and allow_jokes
 
-            response = fact_quirk_service.add_fact(
-                response, context=context, probability=probability
-            )
+        # At most one fact or pun per reply (shares_facts / tells_puns quirks)
+        joke = self._choose_joke(quirks, personality, humor_scale) if joke_allowed else None
+        if joke == "fact":
+            response = fact_quirk_service.add_fact(response, context=context, probability=1.0)
+            humor_added = "fact"
+        elif joke == "pun":
+            response = pun_quirk_service.add_pun(response, context=context, probability=1.0)
+            humor_added = "pun"
 
-        # Apply tells_puns quirk
-        if "tells_puns" in quirks:
-            # Probability increases slightly with friendship level
-            base_probability = 0.25
-            level_bonus = (personality.friendship_level - 1) * 0.02
-            probability = min(0.40, base_probability + level_bonus)
+        if features is not None and joke_allowed and ("shares_facts" in quirks or "tells_puns" in quirks):
+            features["humor"] = humor_added or "none"
 
-            response = pun_quirk_service.add_pun(
-                response, context=context, probability=probability
-            )
+        response = f"{response} {closing_question}".strip() if closing_question else response
 
         # Apply uses_emojis quirk with enhanced emoji service
         if "uses_emojis" in quirks:
@@ -532,15 +683,58 @@ INSTRUCTIONS:
                 response, mood=personality.mood, intensity=intensity
             )
 
-        # Add catchphrase occasionally (if feature unlocked)
+        # Add catchphrase occasionally (if feature unlocked), before any closing question
         if (
             can_use_catchphrase(personality)
             and personality.catchphrase
             and random.random() < 0.1
         ):
-            response += f" {personality.catchphrase}"
+            body, closing_question = self._split_closing_question(response)
+            response = " ".join(p for p in (body, personality.catchphrase, closing_question) if p)
 
-        return response
+        return re.sub(r" {2,}", " ", response)
+
+    @staticmethod
+    def _choose_joke(quirks: List[str], personality: BotPersonality, humor_scale: float) -> Optional[str]:
+        """
+        Whether this reply gets a fun fact or a pun (never both). Each quirk has its own
+        chance (rising with friendship level and humor); one roll uses their combined chance,
+        capped at MAX_JOKE_PROBABILITY, then picks which one in proportion to the chances.
+        """
+        level_bonus = (personality.friendship_level - 1) * 0.02
+        chances = {}
+        if "shares_facts" in quirks:
+            chances["fact"] = min(0.35, 0.20 + level_bonus) * humor_scale
+        if "tells_puns" in quirks:
+            chances["pun"] = min(0.40, 0.25 + level_bonus) * humor_scale
+        if not chances:
+            return None
+
+        none_chance = 1.0
+        for chance in chances.values():
+            none_chance *= 1.0 - min(chance, 1.0)
+        if random.random() >= min(1.0 - none_chance, MAX_JOKE_PROBABILITY):
+            return None
+        return random.choices(list(chances), weights=list(chances.values()))[0]
+
+    @staticmethod
+    def _split_closing_question(text: str) -> Tuple[str, str]:
+        """
+        Split a reply into (body, closing question). The closing question is the run of
+        sentences at the end that are questions; emoji-only fragments stay with the
+        sentence before them. ("Cool! What's yours? 😄" -> ("Cool!", "What's yours? 😄"))
+        """
+        sentences = []
+        for part in re.split(r"(?<=[.!?])\s+", text.strip()):
+            if sentences and not re.search(r"\w", part):
+                sentences[-1] = f"{sentences[-1]} {part}"
+            elif part:
+                sentences.append(part)
+
+        split = len(sentences)
+        while split > 0 and re.search(r"\?\W*$", sentences[split - 1]):
+            split -= 1
+        return " ".join(sentences[:split]), " ".join(sentences[split:])
 
     def _fallback_response(self, context: Dict) -> str:
         """Generate fallback response when LLM is not available"""
@@ -650,8 +844,64 @@ INSTRUCTIONS:
         db.refresh(message)
         return message
 
+    def _resolve_references(self, user_message: str, user_id: int) -> str:
+        """Resolve pronouns with the rule-based engine's reference tracker, if available"""
+        try:
+            return response_engine.resolve_references(user_message, user_id)
+        except Exception as e:
+            logger.error(f"Error resolving references: {e}", exc_info=True)
+            return user_message
+
+    def _record_engagement(self, user_id: int, user_message: str, db: Session) -> None:
+        """Score the child's message against the bot's previous reply (never blocks a reply)"""
+        try:
+            engagement_tracker.record_response(user_id, user_message, db)
+        except Exception as e:
+            logger.error(f"Error recording engagement: {e}", exc_info=True)
+            db.rollback()
+
+    def _rule_based_response(
+        self,
+        user_message: str,
+        context: Dict,
+        personality: Optional[BotPersonality],
+        allow_reflection: bool,
+        db: Optional[Session] = None,
+        features: Optional[Dict[str, str]] = None,
+    ) -> str:
+        """
+        Generate a reply with the rule-based response engine, or a canned fallback.
+        The engine's choices are steered by the child's engagement history and recorded in
+        features.
+        """
+        try:
+            if personality is not None and response_engine.is_available():
+                user = getattr(personality, "user", None)
+                response = response_engine.generate_response(
+                    user_message,
+                    personality,
+                    context,
+                    user_name=getattr(user, "name", None),
+                    allow_reflection=allow_reflection,
+                    policy=engagement_tracker.policy(personality.user_id, db),
+                    features=features,
+                )
+                if response:
+                    return response
+        except Exception as e:
+            logger.error(f"Error generating rule-based response: {e}", exc_info=True)
+        return self._fallback_response(context)
+
     def _detect_user_mood(self, message: str) -> str:
-        """Simple mood detection"""
+        """Detect mood from sentence structure if available, otherwise from keywords"""
+        if response_engine.is_available():
+            try:
+                mood = response_engine.detect_mood(message)
+                if mood:
+                    return mood
+            except Exception as e:
+                logger.error(f"Error detecting mood from parse: {e}")
+
         message_lower = message.lower()
 
         if any(word in message_lower for word in ["sad", "upset", "crying", "depressed"]):

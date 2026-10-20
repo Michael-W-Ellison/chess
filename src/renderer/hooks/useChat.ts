@@ -53,6 +53,12 @@ export function useChat(): UseChatState {
   // Ref to track if conversation is active
   const isConversationActiveRef = useRef(false);
 
+  // Current conversation ID, readable from unmount/unload handlers registered on mount
+  const conversationIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+  }, [conversationId]);
+
   /**
    * Start a new conversation
    */
@@ -195,11 +201,21 @@ export function useChat(): UseChatState {
   useEffect(() => {
     startConversation();
 
+    // End the conversation when the window closes (React does not unmount on window close),
+    // so the backend runs its end-of-conversation updates (traits, drift, summary)
+    const endActiveConversation = () => {
+      const activeId = conversationIdRef.current;
+      if (isConversationActiveRef.current && activeId) {
+        isConversationActiveRef.current = false;
+        api.conversation.endOnUnload(activeId);
+      }
+    };
+    window.addEventListener('beforeunload', endActiveConversation);
+
     // Cleanup: end conversation on unmount
     return () => {
-      if (isConversationActiveRef.current && conversationId) {
-        api.conversation.end(conversationId).catch(console.error);
-      }
+      window.removeEventListener('beforeunload', endActiveConversation);
+      endActiveConversation();
     };
   }, []); // Only run on mount/unmount
 

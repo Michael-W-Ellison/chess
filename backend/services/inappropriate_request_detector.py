@@ -89,6 +89,11 @@ class InappropriateRequestDetector:
             r"\bhow to cheat.{0,10}(test|exam|homework|assignment)\b",
             r"\bways to cheat\b",
             r"\bcheat (without|at)\b",
+            r"\bhow (can|do|could|should|would) (i|we|you) cheat\b",
+            r"\bcheat on (my |a |the |this )?(test|exam|quiz|homework|assignment)\b",
+
+            # Evading consequences
+            r"\bwithout (getting|being) caught\b",
         ]
 
         # MANIPULATION patterns (MEDIUM severity)

@@ -1,6 +1,6 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
 import { backendManager } from './backend-manager';
-import { store, getStoreValue, setStoreValue, deleteStoreValue, resetStore, getAllStoreData, getStorePath, hasStoreKey } from './store';
+import { store, getAllStoreData, getStorePath, StoreSchema } from './store';
 
 /**
  * IPC Handlers - Handle all communication from renderer to main process
@@ -49,7 +49,7 @@ export function setupIpcHandlers(): void {
  * Get backend status
  */
 async function handleBackendStatus(
-  event: IpcMainInvokeEvent
+  _event: IpcMainInvokeEvent
 ): Promise<any> {
   try {
     const status = backendManager.getStatus();
@@ -70,7 +70,7 @@ async function handleBackendStatus(
  * Check backend health
  */
 async function handleBackendHealth(
-  event: IpcMainInvokeEvent
+  _event: IpcMainInvokeEvent
 ): Promise<any> {
   try {
     if (!backendManager.isBackendRunning()) {
@@ -102,7 +102,7 @@ async function handleBackendHealth(
  * Start a new conversation session
  */
 async function handleStartConversation(
-  event: IpcMainInvokeEvent
+  _event: IpcMainInvokeEvent
 ): Promise<any> {
   try {
     console.log('IPC: Starting conversation...');
@@ -130,7 +130,7 @@ async function handleStartConversation(
  * Send a message and get bot response
  */
 async function handleSendMessage(
-  event: IpcMainInvokeEvent,
+  _event: IpcMainInvokeEvent,
   conversationId: number,
   message: string
 ): Promise<any> {
@@ -164,7 +164,7 @@ async function handleSendMessage(
  * End current conversation
  */
 async function handleEndConversation(
-  event: IpcMainInvokeEvent,
+  _event: IpcMainInvokeEvent,
   conversationId: number
 ): Promise<any> {
   try {
@@ -192,7 +192,7 @@ async function handleEndConversation(
  * Get current personality state
  */
 async function handleGetPersonality(
-  event: IpcMainInvokeEvent
+  _event: IpcMainInvokeEvent
 ): Promise<any> {
   try {
     console.log('IPC: Getting personality...');
@@ -220,7 +220,7 @@ async function handleGetPersonality(
  * Get user profile data
  */
 async function handleGetProfile(
-  event: IpcMainInvokeEvent
+  _event: IpcMainInvokeEvent
 ): Promise<any> {
   try {
     console.log('IPC: Getting profile...');
@@ -248,8 +248,8 @@ async function handleGetProfile(
  * Get parent dashboard data (password protected)
  */
 async function handleGetParentDashboard(
-  event: IpcMainInvokeEvent,
-  password: string
+  _event: IpcMainInvokeEvent,
+  _password: string
 ): Promise<any> {
   try {
     console.log('IPC: Getting parent dashboard...');
@@ -287,8 +287,8 @@ async function handleGetParentDashboard(
  * Update application settings
  */
 async function handleUpdateSettings(
-  event: IpcMainInvokeEvent,
-  settings: any
+  _event: IpcMainInvokeEvent,
+  _settings: any
 ): Promise<any> {
   try {
     console.log('IPC: Updating settings...');
@@ -312,7 +312,7 @@ async function handleUpdateSettings(
  * Export memory book as PDF/text
  */
 async function handleExportMemoryBook(
-  event: IpcMainInvokeEvent
+  _event: IpcMainInvokeEvent
 ): Promise<any> {
   try {
     console.log('IPC: Exporting memory book...');
@@ -338,7 +338,7 @@ async function handleExportMemoryBook(
  * Electron Store: Get value
  */
 async function handleStoreGet(
-  event: IpcMainInvokeEvent,
+  _event: IpcMainInvokeEvent,
   key: string,
   defaultValue?: any
 ): Promise<any> {
@@ -361,7 +361,7 @@ async function handleStoreGet(
  * Electron Store: Set value
  */
 async function handleStoreSet(
-  event: IpcMainInvokeEvent,
+  _event: IpcMainInvokeEvent,
   key: string,
   value: any
 ): Promise<any> {
@@ -383,11 +383,12 @@ async function handleStoreSet(
  * Electron Store: Delete value
  */
 async function handleStoreDelete(
-  event: IpcMainInvokeEvent,
+  _event: IpcMainInvokeEvent,
   key: string
 ): Promise<any> {
   try {
-    store.delete(key);
+    // electron-store also accepts dot-notation paths at runtime
+    store.delete(key as keyof StoreSchema);
     return {
       success: true,
     };
@@ -404,7 +405,7 @@ async function handleStoreDelete(
  * Electron Store: Clear all data
  */
 async function handleStoreClear(
-  event: IpcMainInvokeEvent
+  _event: IpcMainInvokeEvent
 ): Promise<any> {
   try {
     store.clear();
@@ -424,7 +425,7 @@ async function handleStoreClear(
  * Electron Store: Check if key exists
  */
 async function handleStoreHas(
-  event: IpcMainInvokeEvent,
+  _event: IpcMainInvokeEvent,
   key: string
 ): Promise<any> {
   try {
@@ -446,7 +447,7 @@ async function handleStoreHas(
  * Electron Store: Get all data
  */
 async function handleStoreGetAll(
-  event: IpcMainInvokeEvent
+  _event: IpcMainInvokeEvent
 ): Promise<any> {
   try {
     const allData = getAllStoreData();
@@ -467,7 +468,7 @@ async function handleStoreGetAll(
  * Electron Store: Get store file path
  */
 async function handleStoreGetPath(
-  event: IpcMainInvokeEvent
+  _event: IpcMainInvokeEvent
 ): Promise<any> {
   try {
     const path = getStorePath();

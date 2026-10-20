@@ -52,8 +52,9 @@ htmlcov/
 *.sqlite
 *.sqlite3
 
-# LLM Models (large files)
-models/
+# LLM Models (large files). Weights are matched by extension; the backend's Python
+# models package (backend/models/) must not be ignored.
+/models/
 *.gguf
 *.bin
 

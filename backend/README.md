@@ -200,6 +200,41 @@ See `.env.example` for all configuration options:
 - **Email:** SMTP settings for parent notifications
 - **Features:** Enable/disable optional features
 
+## Running Without an LLM
+
+When no model is loaded, or `USE_LLM=false` is set, the backend uses a rule-based
+response engine instead of the LLM:
+
+- `services/utterance_parser.py` parses each message into a dependency tree with spaCy
+  (`en_core_web_sm`, installed from `requirements.txt`).
+- `knowledge/conversation_rules.json` holds structural rules (spaCy `DependencyMatcher`
+  patterns), word lists, memory writes and response templates. Rules can be added or
+  changed there without code changes.
+- `services/response_engine.py` matches the rules, binds tree nodes to slots, stores what
+  it learns (favorites, dislikes, people, goals, achievements, name, age), detects mood,
+  and composes replies shaped by the bot's personality traits and friendship level.
+- `services/reference_tracker.py` remembers the people, things and events mentioned in the
+  last few turns, including what the bot itself said, and replaces pronouns before analysis
+  ("She yelled at me" after "My teacher gave us a test" is analyzed as "My teacher yelled at
+  me"; "That was fun" after "We went swimming" as "Going swimming was fun"; "That's so cool"
+  after a fun fact as "Your fun fact is so cool"). When "she"/"he" could mean two people
+  mentioned together, the bot asks which one instead of guessing. The stored message and any
+  LLM prompt keep the child's original wording; references reset with each new conversation.
+- `services/engagement_tracker.py` scores each of the child's messages for engagement
+  (length, answering the bot's question, staying on topic, asking back, sharing feelings;
+  brush-offs like "ok"/"idk" score near zero; replies after 2+ minutes count for less, and
+  after 15 minutes, or a conversation ending without a goodbye, count as the child leaving)
+  and credits the score to the choices in the bot's previous reply: follow-up question or
+  not, mentioning an old memory or not, template variant, pun/fact or not. With the LLM, the
+  follow-up and memory choices are given to the model as instructions and credited by what
+  the reply actually did. Per-child totals are stored in the `engagement_stats` table. Once
+  a choice has enough data, the engine makes it with Thompson sampling, favoring what this
+  child engages with; at conversation end, clear preferences nudge the curiosity and humor
+  traits (within the usual drift limits). Parents can see the totals at
+  `GET /api/parent/engagement?user_id=...`.
+
+If spaCy is not installed, the backend falls back to keyword extraction and fixed replies.
+
 ## Development
 
 ### Code Formatting

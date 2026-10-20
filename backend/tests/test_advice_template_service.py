@@ -4,7 +4,7 @@ Comprehensive test coverage for template retrieval and selection
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, patch
 import json
 
 from services.advice_template_service import (
@@ -51,7 +51,7 @@ class TestGetAdviceTemplate:
         mock_template.usage_count = 5
 
         # Mock AdviceTemplate.get_by_category
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = [mock_template]
 
             template = self.service.get_advice_template(
@@ -67,7 +67,7 @@ class TestGetAdviceTemplate:
     def test_get_advice_template_no_results(self):
         """Test getting template when no templates found"""
         # Mock empty result
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = []
 
             template = self.service.get_advice_template(
@@ -83,7 +83,7 @@ class TestGetAdviceTemplate:
         mock_template = Mock(spec=AdviceTemplate)
         mock_template.expert_reviewed = True
 
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = [mock_template]
 
             template = self.service.get_advice_template(
@@ -199,7 +199,7 @@ class TestGetFormattedAdvice:
 
     def test_get_formatted_advice_basic(self):
         """Test getting formatted advice"""
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = [self.mock_template]
 
             advice = self.service.get_formatted_advice(
@@ -218,7 +218,7 @@ class TestGetFormattedAdvice:
 
     def test_get_formatted_advice_with_extra_kwargs(self):
         """Test formatted advice with additional formatting variables"""
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = [self.mock_template]
 
             advice = self.service.get_formatted_advice(
@@ -238,7 +238,7 @@ class TestGetFormattedAdvice:
 
     def test_get_formatted_advice_no_template(self):
         """Test formatted advice when no template found"""
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = []
 
             advice = self.service.get_formatted_advice(
@@ -268,7 +268,7 @@ class TestGetMultipleAdviceOptions:
 
     def test_get_multiple_options(self):
         """Test getting multiple template options"""
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = self.templates
 
             options = self.service.get_multiple_advice_options(
@@ -283,7 +283,7 @@ class TestGetMultipleAdviceOptions:
 
     def test_get_multiple_options_fewer_than_limit(self):
         """Test getting options when fewer templates than limit"""
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = self.templates[:2]  # Only 2 templates
 
             options = self.service.get_multiple_advice_options(
@@ -297,7 +297,7 @@ class TestGetMultipleAdviceOptions:
 
     def test_get_multiple_options_prefers_expert_reviewed(self):
         """Test that multiple options prefer expert reviewed templates"""
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = self.templates
 
             options = self.service.get_multiple_advice_options(
@@ -337,7 +337,7 @@ class TestGetAdviceForContext:
             "confidence": 0.85
         }
 
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = [self.mock_template]
 
             advice = self.service.get_advice_for_context(
@@ -390,7 +390,7 @@ class TestGetAdviceForContext:
             "confidence": 0.9
         }
 
-        with pytest.mock.patch.object(self.service, 'get_formatted_advice') as mock_formatted:
+        with patch.object(self.service, 'get_formatted_advice') as mock_formatted:
             mock_formatted.return_value = "Advice"
 
             self.service.get_advice_for_context(
@@ -471,7 +471,7 @@ class TestServiceStatistics:
         mock_template = Mock(spec=AdviceTemplate)
         mock_template.expert_reviewed = True
 
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = [mock_template, mock_template]  # 2 templates
 
             service.get_advice_template(
@@ -496,7 +496,7 @@ class TestConvenienceFunctions:
 
     def test_get_advice_template_function(self):
         """Test get_advice_template convenience function"""
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = [self.mock_template]
 
             template = get_advice_template(
@@ -509,7 +509,7 @@ class TestConvenienceFunctions:
 
     def test_get_formatted_advice_function(self):
         """Test get_formatted_advice convenience function"""
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = [self.mock_template]
 
             advice = get_formatted_advice(
@@ -532,7 +532,7 @@ class TestConvenienceFunctions:
             "confidence": 0.8
         }
 
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = [self.mock_template]
 
             advice = get_advice_for_context(
@@ -560,7 +560,7 @@ class TestEdgeCases:
 
     def test_get_advice_with_very_low_friendship_level(self):
         """Test getting advice with friendship level 1"""
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = []
 
             template = self.service.get_advice_template(
@@ -577,7 +577,7 @@ class TestEdgeCases:
         mock_template = Mock(spec=AdviceTemplate)
         mock_template.expert_reviewed = True
 
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = [mock_template]
 
             template = self.service.get_advice_template(
@@ -590,7 +590,7 @@ class TestEdgeCases:
 
     def test_get_advice_with_unknown_category(self):
         """Test getting advice with unknown category"""
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = []
 
             template = self.service.get_advice_template(
@@ -607,7 +607,7 @@ class TestEdgeCases:
         mock_template.expert_reviewed = True
         mock_template.tone = "supportive"
 
-        with pytest.mock.patch.object(AdviceTemplate, 'get_by_category') as mock_get:
+        with patch.object(AdviceTemplate, 'get_by_category') as mock_get:
             mock_get.return_value = [mock_template]
 
             template = self.service.get_advice_template(
@@ -641,7 +641,7 @@ class TestMoodToToneMapping:
             "confidence": 0.9
         }
 
-        with pytest.mock.patch.object(self.service, 'get_formatted_advice') as mock_formatted:
+        with patch.object(self.service, 'get_formatted_advice') as mock_formatted:
             mock_formatted.return_value = "Advice"
 
             self.service.get_advice_for_context(
@@ -666,7 +666,7 @@ class TestMoodToToneMapping:
             "confidence": 0.9
         }
 
-        with pytest.mock.patch.object(self.service, 'get_formatted_advice') as mock_formatted:
+        with patch.object(self.service, 'get_formatted_advice') as mock_formatted:
             mock_formatted.return_value = "Advice"
 
             self.service.get_advice_for_context(
@@ -691,7 +691,7 @@ class TestMoodToToneMapping:
             "confidence": 0.9
         }
 
-        with pytest.mock.patch.object(self.service, 'get_formatted_advice') as mock_formatted:
+        with patch.object(self.service, 'get_formatted_advice') as mock_formatted:
             mock_formatted.return_value = "Advice"
 
             self.service.get_advice_for_context(

@@ -396,6 +396,7 @@ class TestStatistics:
         mock_filter.order_by.return_value = mock_order
         mock_order.all.return_value = []
         mock_order.limit.return_value = mock_limit
+        mock_limit.offset.return_value = mock_limit
         mock_limit.all.return_value = []
         mock_filter.count.return_value = 0
 

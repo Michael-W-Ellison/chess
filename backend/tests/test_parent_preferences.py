@@ -17,12 +17,6 @@ from services.parent_preferences_service import (
 
 
 @pytest.fixture
-def client():
-    """Create test client"""
-    return TestClient(app)
-
-
-@pytest.fixture
 def mock_db():
     """Create mock database session"""
     return Mock()
@@ -34,6 +28,7 @@ def mock_preferences():
     prefs = Mock(spec=ParentNotificationPreferences)
     prefs.id = 1
     prefs.user_id = 1
+    prefs.email = "parent@example.com"
     prefs.email_notifications_enabled = True
     prefs.instant_notification_min_severity = "high"
     prefs.notify_on_critical = True

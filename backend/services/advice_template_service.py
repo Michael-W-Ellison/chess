@@ -157,7 +157,8 @@ class AdviceTemplateService:
                 additional_context=format_kwargs
             )
         else:
-            # Fall back to basic formatting
+            # Fall back to basic formatting; templates use {name} for the user's name
+            format_kwargs.setdefault("name", format_kwargs.pop("user_name", None) or "friend")
             formatted = template.format_advice(**format_kwargs)
 
         # Increment usage count
@@ -244,9 +245,10 @@ class AdviceTemplateService:
             subcategory=subcategory
         )
 
-        # Additional tone filtering if specified
+        # Additional tone filtering if specified; keep all templates if none match the tone
         if tone:
-            templates = [t for t in templates if t.tone == tone or t.tone is None]
+            tone_matches = [t for t in templates if t.tone == tone or t.tone is None]
+            templates = tone_matches or templates
 
         return templates
 
@@ -325,7 +327,8 @@ class AdviceTemplateService:
         user_id: Optional[int] = None,
         user_message: Optional[str] = None,
         user_age: Optional[int] = None,
-        detected_mood: Optional[str] = None
+        detected_mood: Optional[str] = None,
+        user_name: Optional[str] = None
     ) -> Optional[str]:
         """
         Get advice based on full conversation context with personalization
@@ -338,6 +341,7 @@ class AdviceTemplateService:
             user_message: User's original message for context extraction
             user_age: User's age
             detected_mood: Detected user mood
+            user_name: User's name, used when no user_id is available for personalization
 
         Returns:
             Formatted and personalized advice string or None
@@ -372,7 +376,8 @@ class AdviceTemplateService:
             detected_mood=detected_mood,
             age=user_age,
             tone=preferred_tone,
-            strategy="tone_match"
+            strategy="tone_match",
+            **({"user_name": user_name} if user_name else {})
         )
 
         return advice
@@ -438,11 +443,13 @@ def get_advice_for_context(
     user_id: Optional[int] = None,
     user_message: Optional[str] = None,
     user_age: Optional[int] = None,
-    detected_mood: Optional[str] = None
+    detected_mood: Optional[str] = None,
+    user_name: Optional[str] = None
 ) -> Optional[str]:
     """Get advice for full context with personalization"""
     return advice_template_service.get_advice_for_context(
-        db, advice_detection, personality, user_id, user_message, user_age, detected_mood
+        db, advice_detection, personality, user_id, user_message, user_age, detected_mood,
+        user_name
     )
 
 

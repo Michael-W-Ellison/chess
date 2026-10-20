@@ -78,9 +78,9 @@ class TestMoodBasedEmojis:
         text = "That's great!"
         result = service.apply_emojis(text, mood="happy", intensity=1.0)
 
-        # Check that an emoji is present (unicode characters)
-        emoji_pattern = re.compile(r'[\U0001F600-\U0001F64F]')  # Emoticons
-        assert emoji_pattern.search(result) or '✨' in result or '🌟' in result
+        # The emoji comes from the "great" keyword set or the happy mood set
+        allowed = service.CONTEXT_EMOJIS["great"] + service.MOOD_EMOJIS["happy"]
+        assert any(result == f"{text} {emoji}" for emoji in allowed)
 
     def test_excited_mood_emojis(self):
         """Test emojis for excited mood"""
@@ -294,3 +294,48 @@ class TestServiceMethods:
         # Should split into sentences
         assert len(sentences) >= 1
         assert any("Hello" in s for s in sentences)
+
+
+class TestEmojiChoiceAndPlacement:
+    """Emojis follow the words, go after punctuation, and are limited per reply"""
+
+    def test_emoji_goes_after_punctuation(self):
+        result = EmojiQuirkService().apply_emojis("Want to play a game?", mood="happy", intensity=1.0)
+        assert result.startswith("Want to play a game? ")
+
+    def test_keywords_match_whole_words_only(self):
+        service = EmojiQuirkService()
+        assert service._context_matches("That part was smart") == []
+        assert service._context_matches("I like games") == service.CONTEXT_EMOJIS["game"]
+        assert set(service.CONTEXT_EMOJIS["play"]) <= set(service._context_matches("We were playing outside"))
+
+    @pytest.mark.parametrize("text", [
+        "I'm sorry you're feeling sad.", "That sounds really hard.", "Oh no, your dog is sick.",
+    ])
+    def test_sad_sentences_get_a_caring_emoji(self, text):
+        service = EmojiQuirkService()
+        for _ in range(10):
+            result = service.apply_emojis(text, mood="happy", intensity=1.0)
+            assert result.split()[-1] in service.COMFORT_EMOJIS
+
+    def test_at_most_one_emoji_at_lower_intensity(self):
+        service = EmojiQuirkService()
+        text = "I love this game. It is so much fun. Let's play again. Music is great."
+        for _ in range(20):
+            added = len(service.apply_emojis(text, intensity=0.5).split()) - len(text.split())
+            assert added <= 1
+
+    def test_at_most_two_emojis_at_higher_intensity(self):
+        service = EmojiQuirkService()
+        text = "I love this game. It is so much fun. Let's play again. Music is great."
+        added = len(service.apply_emojis(text, intensity=1.0).split()) - len(text.split())
+        assert added == 2
+
+    def test_keyword_sentence_is_preferred(self):
+        service = EmojiQuirkService()
+        result = service.apply_emojis("Nice to see you. Let's play a game. See you soon.", intensity=1.0)
+        assert any(f"game. {emoji}" in result for emoji in service.CONTEXT_EMOJIS["game"] + service.CONTEXT_EMOJIS["play"])
+
+    def test_no_double_spaces(self):
+        result = EmojiQuirkService().apply_emojis("Hi there.  How are you?   Great!", intensity=1.0)
+        assert "  " not in result

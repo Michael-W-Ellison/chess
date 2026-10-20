@@ -100,12 +100,20 @@ class CrisisKeywordList:
             # Burning
             "burn myself",
             "burning myself",
+            "burned myself",
+            "burnt myself",
 
             # Hitting
             "hit myself",
             "hitting myself",
             "punch myself",
             "punching myself",
+            "punched myself",
+
+            # Past tense of general self-harm
+            "cutting my arm",
+            "harmed myself",
+            "injured myself",
 
             # Specific self-harm methods
             "self harm",
@@ -145,6 +153,17 @@ class CrisisKeywordList:
             "kick me",
             "kicks me",
             "kicking me",
+            "kicked me",
+
+            # Past tense of hitting/striking
+            "beat me up",
+            "punched me",
+            "slapped me",
+            "smacked me",
+            "choked me",
+            "strangled me",
+            "pushed me",
+            "shoved me",
 
             # Throwing
             "throw me",
@@ -221,6 +240,8 @@ class CrisisKeywordList:
             "controls everything",
             "won't let me see",
             "isolates me",
+            "isolate me",
+            "isolated me",
 
             # Deprivation
             "won't let me eat",
@@ -230,6 +251,7 @@ class CrisisKeywordList:
             "starves me",
             "starving me",
             "locks me in my room",
+            "lock me in my room",
 
             # Verbal abuse
             "calls me names",
@@ -288,7 +310,22 @@ class CrisisKeywordList:
             "tells me not to tell",
             "said don't tell anyone",
             "says dont tell anyone",
+            "says don't tell anyone",
+            "said dont tell anyone",
+            "told me not to tell anyone",
+            "tells me not to tell anyone",
+            "said not to tell anyone",
+            "says not to tell anyone",
+            "our little secret",
         }
+
+        # Fear of a family member or caregiver (emotional abuse indicator)
+        for person in ("my dad", "my mom", "my father", "my mother", "my stepdad",
+                       "my stepmom", "my parents", "my brother", "my sister",
+                       "my uncle", "my aunt", "my grandpa", "my grandma",
+                       "my babysitter", "my coach", "my teacher"):
+            self.abuse_emotional_keywords.add(f"afraid of {person}")
+            self.abuse_emotional_keywords.add(f"scared of {person}")
 
         # Severity mapping - all crisis keywords are CRITICAL
         self.severity = "critical"
@@ -298,6 +335,15 @@ class CrisisKeywordList:
         # These are handled by context analysis, not simple exceptions
 
         logger.info("Crisis keyword list initialized with comprehensive categories")
+
+    @staticmethod
+    def _normalize(text: str) -> str:
+        """
+        Lowercase text, convert typographic apostrophes to ASCII, and collapse whitespace
+        so that keyword matching is not defeated by formatting differences
+        """
+        text = text.lower().replace("\u2019", "'").replace("\u2018", "'")
+        return " ".join(text.split())
 
     def contains_crisis_keywords(self, text: str) -> bool:
         """
@@ -309,7 +355,7 @@ class CrisisKeywordList:
         Returns:
             True if any crisis keyword is found
         """
-        text_lower = text.lower()
+        text_lower = self._normalize(text)
 
         # Check all categories
         return (
@@ -337,7 +383,7 @@ class CrisisKeywordList:
                 }
             ]
         """
-        text_lower = text.lower()
+        text_lower = self._normalize(text)
         found_keywords = []
 
         # Check suicide keywords
@@ -398,7 +444,7 @@ class CrisisKeywordList:
             Category name: 'suicide', 'self_harm', 'abuse_physical',
             'abuse_emotional', 'abuse_sexual', or 'none'
         """
-        text_lower = text.lower()
+        text_lower = self._normalize(text)
 
         # Priority order: suicide > self_harm > abuse (all are critical)
         # This determines which response to show if multiple categories present
@@ -425,7 +471,7 @@ class CrisisKeywordList:
         Returns:
             List of category names found
         """
-        text_lower = text.lower()
+        text_lower = self._normalize(text)
         categories = []
 
         if self._contains_any(text_lower, self.suicide_keywords):
