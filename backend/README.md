@@ -226,8 +226,12 @@ response engine instead of the LLM:
   LLM prompt keep the child's original wording; references reset with each new conversation.
 - `services/engagement_tracker.py` scores each of the child's messages for engagement
   (length, answering the bot's question, staying on topic, asking back, sharing feelings;
-  brush-offs like "ok"/"idk" score near zero; replies after 2+ minutes count for less, and
-  after 15 minutes, or a conversation ending without a goodbye, count as the child leaving)
+  brush-offs like "ok"/"idk" score near zero; slow replies count for less, and very late
+  replies, or a conversation ending without a goodbye, count as the child leaving). Slow
+  starts at 2 minutes and leaving at 15 (`ENGAGEMENT_SLOW_REPLY_SECONDS`,
+  `ENGAGEMENT_AWAY_SECONDS`); after 20 recorded reply delays (`reply_delays` table), slow is
+  the child's own 90th-percentile delay and leaving scales with it, never below the settings.
+  `GET /api/parent/engagement` reports each child's delays and thresholds (`reply_timing`)
   and credits the score to the choices in the bot's previous reply: follow-up question or
   not, mentioning an old memory or not, template variant, pun/fact or not. With the LLM, the
   follow-up and memory choices are given to the model as instructions and credited by what

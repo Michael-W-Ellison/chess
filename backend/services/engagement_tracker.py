@@ -14,9 +14,17 @@ personality (e.g. curiosity for follow-up questions), a value is sampled per opt
 the highest wins. Options that engage this child get chosen more often, while weaker
 ones are still tried now and then. Until an option has MIN_SAMPLES scores, the engine
 keeps its original personality-only behavior.
+
+Slow replies count for less, and after a long time the child is treated as having left.
+The thresholds start at the ENGAGEMENT_SLOW_REPLY_SECONDS / ENGAGEMENT_AWAY_SECONDS
+settings. Each child's reply delays are recorded (the last DELAY_HISTORY), and once there
+are DELAY_MIN_SAMPLES of them, a reply only counts as slow if it is slower than
+SLOW_PERCENTILE of the child's own replies, so a child who types slowly is not treated as
+less engaged. The settings stay the minimum.
 """
 
 import logging
+import math
 import random
 import re
 from dataclasses import dataclass, field
@@ -25,7 +33,8 @@ from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from models.engagement import EngagementStat
+from models.engagement import EngagementStat, ReplyDelay
+from utils.config import settings
 
 logger = logging.getLogger("chatbot.engagement_tracker")
 
@@ -33,9 +42,10 @@ MIN_SAMPLES = 5  # scores per option before learning overrides personality defau
 PRIOR_STRENGTH = 2.0  # how many "virtual" scores the personality prior is worth
 SIGNAL_MIN_SAMPLES = 8  # scores per option before engagement nudges personality traits
 LEFT_SCORE = 0.1  # the child left after the reply (conversation ended, or came back much later)
-SLOW_REPLY_SECONDS = 120  # replies slower than this count for less...
-AWAY_SECONDS = 15 * 60  # ...and after this long the child is treated as having left
-SLOWEST_REPLY_FACTOR = 0.6  # score factor for a reply that took just under AWAY_SECONDS
+SLOWEST_REPLY_FACTOR = 0.6  # score factor for a reply that took just under the away threshold
+DELAY_MIN_SAMPLES = 20  # reply delays before a child's own timing replaces the defaults
+DELAY_HISTORY = 200  # most recent reply delays kept per child
+SLOW_PERCENTILE = 0.9  # a reply slower than 90% of the child's own replies counts as slow
 SIGNAL_MIN_DIFFERENCE = 0.1  # mean score difference that counts as a clear preference
 
 _WORD_RE = re.compile(r"[a-z']+")
@@ -91,16 +101,52 @@ def score_engagement(reply_text: str, next_message: str) -> float:
     return round(min(score, 1.0), 3)
 
 
-def adjust_for_timing(score: float, seconds: Optional[float]) -> float:
+@dataclass
+class TimingThresholds:
+    """Seconds after which a reply counts as slow, and after which the child has left"""
+
+    slow: float
+    away: float
+    personalized: bool = False  # from the child's own reply delays rather than the settings
+
+
+def default_thresholds() -> TimingThresholds:
+    return TimingThresholds(slow=float(settings.ENGAGEMENT_SLOW_REPLY_SECONDS),
+                            away=float(settings.ENGAGEMENT_AWAY_SECONDS))
+
+
+def percentile(values: List[float], fraction: float) -> float:
+    """Nearest-rank percentile: the smallest value at least `fraction` of the values are at or below"""
+    ordered = sorted(values)
+    return ordered[max(0, math.ceil(fraction * len(ordered)) - 1)]
+
+
+def timing_thresholds(delays: List[float]) -> TimingThresholds:
     """
-    Lower the score for slow replies: unchanged up to SLOW_REPLY_SECONDS, then scaled down
-    to SLOWEST_REPLY_FACTOR at AWAY_SECONDS; after that the child is treated as having left.
+    A child's thresholds from their recent reply delays: slow is the child's SLOW_PERCENTILE
+    delay, and away keeps the default ratio of away to slow. Neither goes below the settings.
     """
-    if seconds is None or seconds <= SLOW_REPLY_SECONDS:
+    defaults = default_thresholds()
+    if len(delays) < DELAY_MIN_SAMPLES:
+        return defaults
+    slow = max(defaults.slow, percentile(delays, SLOW_PERCENTILE))
+    away = max(defaults.away, slow * defaults.away / defaults.slow)
+    return TimingThresholds(slow=slow, away=away, personalized=True)
+
+
+def adjust_for_timing(score: float, seconds: Optional[float],
+                      thresholds: Optional[TimingThresholds] = None) -> float:
+    """
+    Lower the score for slow replies: unchanged up to the slow threshold, then scaled down
+    to SLOWEST_REPLY_FACTOR at the away threshold; after that the child is treated as having
+    left. Without thresholds, the settings' defaults are used.
+    """
+    thresholds = thresholds or default_thresholds()
+    if seconds is None or seconds <= thresholds.slow:
         return score
-    if seconds >= AWAY_SECONDS:
+    if seconds >= thresholds.away:
         return LEFT_SCORE
-    fraction = (seconds - SLOW_REPLY_SECONDS) / (AWAY_SECONDS - SLOW_REPLY_SECONDS)
+    fraction = (seconds - thresholds.slow) / (thresholds.away - thresholds.slow)
     return round(score * (1.0 - fraction * (1.0 - SLOWEST_REPLY_FACTOR)), 3)
 
 
@@ -157,6 +203,7 @@ class EngagementTracker:
         self.rng = rng or random.Random()
         self._pending: Dict[int, PendingReply] = {}
         self._cache: Dict[int, Dict[Tuple[str, str], List[float]]] = {}
+        self._delays: Dict[int, List[float]] = {}  # recent reply delays, oldest first
 
     # ------------------------------------------------------------------
     # Turn handling
@@ -179,7 +226,8 @@ class EngagementTracker:
                         now: Optional[datetime] = None) -> Optional[float]:
         """
         Score the child's message against the pending reply and credit the reply's choices.
-        The score is lowered if the child took long to reply (see adjust_for_timing).
+        The score is lowered if the child took long to reply (see adjust_for_timing), judged
+        by this child's thresholds; the delay is then recorded unless the child had left.
 
         Returns:
             The engagement score, or None if there was no pending reply
@@ -189,7 +237,11 @@ class EngagementTracker:
             return None
 
         seconds = ((now or datetime.now()) - pending.sent_at).total_seconds()
-        score = adjust_for_timing(score_engagement(pending.text, message), seconds)
+        thresholds = self.thresholds(user_id, db)
+        score = adjust_for_timing(score_engagement(pending.text, message), seconds, thresholds)
+        if seconds < thresholds.away:
+            # A return after the child had left says nothing about how fast they reply
+            self._record_delay(user_id, seconds, db)
         self._credit(user_id, pending, score, db)
         return score
 
@@ -230,6 +282,50 @@ class EngagementTracker:
         logger.debug(f"Engagement {score:.2f} for user {user_id}: {pending.features}")
 
     # ------------------------------------------------------------------
+    # Reply timing
+    # ------------------------------------------------------------------
+
+    def _recent_delays(self, user_id: int, db: Optional[Session]) -> List[float]:
+        if user_id not in self._delays:
+            delays: List[float] = []
+            if db is not None:
+                rows = (db.query(ReplyDelay.seconds).filter(ReplyDelay.user_id == user_id)
+                        .order_by(ReplyDelay.id.desc()).limit(DELAY_HISTORY).all())
+                delays = [row.seconds for row in reversed(rows)]
+            self._delays[user_id] = delays
+        return self._delays[user_id]
+
+    def _record_delay(self, user_id: int, seconds: float, db: Session) -> None:
+        """Store a reply delay and drop the child's delays beyond the last DELAY_HISTORY"""
+        delays = self._recent_delays(user_id, db)
+        db.add(ReplyDelay(user_id=user_id, seconds=seconds))
+        delays.append(seconds)
+        del delays[:-DELAY_HISTORY]
+        db.flush()
+        stale = [row.id for row in db.query(ReplyDelay.id).filter(ReplyDelay.user_id == user_id)
+                 .order_by(ReplyDelay.id.desc()).offset(DELAY_HISTORY).all()]
+        if stale:
+            db.query(ReplyDelay).filter(ReplyDelay.id.in_(stale)).delete(synchronize_session=False)
+        # Committed together with the engagement scores in _credit
+
+    def thresholds(self, user_id: int, db: Optional[Session]) -> TimingThresholds:
+        """This child's slow and away thresholds"""
+        return timing_thresholds(self._recent_delays(user_id, db))
+
+    def timing_summary(self, user_id: int, db: Session) -> Dict:
+        """The child's recent reply delays and thresholds, for display or tuning the defaults"""
+        delays = self._recent_delays(user_id, db)
+        thresholds = self.thresholds(user_id, db)
+        return {
+            "samples": len(delays),
+            "median_seconds": round(percentile(delays, 0.5), 1) if delays else None,
+            "p90_seconds": round(percentile(delays, 0.9), 1) if delays else None,
+            "slow_after_seconds": round(thresholds.slow, 1),
+            "away_after_seconds": round(thresholds.away, 1),
+            "personalized": thresholds.personalized,
+        }
+
+    # ------------------------------------------------------------------
     # Stats and policy
     # ------------------------------------------------------------------
 
@@ -246,11 +342,13 @@ class EngagementTracker:
         return EngagementPolicy(self._stats(user_id, db), self.rng)
 
     def forget_cache(self, user_id: Optional[int] = None) -> None:
-        """Drop cached stats so they are reloaded from the database"""
+        """Drop cached stats and delays so they are reloaded from the database"""
         if user_id is None:
             self._cache.clear()
+            self._delays.clear()
         else:
             self._cache.pop(user_id, None)
+            self._delays.pop(user_id, None)
 
     def trait_signals(self, user_id: int, db: Session) -> Dict[str, Tuple[int, str]]:
         """

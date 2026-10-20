@@ -362,7 +362,7 @@ These are not in the original 183-task plan; they were found while evaluating an
 - [x] R10. Reference limits: other people's actions are recorded as events ("My dad got mad" / "That was scary" -> "My dad getting mad was scary"), except for "it"/"that" in a message that names the actor; rules can name their reply's answer in an `answer` field (bot name, mood, identity, ability, day, play) so "I like it" / "That's weird" refer to it; "That's a cool color" picks the recent thing the noun names; an ambiguous "she"/"he" is detected across recent turns (people mentioned after the last person known to have that pronoun), and gendered relation words ("mom", "brother") count as known pronouns
 - [x] R8. Engagement limits: scoring uses only the text of the next message (not response time or the child leaving); rules with two templates still alternate, so template preferences only apply to rules with three or more; with the LLM enabled, only pun/fact choices are learned
 - [x] R5. The quirk filter appended puns, facts and the catchphrase after the bot's closing question; they now go before it
-- [ ] R11. Engagement timing thresholds (2 minutes = slow, 15 minutes = left) are estimates; tune them with real usage data
+- [x] R11. Engagement timing thresholds are now per child: each reply delay is stored (last 200 per child, `reply_delays` table); after 20 delays, "slow" is the child's 90th-percentile delay and "left" keeps the default 7.5x ratio, with the 2/15-minute defaults (now settings `ENGAGEMENT_SLOW_REPLY_SECONDS`/`ENGAGEMENT_AWAY_SECONDS`) as the minimum; `GET /api/parent/engagement` reports the delays and thresholds. The defaults themselves were not tuned: no real usage data was available
 - [x] R9. Quirk filter fixes: emojis go after the sentence punctuation, are chosen by whole-word keyword matches (caring emojis for sad sentences), at most 1 per reply (2 at intensity >= 0.6); one joke (fact or pun) per reply, capped at 50%; transitions lowercase the next word ("By the way, what...") or drop a repeated "Did you know?"; repeated spaces are collapsed
 
 ### Tests
@@ -377,6 +377,6 @@ These are not in the original 183-task plan; they were found while evaluating an
 **In Progress:** 0
 **Pending:** 16 (task 72, tasks 167-177, 179, 181-183)
 
-**Follow-up Items:** 8 pending, 14 completed
+**Follow-up Items:** 7 pending, 15 completed
 
 **Current Phase:** Phase 7 - Testing & Refinement

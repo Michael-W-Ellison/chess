@@ -1138,10 +1138,16 @@ async def get_engagement(
 
     Each entry is a reply choice (feature/arm, e.g. follow_up=yes, humor=pun) with the
     number of times the child responded to it and the mean engagement score (0.0-1.0).
+    reply_timing has the child's recent reply delays (count, median, 90th percentile) and the
+    thresholds after which a reply counts as slow or the child as having left.
     """
     from services.engagement_tracker import engagement_tracker
 
-    return {"user_id": user_id, "stats": engagement_tracker.summary(user_id, db)}
+    return {
+        "user_id": user_id,
+        "stats": engagement_tracker.summary(user_id, db),
+        "reply_timing": engagement_tracker.timing_summary(user_id, db),
+    }
 
 
 @router.get("/statistics", response_model=SafetyStatsResponse)

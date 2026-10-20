@@ -61,6 +61,12 @@ class Settings(BaseSettings):
     ENABLE_WEEKLY_REPORTS: bool = True
     AUTO_GENERATE_SUMMARIES: bool = True  # Auto-generate LLM summaries on conversation end
 
+    # Engagement timing (services/engagement_tracker.py): replies slower than SLOW count for
+    # less, and after AWAY the child is treated as having left. Used until a child has enough
+    # reply delays recorded to set their own thresholds, and the minimum for every child.
+    ENGAGEMENT_SLOW_REPLY_SECONDS: int = 120
+    ENGAGEMENT_AWAY_SECONDS: int = 900
+
     # Memory Optimization
     MAX_CONVERSATION_HISTORY: int = 50  # Maximum messages to include in context
     MAX_MEMORY_ITEMS_PER_CATEGORY: int = 20  # Maximum memory items per category
