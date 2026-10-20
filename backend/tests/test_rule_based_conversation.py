@@ -141,3 +141,9 @@ def test_crisis_message_is_not_an_engagement_signal(api, conversation_id):
     before = engagement_rows(USER_ID)
     send(api, conversation_id, "I want to hurt myself")
     assert engagement_rows(USER_ID) == before
+
+
+def test_child_can_refer_to_what_the_bot_said(api, conversation_id):
+    send(api, conversation_id, "tell me a fun fact")
+    reply = send(api, conversation_id, "That's so cool")
+    assert "fun fact" in reply["content"].lower()

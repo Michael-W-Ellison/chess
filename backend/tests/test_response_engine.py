@@ -461,3 +461,20 @@ class TestLongMessages:
         doc = engine.parser.parse(
             "The thing about the new science museum downtown is that there are so many rooms full of really old stuff")
         assert engine._last_clause_about_child(doc) is None
+
+
+class TestR7RuleFixes:
+    def test_pronoun_object_is_not_an_achievement(self, engine):
+        assert "achievement" not in rule_ids(engine, "I get it")
+
+    def test_reflected_are_agrees_with_i(self, engine):
+        reply = engine.generate_response("I think that you are nice", make_personality())
+        assert "I am nice" in reply
+
+    def test_relative_clause_i_is_not_a_coordinated_subject(self, engine):
+        reply = engine.generate_response("The game that I played was fun", make_personality())
+        assert "the game that you played was fun" in reply.lower()
+
+    def test_definite_thing_subject_is_echoed(self, engine):
+        reply = engine.generate_response("The tower broke", make_personality())
+        assert "the tower broke" in reply.lower()

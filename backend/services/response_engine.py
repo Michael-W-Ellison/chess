@@ -110,6 +110,8 @@ class ResponseEngine:
         self._pattern_nodes: Dict[str, List[str]] = {}
         self._recent: Dict[int, deque] = defaultdict(lambda: deque(maxlen=8))
         self._last_request: Dict[int, str] = {}
+        self._last_told: Dict[int, str] = {}  # "joke"/"fun fact" if the last reply told one
+        self._last_mentions: Dict[int, List[str]] = {}  # the bot's own answers in the last reply
         self._load_knowledge_base()
         self.references = ReferenceTracker(
             parser, self.kb["lexicons"]["relations"], self.kb["lexicons"]["common_capitalized"]
@@ -154,6 +156,19 @@ class ResponseEngine:
     def reset_references(self, user_id: int) -> None:
         """Forget earlier people and things (new conversation)"""
         self.references.reset(user_id)
+        self._last_told.pop(user_id, None)
+        self._last_mentions.pop(user_id, None)
+
+    def record_bot_reply(self, user_id: int, reply: str, humor: Optional[str] = None) -> None:
+        """
+        Let the child refer to what the bot just said ("That's so cool!"). Call after each
+        reply with the reply before quirk additions, and humor = "pun"/"fact" if one was added.
+        """
+        if not self.is_available():
+            return
+        told = self._last_told.pop(user_id, None) or {"pun": "joke", "fact": "fun fact"}.get(humor or "")
+        mentions = self._last_mentions.pop(user_id, [])
+        self.references.record_bot_reply(user_id, reply, told, mentions)
 
     def _get_matcher(self):
         if self._matcher is None:
@@ -407,7 +422,10 @@ class ResponseEngine:
             if token.dep_ not in ("nsubj", "nsubjpass"):
                 continue
             phrase = list(token.subtree)
-            pronouns = [t for t in phrase if t.lower_ in ("i", "me", "we", "us") and t.pos_ == "PRON"]
+            # Only pronouns that are part of the subject itself ("my mom and I"), not ones
+            # inside a clause describing it ("the game that I played")
+            pronouns = [t for t in phrase if t.lower_ in ("i", "me", "we", "us") and t.pos_ == "PRON"
+                        and not any(a.pos_ in ("VERB", "AUX") for a in t.ancestors if a.i in {p.i for p in phrase})]
             if not pronouns or len(phrase) < 3 or not {t.i for t in phrase} <= included:
                 continue
             pronoun = pronouns[0]
@@ -471,11 +489,19 @@ class ResponseEngine:
             return "I" if token.dep_ in ("nsubj", "nsubjpass") else "me"
         if lower == "was" and ResponseEngine._first_person_subject(token):
             return "were"
-        if lower in ("are", "'re") and any(c.dep_ == "nsubj" and c.lower_ == "you" for c in token.head.children):
+        if lower in ("are", "'re") and any(c.dep_ == "nsubj" and c.lower_ == "you"
+                                           for c in (*token.children, *token.head.children)):
             return "am" if lower == "are" else "'m"
         if lower in _REFLECT_WORDS:
             return _REFLECT_WORDS[lower]
         return token.text
+
+    @staticmethod
+    def _definite_thing_subject(token) -> bool:
+        """True if the clause's subject is a specific thing ("the tower broke", "my bike is broken")"""
+        return any(c.dep_ == "nsubj" and c.pos_ == "NOUN"
+                   and any(d.dep_ in ("det", "poss") and d.lower_ in ("the", "my", "our", "your") for d in c.children)
+                   for c in token.children)
 
     def _known_person_subject(self, token) -> bool:
         """True if the clause's subject is "my <relation>" or a recognized name ("Maya said no")"""
@@ -494,8 +520,13 @@ class ResponseEngine:
         """True if the token's clause has I/we as subject, including conjuncts ("my mom and I")"""
         for candidate in (token, token.head):
             for child in candidate.children:
-                if child.dep_ == "nsubj" and any(t.lower_ in ("i", "me", "we", "us") and t.pos_ == "PRON"
-                                                 for t in child.subtree):
+                if child.dep_ != "nsubj":
+                    continue
+                subject = {t.i for t in child.subtree}
+                # "I", or "I" coordinated in the subject; not "I" inside "the game that I played"
+                if any(t.lower_ in ("i", "me", "we", "us") and t.pos_ == "PRON"
+                       and not any(a.pos_ in ("VERB", "AUX") for a in t.ancestors if a.i in subject)
+                       for t in child.subtree):
                     return True
         return False
 
@@ -636,6 +667,9 @@ class ResponseEngine:
                 options = self.kb["bot_profile"]["favorites"].get(slots.get("category", ""))
                 if options:
                     favorite = options[_stable_index(f"{seed_id}:{slots['category']}", len(options))]
+                    # "the color orange" parses as a thing ("I like orange" does not)
+                    mention = f"the {slots['category']} {favorite}" if slots["category"] in ("color", "number") else favorite
+                    self._last_mentions[getattr(personality, "user_id", 0)] = [mention]
                     if favorite.lower() == slots.get("value_raw", "").lower():
                         slots["same_favorite"] = "yes"
                     else:
@@ -651,6 +685,7 @@ class ResponseEngine:
                 if all(options):
                     pair = ":".join(sorted(o.lower() for o in options))
                     slots["bot_pick"] = options[_stable_index(f"{seed_id}:{pair}", 2)]
+                    self._last_mentions[getattr(personality, "user_id", 0)] = [slots["bot_pick"]]
             elif name == "bot_shares_like":
                 thing = slots.get("thing_raw", "").lower()
                 interests = [i.lower() for i in (personality.get_interests() if hasattr(personality, "get_interests") else [])]
@@ -667,8 +702,10 @@ class ResponseEngine:
 
         if kind in ("joke", "pun", "riddle"):
             slots["content"] = pun_quirk_service.random_pun(slots.get("message_text", ""))
+            self._last_told[user_id] = "joke"
         elif kind == "fact":
             slots["content"] = fact_quirk_service.random_fact(slots.get("message_text", ""))
+            self._last_told[user_id] = "fun fact"
         else:
             return
         self._last_request[user_id] = kind
@@ -755,7 +792,8 @@ class ResponseEngine:
             for sentence in reversed(list(doc.sents)):
                 root = sentence.root
                 if (len(sentence) <= 15 and root.pos_ in ("VERB", "AUX")
-                        and (self._first_person_subject(root) or self._known_person_subject(root))):
+                        and (self._first_person_subject(root) or self._known_person_subject(root)
+                             or self._definite_thing_subject(root))):
                     _, clause = self._extract_slot(root, "clause")
                     slots["clause"] = clause
                     return pick("reflection").format_map(slots), "neutral", "reflection"
@@ -766,6 +804,13 @@ class ResponseEngine:
             if clause:
                 slots["clause"] = clause
                 return pick("long_reflection").format_map(slots), "neutral", "long_reflection"
+
+        # "She was nice" right after "Maya and Jake came over": ask which one
+        options = self.references.ambiguous_options(user_id)
+        if options:
+            slots["options"] = options[0] if len(options) == 1 else \
+                f"{', '.join(options[:-1])} or {options[-1]}"
+            return pick("ambiguous_person").format_map(slots), "neutral", "ambiguous_person"
 
         # A he/she/they the reference tracker could not resolve
         if any(t.lower_ in ("he", "she", "they") and t.dep_ in ("nsubj", "nsubjpass") for t in doc):

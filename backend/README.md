@@ -213,9 +213,12 @@ response engine instead of the LLM:
 - `services/response_engine.py` matches the rules, binds tree nodes to slots, stores what
   it learns (favorites, dislikes, people, goals, achievements, name, age), detects mood,
   and composes replies shaped by the bot's personality traits and friendship level.
-- `services/reference_tracker.py` remembers the people and things mentioned in the last
-  few turns and replaces pronouns before analysis ("She yelled at me" after "My teacher
-  gave us a test" is analyzed as "My teacher yelled at me"). The stored message and any
+- `services/reference_tracker.py` remembers the people, things and events mentioned in the
+  last few turns, including what the bot itself said, and replaces pronouns before analysis
+  ("She yelled at me" after "My teacher gave us a test" is analyzed as "My teacher yelled at
+  me"; "That was fun" after "We went swimming" as "Going swimming was fun"; "That's so cool"
+  after a fun fact as "Your fun fact is so cool"). When "she"/"he" could mean two people
+  mentioned together, the bot asks which one instead of guessing. The stored message and any
   LLM prompt keep the child's original wording; references reset with each new conversation.
 - `services/engagement_tracker.py` scores each of the child's messages for engagement
   (length, answering the bot's question, staying on topic, asking back, sharing feelings;

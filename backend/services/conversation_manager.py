@@ -294,6 +294,12 @@ class ConversationManager:
         # Remember this reply's choices; the child's next message will be scored against them
         engagement_tracker.set_pending(user_id, final_response, reply_features)
 
+        # Let the child refer to what the bot just said ("That's so cool!")
+        try:
+            response_engine.record_bot_reply(user_id, raw_response, reply_features.get("humor"))
+        except Exception as e:
+            logger.error(f"Error recording bot reply for references: {e}", exc_info=True)
+
         # 10. Store assistant response
         self._store_message(conversation_id, "assistant", final_response, db)
 

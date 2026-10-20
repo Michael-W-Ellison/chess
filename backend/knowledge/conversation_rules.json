@@ -143,6 +143,7 @@
     "reflection": ["{clause}? Tell me more!", "So {clause}? What happened next?", "{clause}? How did that go?"],
     "topic": ["Tell me more about {topic}!", "What do you think about {topic}?"],
     "long_reflection": ["Wow, that's a lot! So {clause}? What happened next?", "Thanks for telling me all that! {clause}? How did that feel?"],
+    "ambiguous_person": ["Wait, do you mean {options}?", "Hmm, who do you mean, {options}?"],
     "unknown_person": ["Wait, who do you mean?", "Who are you talking about?"],
     "generic": ["That's really interesting! Tell me more about that.", "I hear you! How are you feeling about it?", "Thanks for sharing that with me! What else is going on?"]
   },
@@ -327,7 +328,7 @@
         [
           {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@positive_event_verbs"}}},
           {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": {"IN": ["i", "we"]}, "DEP": "nsubj"}},
-          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj"}}
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj", "POS": {"NOT_IN": ["PRON"]}}}
         ],
         [
           {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "make"}},
@@ -634,7 +635,7 @@
       "priority": 58,
       "patterns": [[
         {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
-        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "you", "we", "he", "she", "they"]}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": {"IN": ["nsubj", "csubj"]}, "LOWER": {"NOT_IN": ["i", "you", "we", "he", "she", "they"]}}},
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "acomp"}}
       ]],
       "suppressed_by": ["person_evaluation", "other_feeling", "comparison_better", "comparison_question"],

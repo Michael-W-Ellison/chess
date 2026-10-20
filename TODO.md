@@ -357,8 +357,9 @@ These are not in the original 183-task plan; they were found while evaluating an
 - [x] R2. Expand rule coverage: school events, questions about the child's day, multi-sentence messages, and word order in reflections ("your mom and you" should be "you and your mom")
 - [x] R6. Further coverage: sentences about other people's feelings ("my friend is sad"), requests ("can you tell me a joke?"), comparisons, and messages over 15 words that match no rule (currently get a topic or generic reply)
 - [x] R3. Track the last-mentioned person and topic across turns so follow-ups like "she said no" can be understood
-- [ ] R7. Reference limits: "it"/"that" are only resolved as the subject of "was fun/hard/..." or the object of like/love/hate; references to what the bot said, and to whole events ("that" = "going to the zoo"), are not resolved; when two unfamiliar people are mentioned together, "she"/"he" goes to the most recent one until the child's own usage shows otherwise
+- [x] R7. Reference limits: "it"/"that" are only resolved as the subject of "was fun/hard/..." or the object of like/love/hate; references to what the bot said, and to whole events ("that" = "going to the zoo"), are not resolved; when two unfamiliar people are mentioned together, "she"/"he" goes to the most recent one until the child's own usage shows otherwise
 - [x] R4. Learn from engagement: favor reply types the child responds to (longer answers, returning to a topic)
+- [ ] R10. Remaining reference limits: events are only recorded for the child's own actions ("I/we ..."), not other people's ("my dad got mad"); the bot's own answers are only referable for its favorites and picks, jokes and facts, and nouns it introduced; an ambiguous "she"/"he" is only detected for people mentioned in the same turn
 - [ ] R8. Engagement limits: scoring uses only the text of the next message (not response time or the child leaving); rules with two templates still alternate, so template preferences only apply to rules with three or more; with the LLM enabled, only pun/fact choices are learned
 - [x] R5. The quirk filter appended puns, facts and the catchphrase after the bot's closing question; they now go before it
 - [ ] R9. Remaining quirk-filter issues: emoji choice ignores the words and emojis are inserted mid-sentence ("orange 💜", "game 🎯?"); a fact and a pun can both be added to one reply (more often at high humor since R4 scales their probability up to 1.5x); transition phrases produce "By the way, What..." and double spaces
@@ -375,6 +376,6 @@ These are not in the original 183-task plan; they were found while evaluating an
 **In Progress:** 0
 **Pending:** 16 (task 72, tasks 167-177, 179, 181-183)
 
-**Follow-up Items:** 11 pending, 9 completed
+**Follow-up Items:** 11 pending, 10 completed
 
 **Current Phase:** Phase 7 - Testing & Refinement
