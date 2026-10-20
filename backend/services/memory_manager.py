@@ -13,6 +13,8 @@ from models.user import User
 from models.memory import UserProfile
 from models.conversation import Message
 from services.prompts import MemoryExtractionPrompt
+from services.response_engine import response_engine
+from utils.config import settings
 
 logger = logging.getLogger("chatbot.memory_manager")
 
@@ -54,14 +56,13 @@ class MemoryManager:
 
         # Use instance setting if not specified
         if use_llm is None:
-            use_llm = self.use_llm_extraction
+            use_llm = self.use_llm_extraction and settings.USE_LLM
 
         # Choose extraction method
         if use_llm:
             extracted = self._llm_based_extraction(user_message)
         else:
-            # Fallback to simple keyword-based extraction
-            extracted = self._simple_keyword_extraction(user_message)
+            extracted = self._fallback_extraction(user_message)
 
         for category, key, value in extracted:
             # Check if this memory already exists
@@ -99,11 +100,44 @@ class MemoryManager:
                 memories.append(memory)
                 logger.debug(f"Created memory: {category}/{key}")
 
+            # A new like replaces an earlier dislike of the same thing, and vice versa
+            self._remove_opposite_preference(user_id, category, key, db)
+
+            # Use a name the child tells us in place of the placeholder account name
+            if category == "basic" and key == "name":
+                user = db.query(User).filter(User.id == user_id).first()
+                if user and user.name in (None, "", "User"):
+                    user.name = value
+
         if memories:
             db.commit()
             logger.info(f"Stored {len(memories)} memories for user {user_id}")
 
         return memories
+
+    def _remove_opposite_preference(self, user_id: int, category: str, key: str, db: Session) -> None:
+        """Delete likes_X when dislikes_X is stored (and the reverse)"""
+        if category == "favorite" and key.startswith("likes_"):
+            opposite = ("dislike", "dislikes_" + key[len("likes_"):])
+        elif category == "dislike" and key.startswith("dislikes_"):
+            opposite = ("favorite", "likes_" + key[len("dislikes_"):])
+        else:
+            return
+
+        db.query(UserProfile).filter(
+            UserProfile.user_id == user_id,
+            UserProfile.category == opposite[0],
+            UserProfile.key == opposite[1],
+        ).delete()
+
+    def _fallback_extraction(self, message: str) -> List[tuple]:
+        """Extraction without the LLM: sentence-structure rules if available, else keywords"""
+        if response_engine.is_available():
+            try:
+                return response_engine.extract_memories(message)
+            except Exception as e:
+                logger.error(f"Error in parse-based extraction: {e}", exc_info=True)
+        return self._simple_keyword_extraction(message)
 
     def _simple_keyword_extraction(self, message: str) -> List[tuple]:
         """
@@ -191,8 +225,8 @@ class MemoryManager:
 
         # Check if LLM is available
         if not llm_service.is_loaded:
-            logger.warning("LLM not loaded, falling back to keyword extraction")
-            return self._simple_keyword_extraction(message)
+            logger.warning("LLM not loaded, falling back to rule-based extraction")
+            return self._fallback_extraction(message)
 
         try:
             # Format the extraction prompt
@@ -225,8 +259,8 @@ class MemoryManager:
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse LLM extraction response: {response_clean}")
                 logger.error(f"JSON error: {e}")
-                # Fallback to keyword extraction
-                return self._simple_keyword_extraction(message)
+                # Fallback to rule-based extraction
+                return self._fallback_extraction(message)
 
             # Validate and convert to tuple format
             extracted = []
@@ -260,8 +294,8 @@ class MemoryManager:
 
         except Exception as e:
             logger.error(f"Error in LLM-based extraction: {e}", exc_info=True)
-            # Fallback to keyword extraction
-            return self._simple_keyword_extraction(message)
+            # Fallback to rule-based extraction
+            return self._fallback_extraction(message)
 
     def get_relevant_memories(
         self, user_id: int, keywords: List[str], db: Session, limit: int = 5

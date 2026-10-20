@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./data/chatbot.db"
 
     # LLM Configuration
+    # False: never load the model; replies, memory extraction and mood detection use the
+    # rule-based engine (services/response_engine.py)
+    USE_LLM: bool = True
     MODEL_PATH: str = "./models/llama-3.2-3b-instruct.gguf"
     MODEL_CONTEXT_LENGTH: int = 2048
     MODEL_MAX_TOKENS: int = 512

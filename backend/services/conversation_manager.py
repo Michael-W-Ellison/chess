@@ -24,6 +24,7 @@ from services.pun_quirk_service import pun_quirk_service
 from services.fact_quirk_service import fact_quirk_service
 from services.advice_category_detector import advice_category_detector
 from services.conversation_summary_service import conversation_summary_service
+from services.response_engine import response_engine
 from utils.config import settings
 
 logger = logging.getLogger("chatbot.conversation_manager")
@@ -237,17 +238,24 @@ class ConversationManager:
         context = self._build_context(user_message, user_id, personality, db)
 
         # 7. Generate response
-        # Try to ensure model is loaded (lazy loading)
+        # Use the LLM when enabled and loadable (lazy loading); otherwise the rule-based engine.
+        # The child's words are only echoed back when the safety filter found nothing.
+        allow_reflection = safety_result["severity"] == "none"
         try:
-            if llm_service.ensure_loaded(timeout=60.0):
+            if settings.USE_LLM and llm_service.ensure_loaded(timeout=60.0):
                 prompt = self._build_prompt(context, user_message, personality)
                 raw_response = llm_service.generate(prompt, max_tokens=300, temperature=0.7)
             else:
-                logger.warning("LLM model not available, using fallback response")
-                raw_response = self._fallback_response(context)
+                if settings.USE_LLM:
+                    logger.warning("LLM model not available, using rule-based responses")
+                raw_response = self._rule_based_response(
+                    user_message, context, personality, allow_reflection
+                )
         except Exception as e:
             logger.error(f"Error loading/generating from LLM: {e}")
-            raw_response = self._fallback_response(context)
+            raw_response = self._rule_based_response(
+                user_message, context, personality, allow_reflection
+            )
 
         # 8. Apply personality to response
         final_response = self._apply_personality_filter(raw_response, personality, user_message)
@@ -699,8 +707,40 @@ INSTRUCTIONS:
         db.refresh(message)
         return message
 
+    def _rule_based_response(
+        self,
+        user_message: str,
+        context: Dict,
+        personality: Optional[BotPersonality],
+        allow_reflection: bool,
+    ) -> str:
+        """Generate a reply with the rule-based response engine, or a canned fallback"""
+        try:
+            if personality is not None and response_engine.is_available():
+                user = getattr(personality, "user", None)
+                response = response_engine.generate_response(
+                    user_message,
+                    personality,
+                    context,
+                    user_name=getattr(user, "name", None),
+                    allow_reflection=allow_reflection,
+                )
+                if response:
+                    return response
+        except Exception as e:
+            logger.error(f"Error generating rule-based response: {e}", exc_info=True)
+        return self._fallback_response(context)
+
     def _detect_user_mood(self, message: str) -> str:
-        """Simple mood detection"""
+        """Detect mood from sentence structure if available, otherwise from keywords"""
+        if response_engine.is_available():
+            try:
+                mood = response_engine.detect_mood(message)
+                if mood:
+                    return mood
+            except Exception as e:
+                logger.error(f"Error detecting mood from parse: {e}")
+
         message_lower = message.lower()
 
         if any(word in message_lower for word in ["sad", "upset", "crying", "depressed"]):

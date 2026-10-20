@@ -10,6 +10,10 @@ alembic==1.13.1
 # LLM Integration
 llama-cpp-python==0.2.32
 
+# Rule-based response engine (used when no LLM is loaded, or USE_LLM=false)
+spacy>=3.8,<3.9
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+
 # Vector Store (optional for semantic memory)
 chromadb==0.4.22
 

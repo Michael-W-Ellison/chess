@@ -1,0 +1,448 @@
+{
+  "_comment": "Knowledge base for the rule-based response engine (services/response_engine.py). Patterns use spaCy DependencyMatcher syntax; a string value starting with '@' inside an IN list refers to a lexicon below. A rule's suppressed_by lists rules whose match cancels it. Response text placeholders: {slot} is the slot from the bot's perspective (my -> your), {slot_raw} is the child's original wording, {slot_slug} is a key-safe form. Always available: {user_name}, {bot_name}, {bot_mood}.",
+
+  "lexicons": {
+    "like_verbs": ["love", "like", "enjoy", "adore"],
+    "hate_verbs": ["hate", "dislike", "detest"],
+    "relations": ["friend", "bff", "brother", "sister", "mom", "mother", "mum", "mommy", "dad", "father", "daddy",
+                  "grandma", "grandpa", "grandmother", "grandfather", "nana", "aunt", "uncle", "cousin", "teacher",
+                  "coach", "neighbor", "classmate", "stepmom", "stepdad", "stepbrother", "stepsister", "parent",
+                  "parents", "family", "baby", "dog", "cat", "puppy", "kitten", "hamster", "pet", "fish", "bird",
+                  "bunny", "rabbit", "turtle", "guinea", "horse"],
+    "loss_verbs": ["move", "leave", "die", "quit"],
+    "negative_states": ["sick", "hurt", "injured", "sad", "upset", "mad", "angry", "lost", "missing", "gone", "mean", "broken", "ill"],
+    "positive_event_verbs": ["win", "pass", "finish", "score", "learn", "build", "ace", "earn", "draw", "create", "bake", "get", "beat", "complete", "join"],
+    "negative_event_verbs": ["fail", "lose", "miss", "forget", "break", "drop", "crash", "hurt", "flunk"],
+    "greetings": ["hi", "hello", "hey", "hiya", "howdy", "sup", "yo", "morning", "heya"],
+    "farewells": ["bye", "goodbye", "goodnight", "cya", "later"],
+    "thanks": ["thanks", "thank", "thx", "ty"],
+    "category_nouns": ["color", "colour", "animal", "food", "sport", "game", "book", "movie", "show", "song", "band",
+                       "subject", "season", "holiday", "snack", "dessert", "fruit", "number", "place", "toy",
+                       "character", "superhero", "drink", "candy", "pizza", "day", "class", "singer", "video", "thing"]
+  },
+
+  "emotions": {
+    "happy": {"mood": "happy", "valence": "positive"},
+    "glad": {"mood": "happy", "valence": "positive"},
+    "excited": {"mood": "happy", "valence": "positive"},
+    "great": {"mood": "happy", "valence": "positive"},
+    "good": {"mood": "happy", "valence": "positive"},
+    "awesome": {"mood": "happy", "valence": "positive"},
+    "amazing": {"mood": "happy", "valence": "positive"},
+    "proud": {"mood": "happy", "valence": "positive"},
+    "fine": {"mood": "neutral", "valence": "neutral"},
+    "okay": {"mood": "neutral", "valence": "neutral"},
+    "ok": {"mood": "neutral", "valence": "neutral"},
+    "sad": {"mood": "sad", "valence": "negative"},
+    "upset": {"mood": "sad", "valence": "negative"},
+    "unhappy": {"mood": "sad", "valence": "negative"},
+    "lonely": {"mood": "sad", "valence": "negative"},
+    "down": {"mood": "sad", "valence": "negative"},
+    "bad": {"mood": "sad", "valence": "negative"},
+    "terrible": {"mood": "sad", "valence": "negative"},
+    "awful": {"mood": "sad", "valence": "negative"},
+    "miserable": {"mood": "sad", "valence": "negative"},
+    "angry": {"mood": "angry", "valence": "negative"},
+    "mad": {"mood": "angry", "valence": "negative"},
+    "furious": {"mood": "angry", "valence": "negative"},
+    "annoyed": {"mood": "angry", "valence": "negative"},
+    "frustrated": {"mood": "angry", "valence": "negative"},
+    "scared": {"mood": "anxious", "valence": "negative"},
+    "afraid": {"mood": "anxious", "valence": "negative"},
+    "nervous": {"mood": "anxious", "valence": "negative"},
+    "worried": {"mood": "anxious", "valence": "negative"},
+    "anxious": {"mood": "anxious", "valence": "negative"},
+    "stressed": {"mood": "anxious", "valence": "negative"},
+    "bored": {"mood": "neutral", "valence": "negative"},
+    "tired": {"mood": "neutral", "valence": "negative"},
+    "sleepy": {"mood": "neutral", "valence": "neutral"},
+    "confused": {"mood": "neutral", "valence": "negative"},
+    "curious": {"mood": "neutral", "valence": "positive"},
+    "silly": {"mood": "happy", "valence": "positive"}
+  },
+
+  "openers": {
+    "positive": {"high": ["Wow!", "No way!", "Awesome!", "Yay!"], "low": ["Nice.", "That's good to hear."]},
+    "negative": {"high": ["Oh no!", "Aw, man!"], "low": ["Oh no.", "Oh."]},
+    "neutral": {"high": ["Ooh!", "Oh, cool!"], "low": ["I see.", "Okay."]}
+  },
+
+  "formal_substitutions": {
+    "No way!": "Really?",
+    "Awesome!": "Wonderful!",
+    "Yay!": "That is great!",
+    "Aw, man!": "I am sorry to hear that.",
+    "Oh, cool!": "How interesting!",
+    "Ooh!": "Oh!",
+    "awesome": "wonderful",
+    "super cool": "very interesting",
+    "cool": "interesting",
+    "That's": "That is",
+    "You're": "You are",
+    "you're": "you are",
+    "I'm": "I am",
+    "Let's": "Let us",
+    "what's": "what is",
+    "What's": "What is"
+  },
+
+  "memory_callbacks": {
+    "favorite": ["That reminds me, you told me you like {value}!", "I remember you like {value}."],
+    "person": ["By the way, how is {value} doing?"],
+    "goal": ["Are you still working on your goal to {value}?"],
+    "achievement": ["I still remember when you {value}. That was so cool!"]
+  },
+
+  "bot_profile": {
+    "favorites": {
+      "color": ["blue", "green", "purple", "orange", "teal"],
+      "animal": ["dolphins", "owls", "red pandas", "octopuses", "penguins"],
+      "food": ["pizza", "pancakes", "tacos", "mac and cheese", "strawberries"],
+      "sport": ["soccer", "basketball", "swimming", "skateboarding"],
+      "game": ["chess", "hide and seek", "Minecraft", "board games"],
+      "book": ["anything about space", "mystery stories", "comic books"],
+      "subject": ["science", "art", "math", "history"],
+      "season": ["summer", "fall", "winter", "spring"],
+      "number": ["7", "3", "42", "11"],
+      "movie": ["anything with dinosaurs", "animated movies", "space adventures"],
+      "dessert": ["ice cream", "brownies", "cookies"],
+      "snack": ["popcorn", "apple slices", "pretzels"]
+    }
+  },
+
+  "fallbacks": {
+    "question": ["Ooh, good question! What do you think?", "Hmm, I'm not sure! What do you think about it?", "That's a tricky one! What's your guess?"],
+    "reflection": ["{clause}? Tell me more!", "So {clause}? What happened next?", "{clause}? How did that go?"],
+    "topic": ["Tell me more about {topic}!", "What do you think about {topic}?"],
+    "generic": ["That's really interesting! Tell me more about that.", "I hear you! How are you feeling about it?", "Thanks for sharing that with me! What else is going on?"]
+  },
+
+  "rules": [
+    {
+      "id": "bot_name_question",
+      "priority": 90,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"LOWER": "name"}},
+        {"LEFT_ID": "name", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "your"}}
+      ]],
+      "responses": ["My name is {bot_name}! I'm happy to be your friend, {user_name}.", "I'm {bot_name}! What should we talk about?"]
+    },
+    {
+      "id": "bot_how_are_you",
+      "priority": 90,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "how", "RIGHT_ATTRS": {"LOWER": "how"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"LOWER": "you", "DEP": "nsubj"}}
+      ]],
+      "responses": ["I'm feeling {bot_mood} today! How about you?", "Pretty {bot_mood}, thanks for asking! How are you doing?"]
+    },
+    {
+      "id": "bot_favorite_question",
+      "priority": 90,
+      "patterns": [[
+        {"RIGHT_ID": "head", "RIGHT_ATTRS": {}},
+        {"LEFT_ID": "head", "REL_OP": ">", "RIGHT_ID": "cat", "RIGHT_ATTRS": {"POS": "NOUN"}},
+        {"LEFT_ID": "cat", "REL_OP": ">", "RIGHT_ID": "fav", "RIGHT_ATTRS": {"LOWER": {"IN": ["favorite", "favourite"]}}},
+        {"LEFT_ID": "cat", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "your"}}
+      ]],
+      "conditions": {"question": true},
+      "slots": {"category": {"node": "cat", "span": "lemma"}},
+      "compute": ["bot_favorite"],
+      "responses": [
+        {"text": "My favorite {category} is {bot_favorite}! What's yours?", "requires": ["bot_favorite"]},
+        {"text": "Ooh, I love {bot_favorite}! What's your favorite {category}?", "requires": ["bot_favorite"]},
+        {"text": "Hmm, I haven't picked a favorite {category} yet! What's yours?"}
+      ]
+    },
+    {
+      "id": "bot_like_question",
+      "priority": 85,
+      "patterns": [
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@like_verbs"}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"LOWER": "you", "DEP": "nsubj"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": {"IN": ["dobj", "xcomp"]}}}
+        ]
+      ],
+      "conditions": {"question": true},
+      "slots": {"thing": {"node": "obj", "span": "subtree"}},
+      "compute": ["bot_shares_like"],
+      "responses": [
+        {"text": "Yes, I really like {thing}! Do you?", "requires": ["bot_shares_like"]},
+        {"text": "Ooh, {thing}? I'm a big fan! What about you?", "requires": ["bot_shares_like"]},
+        {"text": "Hmm, I'm not sure about {thing} yet, but it sounds interesting! Do you like it?"}
+      ]
+    },
+    {
+      "id": "name_is",
+      "priority": 80,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "name", "DEP": "nsubj"}},
+        {"LEFT_ID": "subj", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "my"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": {"IN": ["attr", "acomp", "npadvmod"]}}}
+      ]],
+      "slots": {"name": {"node": "name", "span": "text", "capitalize": true}},
+      "memories": [{"category": "basic", "key": "name", "value": "{name_raw}"}],
+      "responses": ["Nice to meet you, {name}! I'm {bot_name}.", "{name} is a great name! I'll remember that."],
+      "follow_ups": ["What do you like to do for fun, {name}?"]
+    },
+    {
+      "id": "age_is",
+      "priority": 80,
+      "patterns": [[
+        {"RIGHT_ID": "old", "RIGHT_ATTRS": {"LOWER": "old"}},
+        {"LEFT_ID": "old", "REL_OP": ">", "RIGHT_ID": "years", "RIGHT_ATTRS": {"LEMMA": "year"}},
+        {"LEFT_ID": "years", "REL_OP": ">", "RIGHT_ID": "num", "RIGHT_ATTRS": {"LIKE_NUM": true}}
+      ]],
+      "conditions": {"subject_is_user": "old"},
+      "slots": {"age": {"node": "num", "span": "text"}},
+      "memories": [{"category": "basic", "key": "age", "value": "{age_raw}"}],
+      "responses": ["{age} is a great age! Thanks for telling me."]
+    },
+    {
+      "id": "person_event",
+      "priority": 75,
+      "patterns": [
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@loss_verbs"}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "person", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": "@relations"}}},
+          {"LEFT_ID": "person", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "my"}}
+        ],
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "person", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": "@relations"}}},
+          {"LEFT_ID": "person", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "my"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "state", "RIGHT_ATTRS": {"LOWER": {"IN": "@negative_states"}}}
+        ]
+      ],
+      "slots": {"clause": {"node": "verb", "span": "clause"}},
+      "mood": "sad",
+      "valence": "negative",
+      "opener": true,
+      "responses": ["{clause}? That sounds really hard.", "I'm sorry, {clause}. That must be tough."],
+      "follow_ups": ["How are you feeling about it?", "Do you want to talk about it?"]
+    },
+    {
+      "id": "feeling",
+      "priority": 78,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["be", "feel"]}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "emotion", "RIGHT_ATTRS": {"DEP": "acomp"}}
+      ]],
+      "conditions": {"not_negated": "verb", "emotion": "emotion"},
+      "slots": {
+        "emotion": {"node": "emotion", "span": "text"},
+        "reason": {"node": "verb", "span": "because_clause"}
+      },
+      "responses_by": {
+        "slot": "emotion_mood",
+        "variants": {
+          "sad": [
+            {"text": "I'm sorry you're feeling {emotion}. It sounds hard that {reason}.", "requires": ["reason"]},
+            {"text": "I'm sorry you're feeling {emotion}. I'm here for you."}
+          ],
+          "angry": [
+            {"text": "It makes sense to feel {emotion} when {reason}.", "requires": ["reason"]},
+            {"text": "Feeling {emotion} is okay. What happened?"}
+          ],
+          "anxious": [
+            {"text": "Feeling {emotion} because {reason} is really normal.", "requires": ["reason"]},
+            {"text": "It's okay to feel {emotion}. Want to tell me what's on your mind?"}
+          ],
+          "happy": [
+            {"text": "Yay, I'm so glad you're feeling {emotion} because {reason}!", "requires": ["reason"]},
+            {"text": "I'm so glad you're feeling {emotion}!"}
+          ],
+          "default": [
+            {"text": "Thanks for telling me you feel {emotion} because {reason}.", "requires": ["reason"]},
+            {"text": "Thanks for telling me how you feel."}
+          ]
+        }
+      },
+      "follow_ups": ["What do you think would help?", "Want to tell me more?"]
+    },
+    {
+      "id": "setback",
+      "priority": 65,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@negative_event_verbs"}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": {"IN": ["i", "we"]}, "DEP": "nsubj"}}
+      ]],
+      "conditions": {"not_negated": "verb"},
+      "slots": {"clause": {"node": "verb", "span": "clause"}},
+      "mood": "sad",
+      "valence": "negative",
+      "opener": true,
+      "responses": ["{clause}? That's really frustrating.", "{clause}? I'm sorry, that's no fun."],
+      "follow_ups": ["What do you think you'll try next time?", "Is there anyone who can help you with it?"]
+    },
+    {
+      "id": "achievement",
+      "priority": 65,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@positive_event_verbs"}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": {"IN": ["i", "we"]}, "DEP": "nsubj"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj"}}
+      ]],
+      "conditions": {"not_negated": "verb"},
+      "slots": {"clause": {"node": "verb", "span": "clause"}, "what": {"node": "verb", "span": "predicate"}},
+      "memories": [{"category": "achievement", "key": "achievement_{what_slug}", "value": "{what}"}],
+      "mood": "happy",
+      "valence": "positive",
+      "opener": true,
+      "responses": ["{clause}? That's awesome!", "{clause}? Congratulations, you should be proud!"],
+      "follow_ups": ["How did it feel?", "What was the best part?"]
+    },
+    {
+      "id": "goal",
+      "priority": 60,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["want", "hope", "plan", "wish"]}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "goal", "RIGHT_ATTRS": {"DEP": "xcomp"}}
+      ]],
+      "conditions": {"not_negated": "verb"},
+      "slots": {"goal": {"node": "goal", "span": "subtree"}},
+      "memories": [{"category": "goal", "key": "goal_{goal_slug}", "value": "{goal}"}],
+      "valence": "positive",
+      "responses": ["You want to {goal}? That's a great goal!", "I think you'd be great at that! What made you want to {goal}?"],
+      "follow_ups": ["What's the first step to get there?", "What made you want to do that?"]
+    },
+    {
+      "id": "favorite_is",
+      "priority": 60,
+      "patterns": [
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "cat", "RIGHT_ATTRS": {"DEP": "nsubj"}},
+          {"LEFT_ID": "cat", "REL_OP": ">", "RIGHT_ID": "fav", "RIGHT_ATTRS": {"LOWER": {"IN": ["favorite", "favourite"]}}},
+          {"LEFT_ID": "cat", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "my"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "value", "RIGHT_ATTRS": {"DEP": {"IN": ["acomp", "attr"]}}}
+        ],
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "value", "RIGHT_ATTRS": {"DEP": "nsubj"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "cat", "RIGHT_ATTRS": {"DEP": "attr"}},
+          {"LEFT_ID": "cat", "REL_OP": ">", "RIGHT_ID": "fav", "RIGHT_ATTRS": {"LOWER": {"IN": ["favorite", "favourite"]}}},
+          {"LEFT_ID": "cat", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "my"}}
+        ]
+      ],
+      "slots": {"category": {"node": "cat", "span": "lemma"}, "value": {"node": "value", "span": "subtree"}},
+      "compute": ["bot_favorite"],
+      "memories": [{"category": "favorite", "key": "favorite_{category_slug}", "value": "{value_raw}"}],
+      "valence": "positive",
+      "responses": [
+        {"text": "{value}? Mine too! Great minds think alike.", "requires": ["same_favorite"]},
+        {"text": "{value} is a great {category}! Mine is {bot_favorite}.", "requires": ["bot_favorite"]},
+        {"text": "Ooh, {value}! That's a great favorite {category}."},
+        {"text": "{value}? Nice choice!"}
+      ],
+      "follow_ups": ["Why is {value} your favorite?", "How long has {value} been your favorite?"]
+    },
+    {
+      "id": "love_person",
+      "priority": 56,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@like_verbs"}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": "@relations"}}},
+        {"LEFT_ID": "obj", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "my"}}
+      ]],
+      "conditions": {"not_negated": "verb"},
+      "slots": {"person": {"node": "obj", "span": "subtree"}},
+      "valence": "positive",
+      "responses": ["Aw, it sounds like you and {person} are really close!", "That's so sweet. What do you like to do with {person}?"]
+    },
+    {
+      "id": "dislike_thing",
+      "priority": 55,
+      "patterns": [
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@like_verbs"}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": {"IN": ["dobj", "xcomp"]}}}
+        ],
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@hate_verbs"}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": {"IN": ["dobj", "xcomp"]}}}
+        ]
+      ],
+      "slots": {"thing": {"node": "obj", "span": "subtree"}},
+      "memories": [{"category": "dislike", "key": "dislikes_{thing_slug}", "value": "{thing_raw}"}],
+      "valence": "neutral",
+      "responses": ["Got it, {thing} isn't your thing. I'll remember that!", "Not a fan of {thing}, huh? That's okay, everybody likes different stuff."],
+      "follow_ups": ["What do you like instead?"]
+    },
+    {
+      "id": "like_thing",
+      "priority": 50,
+      "patterns": [
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@like_verbs"}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": {"IN": ["dobj", "xcomp"]}}}
+        ]
+      ],
+      "suppressed_by": ["love_person"],
+      "conditions": {"not_negated": "verb"},
+      "slots": {"thing": {"node": "obj", "span": "subtree"}, "verb": {"node": "verb", "span": "lemma"}},
+      "compute": ["bot_shares_like"],
+      "memories": [{"category": "favorite", "key": "likes_{thing_slug}", "value": "{thing_raw}"}],
+      "valence": "positive",
+      "responses": [
+        {"text": "You {verb} {thing}? Me too, I think it's awesome!", "requires": ["bot_shares_like"]},
+        {"text": "{thing} sounds like a lot of fun!"},
+        {"text": "Oh, you {verb} {thing}? Nice!"},
+        {"text": "I can tell you really enjoy {thing}."}
+      ],
+      "follow_ups": ["What do you like most about it?", "Is there anything else you really like?"]
+    },
+    {
+      "id": "person_relation",
+      "priority": 30,
+      "patterns": [
+        [
+          {"RIGHT_ID": "rel", "RIGHT_ATTRS": {"LEMMA": {"IN": "@relations"}}},
+          {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "my"}},
+          {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": "appos", "POS": "PROPN"}}
+        ],
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": "nsubj", "POS": "PROPN"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "rel", "RIGHT_ATTRS": {"DEP": "attr", "LEMMA": {"IN": "@relations"}}},
+          {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "my"}}
+        ]
+      ],
+      "slots": {"name": {"node": "name", "span": "text"}, "relation": {"node": "rel", "span": "noun_phrase"}},
+      "memories": [{"category": "person", "key": "{relation_slug}_{name_slug}", "value": "{name_raw}"}],
+      "valence": "positive",
+      "responses": ["{name} sounds like a great {relation}!", "Tell me more about {name}!"]
+    },
+    {
+      "id": "thanks",
+      "priority": 15,
+      "patterns": [[{"RIGHT_ID": "t", "RIGHT_ATTRS": {"LOWER": {"IN": "@thanks"}}}]],
+      "responses": ["You're welcome, {user_name}!", "Anytime! That's what friends are for."]
+    },
+    {
+      "id": "farewell",
+      "priority": 15,
+      "patterns": [[{"RIGHT_ID": "f", "RIGHT_ATTRS": {"LOWER": {"IN": "@farewells"}}}]],
+      "conditions": {"first_token": "f"},
+      "responses": ["Bye, {user_name}! Talk to you soon!", "See you later, {user_name}! I had fun talking with you."]
+    },
+    {
+      "id": "greeting",
+      "priority": 10,
+      "patterns": [[{"RIGHT_ID": "g", "RIGHT_ATTRS": {"LOWER": {"IN": "@greetings"}}}]],
+      "conditions": {"first_token": "g"},
+      "responses": ["Hi {user_name}! What's up?", "Hey {user_name}! How's your day going?", "Hello {user_name}! It's good to see you!"]
+    }
+  ]
+}

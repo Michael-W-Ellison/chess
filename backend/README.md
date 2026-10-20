@@ -200,6 +200,22 @@ See `.env.example` for all configuration options:
 - **Email:** SMTP settings for parent notifications
 - **Features:** Enable/disable optional features
 
+## Running Without an LLM
+
+When no model is loaded, or `USE_LLM=false` is set, the backend uses a rule-based
+response engine instead of the LLM:
+
+- `services/utterance_parser.py` parses each message into a dependency tree with spaCy
+  (`en_core_web_sm`, installed from `requirements.txt`).
+- `knowledge/conversation_rules.json` holds structural rules (spaCy `DependencyMatcher`
+  patterns), word lists, memory writes and response templates. Rules can be added or
+  changed there without code changes.
+- `services/response_engine.py` matches the rules, binds tree nodes to slots, stores what
+  it learns (favorites, dislikes, people, goals, achievements, name, age), detects mood,
+  and composes replies shaped by the bot's personality traits and friendship level.
+
+If spaCy is not installed, the backend falls back to keyword extraction and fixed replies.
+
 ## Development
 
 ### Code Formatting

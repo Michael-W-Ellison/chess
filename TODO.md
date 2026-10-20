@@ -352,6 +352,16 @@ These are not in the original 183-task plan; they were found while evaluating an
 - [ ] B2. Parent endpoints return 500 (not 401/503) when password protection is required but no password is configured
 - [ ] B3. Advice templates (`advice_template_service`) are not called from the conversation pipeline; detected advice requests only add a category hint to the LLM prompt, so the stored templates are never used (and with no model loaded, advice requests get the generic fallback reply)
 
+### Rule-Based Engine (no-LLM mode, prototype added 2026-10-20)
+- [x] R1. Parse messages into dependency trees (spaCy) and match structural rules from `backend/knowledge/conversation_rules.json` for replies, memory extraction and mood (`services/response_engine.py`)
+- [ ] R2. Expand rule coverage: school events, questions about the child's day, multi-sentence messages, and word order in reflections ("your mom and you" should be "you and your mom")
+- [ ] R3. Track the last-mentioned person and topic across turns so follow-ups like "she said no" can be understood
+- [ ] R4. Learn from engagement: favor reply types the child responds to (longer answers, returning to a topic)
+- [ ] R5. The existing quirk filter appends puns and facts even right after a question, and emoji choice ignores the words (e.g. "orange 💜"); coordinate it with the engine
+
+### Tests
+- [ ] T1. `tests/test_emoji_quirk.py::TestMoodBasedEmojis::test_happy_mood_emojis` fails about half the time (random emoji choice checked against a narrower set)
+
 ---
 
 ## Progress Summary
@@ -361,6 +371,6 @@ These are not in the original 183-task plan; they were found while evaluating an
 **In Progress:** 0
 **Pending:** 16 (task 72, tasks 167-177, 179, 181-183)
 
-**Follow-up Items:** 7 pending, 3 completed
+**Follow-up Items:** 12 pending, 4 completed
 
 **Current Phase:** Phase 7 - Testing & Refinement

@@ -236,8 +236,11 @@ class TestKeywordInContext:
         # "sad" in "sadness"
         assert manager._detect_user_mood("I feel sadness") == "sad"
 
-        # "happy" in "unhappy" (still matches)
-        assert manager._detect_user_mood("I'm unhappy") == "happy"
+        # "happy" in "unhappy": keyword matching gets this wrong; the parse-based
+        # detection (used when spaCy is installed) reads the whole word
+        from services.response_engine import response_engine
+        expected = "sad" if response_engine.is_available() else "happy"
+        assert manager._detect_user_mood("I'm unhappy") == expected
 
         # "upset" in "upsetting"
         assert manager._detect_user_mood("This is upsetting") == "sad"
