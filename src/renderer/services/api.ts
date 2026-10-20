@@ -140,6 +140,18 @@ export const conversationApi = {
   },
 
   /**
+   * End a conversation while the window is closing.
+   * Uses sendBeacon (or fetch with keepalive), which browsers deliver during page unload.
+   */
+  endOnUnload(conversationId: number): void {
+    const url = `${defaultConfig.baseURL}/api/conversation/end/${conversationId}`;
+    if (typeof navigator !== 'undefined' && navigator.sendBeacon && navigator.sendBeacon(url)) {
+      return;
+    }
+    fetch(url, { method: 'POST', keepalive: true }).catch(() => undefined);
+  },
+
+  /**
    * Get conversation details
    */
   async getConversation(conversationId: number): Promise<ConversationSummary> {
