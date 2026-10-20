@@ -3,14 +3,10 @@
  * App settings and preferences
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useProfile } from '../hooks/useProfile';
 import { useAvatar } from '../hooks/useAvatar';
-import { useTheme } from '../hooks/useTheme';
-import { useColor } from '../hooks/useColor';
 import { useAchievements } from '../hooks/useAchievements';
-import { useLogin } from '../hooks/useLogin';
-import { useStreak } from '../hooks/useStreak';
 import { AvatarSelector } from './AvatarSelector';
 import { AvatarDisplay } from './AvatarDisplay';
 import { ThemeToggle } from './ThemeToggle';
@@ -26,10 +22,7 @@ import { isSoundEnabled, setSoundEnabled, playClickSound } from '../../shared/so
 export const SettingsPanel: React.FC = () => {
   const { profile, updateProfile, isLoading } = useProfile();
   const { avatarId, updateAvatar } = useAvatar();
-  const { theme } = useTheme();
-  const { colorTheme } = useColor();
   const { unlockedAchievements, stats } = useAchievements();
-  const loginStats = useLogin();
 
   // Local state for form
   const [formData, setFormData] = useState({

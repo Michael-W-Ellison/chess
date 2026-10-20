@@ -8,7 +8,6 @@ import type {
   SendMessageResponse,
   PersonalityState,
   UserProfile,
-  SafetyFlag,
   ConversationSummary,
   ProfileItem,
 } from '../../shared/types';

@@ -11,7 +11,6 @@ import {
   calculateStreakStats,
   isStreakAtRisk,
   getStreakMilestone,
-  getNextMilestone,
   getProgressToNextMilestone,
   getTodayISO,
 } from '../../shared/streakUtils';

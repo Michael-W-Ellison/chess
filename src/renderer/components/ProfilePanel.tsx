@@ -39,7 +39,7 @@ export const ProfilePanel: React.FC = () => {
       <div className="space-y-6">
         {/* Friendship meter */}
         <FriendshipMeter
-          friendshipLevel={personality.friendshipLevel}
+          friendshipLevel={personality.friendship_level}
           stats={personality.stats}
         />
 
@@ -186,12 +186,21 @@ export const ProfilePanel: React.FC = () => {
       );
     }
 
+    // Each section as rows: favorites and dislikes map a key to a value, goals and
+    // achievements are lists, and people have the memory key as name and the name as notes
+    const keyValueRows = (items: Record<string, string> | undefined) =>
+      Object.entries(items || {}).map(([label, value]) => ({ label, value }));
+    const listRows = (items: string[] | undefined) => (items || []).map((value) => ({ label: '', value }));
     const sections = [
-      { title: 'Favorites', items: profile.favorites, emoji: '⭐', color: 'yellow' },
-      { title: 'Dislikes', items: profile.dislikes, emoji: '👎', color: 'red' },
-      { title: 'Goals', items: profile.goals, emoji: '🎯', color: 'green' },
-      { title: 'People', items: profile.people, emoji: '👥', color: 'blue' },
-      { title: 'Achievements', items: profile.achievements, emoji: '🏆', color: 'purple' },
+      { title: 'Favorites', rows: keyValueRows(profile.favorites), emoji: '⭐' },
+      { title: 'Dislikes', rows: keyValueRows(profile.dislikes), emoji: '👎' },
+      { title: 'Goals', rows: listRows(profile.goals), emoji: '🎯' },
+      {
+        title: 'People',
+        rows: (profile.importantPeople || []).map((person) => ({ label: person.name, value: person.notes || '' })),
+        emoji: '👥',
+      },
+      { title: 'Achievements', rows: listRows(profile.achievements), emoji: '🏆' },
     ];
 
     return (
@@ -223,7 +232,7 @@ export const ProfilePanel: React.FC = () => {
 
         {/* Profile sections */}
         {sections.map((section) => {
-          if (!section.items || Object.keys(section.items).length === 0) {
+          if (section.rows.length === 0) {
             return null;
           }
 
@@ -234,15 +243,17 @@ export const ProfilePanel: React.FC = () => {
                 <span>{section.title}</span>
               </h3>
               <div className="space-y-2">
-                {Object.entries(section.items).map(([key, value]) => (
+                {section.rows.map(({ label, value }, index) => (
                   <div
-                    key={key}
+                    key={`${label}-${index}`}
                     className="flex items-start justify-between p-2 bg-gray-50 rounded"
                   >
                     <div>
-                      <div className="text-sm font-medium text-gray-700 capitalize">
-                        {key.replace(/_/g, ' ')}
-                      </div>
+                      {label && (
+                        <div className="text-sm font-medium text-gray-700 capitalize">
+                          {label.replace(/_/g, ' ')}
+                        </div>
+                      )}
                       <div className="text-sm text-gray-600">{value}</div>
                     </div>
                   </div>
@@ -253,9 +264,7 @@ export const ProfilePanel: React.FC = () => {
         })}
 
         {/* Empty state */}
-        {sections.every(
-          (section) => !section.items || Object.keys(section.items).length === 0
-        ) && (
+        {sections.every((section) => section.rows.length === 0) && (
           <div className="text-center py-12 text-gray-500">
             <div className="text-4xl mb-4">💬</div>
             <p className="mb-2">Your profile is empty!</p>

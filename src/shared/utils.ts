@@ -3,7 +3,7 @@
  * Used by both main process and renderer process
  */
 
-import { FriendshipLevelLabel, Mood } from './types';
+import { FriendshipLevelLabel } from './types';
 import { FRIENDSHIP_LEVELS } from './constants';
 
 // ============================================================================

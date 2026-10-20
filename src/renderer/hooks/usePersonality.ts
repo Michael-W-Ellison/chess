@@ -55,14 +55,14 @@ export function usePersonality(): UsePersonalityState {
 
       // Check for level-up
       if (previousLevelRef.current !== null &&
-          data.friendshipLevel > previousLevelRef.current) {
+          data.friendship_level > previousLevelRef.current) {
         // Play celebratory sound for level-up!
         playLevelUpSound();
-        console.log(`🎉 Level up! ${previousLevelRef.current} → ${data.friendshipLevel}`);
+        console.log(`🎉 Level up! ${previousLevelRef.current} → ${data.friendship_level}`);
       }
 
       // Update previous level
-      previousLevelRef.current = data.friendshipLevel;
+      previousLevelRef.current = data.friendship_level;
 
       setPersonality(data);
     } catch (err) {

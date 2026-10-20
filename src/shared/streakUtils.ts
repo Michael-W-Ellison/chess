@@ -95,7 +95,7 @@ export function areConsecutive(
     // Check if the gap is only weekends
     const d1 = parseISODate(date1);
     const d2 = parseISODate(date2);
-    const [earlier, later] = d1 < d2 ? [d1, d2] : [d2, d1];
+    const earlier = d1 < d2 ? d1 : d2;
 
     let hasNonWeekendGap = false;
     for (let i = 1; i < dayDiff; i++) {
@@ -319,7 +319,6 @@ export function getProgressToNextMilestone(streakLength: number): {
   daysRemaining: number;
 } {
   const nextMilestone = getNextMilestone(streakLength);
-  const previousMilestone = getNextMilestone(0); // Start from first milestone
 
   let prev = 0;
   const milestones = [3, 5, 7, 10, 14, 21, 30, 50, 60, 75, 100, 150, 200, 250, 365, 500, 1000];

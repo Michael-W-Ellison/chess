@@ -132,9 +132,6 @@ export const FriendshipMeter: React.FC<FriendshipMeterProps> = ({
 
   const progress = getLevelProgress();
 
-  // Get current level information
-  const currentLevelInfo = LEVEL_INFO[friendshipLevel] || LEVEL_INFO[1];
-
   // Level emoji/icon
   const getLevelIcon = (level: number): string => {
     return LEVEL_INFO[level]?.icon || '🌱';

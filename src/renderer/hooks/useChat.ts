@@ -5,7 +5,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { api } from '../services/api';
-import type { ChatMessage, PersonalityState } from '../../shared/types';
+import type { ChatMessage, ConversationPersonality } from '../../shared/types';
 import { playMessageReceiveSound } from '../../shared/soundEffects';
 
 // Memory optimization: Limit number of messages in memory
@@ -19,7 +19,7 @@ export interface UseChatState {
   error: string | null;
   conversationId: number | null;
   isConversationActive: boolean;
-  personality: PersonalityState | null;
+  personality: ConversationPersonality | null;
 
   // Actions
   startConversation: () => Promise<void>;
@@ -48,7 +48,7 @@ export function useChat(): UseChatState {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<number | null>(null);
-  const [personality, setPersonality] = useState<PersonalityState | null>(null);
+  const [personality, setPersonality] = useState<ConversationPersonality | null>(null);
 
   // Ref to track if conversation is active
   const isConversationActiveRef = useRef(false);
@@ -81,7 +81,7 @@ export function useChat(): UseChatState {
         role: 'assistant',
         timestamp: new Date().toISOString(),
         metadata: {
-          safetyFlag: false,
+          safety_flag: false,
         },
       };
 

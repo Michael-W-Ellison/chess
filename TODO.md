@@ -340,10 +340,11 @@ These are not in the original 183-task plan; they were found while evaluating an
 
 ### Frontend
 - [x] F1. Parent login added to the frontend: the Parent Dashboard checks `GET /api/parent/auth/status`, shows a password form when a password is required (`ParentLogin.tsx`), keeps the token in sessionStorage, and sends it on all `/api/parent/*` requests (`services/parentAuth.ts`, `parentFetch`); a rejected token returns to the form, and there is a Log out button. If a password is required but not set up, or the backend is not responding, the dashboard says so. Also pinned `bcrypt==4.0.1`: with bcrypt 5 (installed by `passlib[bcrypt]`), passlib 1.7.4 cannot hash or check passwords, so login always failed
-- [ ] F2. Fix the remaining renderer TypeScript errors (`npx tsc --noEmit -p tsconfig.json`: 78 errors, e.g. `MessageBubble.tsx` uses snake_case metadata fields, `ExportDialog.tsx`/`MemoryExport.tsx` type mismatches)
+- [x] F2. Renderer TypeScript errors fixed (`npx tsc --noEmit -p tsconfig.json`: 78 -> 0). The API types in `src/shared/types.ts` now use the field names the backend sends (`conversation_id`, `friendship_level`, `metadata.safety_flag`/`mood_detected`, profile `importantPeople`/`goals` as sent). Runtime bugs the wrong types hid are fixed: the Profile panel's friendship meter and the level-up sound read `friendshipLevel` (undefined); the People section read `profile.people` (missing) and goals/achievements were rendered as index/value pairs; the stats export printed `weeklyLogins`/`monthlyLogins` ("undefined logins") instead of `thisWeekLogins`/`thisMonthLogins`. The rest were unused imports/variables, `import.meta.env` types (`src/renderer/vite-env.d.ts`) and two type casts
 - [x] F3. Fix the Electron main-process TypeScript errors (`npx tsc --noEmit -p tsconfig.main.json`: 37 errors), which block `npm run build:main` and `npm run dev`
 - [x] F4. Fix the end-conversation call: frontend calls `POST /api/conversation/end/{id}`, backend expects `POST /api/conversation/end` with the ID in the body (backend now accepts both; the app also ends the conversation when the window closes)
-- [ ] F5. Chat header shows "Level" without the friendship level number (renderer reads a field name that does not match the API response; part of F2)
+- [x] F5. Chat header now shows the friendship level number (`ChatWindow.tsx` read `personality.friendshipLevel`; the start-conversation response sends `friendship_level`); fixed with F2
+- [ ] F8. `ExportDialog` (always mounted in the Profile and Achievements panels) and `MemoryExport` (Settings panel) call `useChat()`, which starts a new backend conversation on mount and ends it on unmount; their exports also only see that new, empty conversation, not the chat window's messages
 - [ ] F6. In development, React StrictMode mounts the app twice, so each launch starts two conversations (the first is never ended) and counts two sessions; production builds are not affected
 - [ ] F7. Several Electron IPC handlers are stubs: `get-parent-dashboard` returns mock data and `update-settings` does not save (`src/main/ipc-handlers.ts`)
 
@@ -377,6 +378,6 @@ These are not in the original 183-task plan; they were found while evaluating an
 **In Progress:** 0
 **Pending:** 16 (task 72, tasks 167-177, 179, 181-183)
 
-**Follow-up Items:** 6 pending, 16 completed
+**Follow-up Items:** 5 pending, 18 completed
 
 **Current Phase:** Phase 7 - Testing & Refinement

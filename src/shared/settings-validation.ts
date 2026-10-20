@@ -8,33 +8,12 @@
 
 import type {
   AppSettings,
-  AppearanceSettings,
-  SoundSettings,
-  NotificationSettings,
-  PrivacySettings,
-  ChatSettings,
-  PersonalitySettings,
-  AccessibilitySettings,
-  ParentalSettings,
-  AdvancedSettings,
-  WindowSettings,
-  AppMetadata,
   SettingsValidationError,
   SettingsValidationResult,
-  Theme,
-  ColorTheme,
-  SafetyLevel,
-  FontSize,
 } from './settings-schema';
 import {
-  isTheme,
-  isColorTheme,
-  isSafetyLevel,
-  isFontSize,
-  isNormalizedValue,
   MAX_CHAT_HISTORY_DAYS,
   MAX_MESSAGE_HISTORY,
-  MAX_CACHE_SIZE_MB,
   MAX_DAILY_TIME_LIMIT_MINUTES,
 } from './settings-schema';
 
@@ -123,21 +102,6 @@ function validateString(
   }
 
   return true;
-}
-
-/**
- * Validate an optional value
- */
-function validateOptional<T>(
-  value: T | undefined,
-  path: string,
-  validator: (val: T, path: string, errors: SettingsValidationError[]) => boolean,
-  errors: SettingsValidationError[]
-): boolean {
-  if (value === undefined) {
-    return true; // Optional, so undefined is valid
-  }
-  return validator(value, path, errors);
 }
 
 /**

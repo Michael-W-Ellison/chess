@@ -163,8 +163,8 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
             { key: 'medium', description: 'Should be reviewed' },
             { key: 'low', description: 'For your awareness' },
           ].map(({ key, description }) => {
-            const fieldName = `notify_on_${key}` as keyof typeof preferences;
-            const isEnabled = preferences?.[fieldName] as boolean;
+            const fieldName = `notify_on_${key}` as keyof NonNullable<typeof preferences>;
+            const isEnabled = preferences?.[fieldName] === true;
 
             return (
               <div key={key} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
@@ -222,8 +222,8 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
             { key: 'inappropriate', label: 'Inappropriate Content', icon: '🚫', description: 'Other inappropriate requests or behavior', priority: 'Recommended' },
             { key: 'profanity', label: 'Profanity', icon: '🤬', description: 'Inappropriate language', priority: 'Optional' },
           ].map(({ key, label, icon, description, priority }) => {
-            const fieldName = `notify_on_${key}` as keyof typeof preferences;
-            const isEnabled = preferences?.[fieldName] as boolean;
+            const fieldName = `notify_on_${key}` as keyof NonNullable<typeof preferences>;
+            const isEnabled = preferences?.[fieldName] === true;
             const isCritical = key === 'crisis' || key === 'abuse';
 
             return (

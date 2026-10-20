@@ -69,7 +69,7 @@ export const ChatWindow: React.FC = () => {
             </h2>
             {personality && !gameMode && (
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Mood: {personality.mood} • Level {personality.friendshipLevel}
+                Mood: {personality.mood} • Level {personality.friendship_level}
               </p>
             )}
             {gameMode && (

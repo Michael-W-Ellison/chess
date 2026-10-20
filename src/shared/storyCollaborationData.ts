@@ -272,8 +272,8 @@ export function validateContribution(text: string): {
  * Generate AI story contribution (placeholder - would use actual AI in production)
  */
 export function generateAIContribution(
-  prompt: StoryPrompt,
-  storyText: string,
+  _prompt: StoryPrompt,
+  _storyText: string,
   turnNumber: number
 ): string {
   // In a real implementation, this would call an AI API
