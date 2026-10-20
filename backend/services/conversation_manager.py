@@ -3,8 +3,9 @@ Conversation Manager Service
 Orchestrates the conversation flow and message processing
 """
 
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Tuple
 import logging
+import re
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
@@ -581,19 +582,26 @@ INSTRUCTIONS:
         """
         Apply personality quirks to response
 
+        Facts, puns and the catchphrase go before a closing question, so the reply still
+        ends with what the bot asked ("That's awesome! <pun> What was the best part?").
+
         If features is given, records whether a fun fact or pun was added ("humor" =
         "fact", "pun" or "none") so the child's reaction can be credited to it.
         """
         import random
 
         quirks = personality.get_quirks()
+        response, closing_question = self._split_closing_question(response)
         # Higher humor means more puns and facts (0.5x at humor 0.0, 1.5x at humor 1.0)
         humor = getattr(personality, "humor", 0.5)
         humor_scale = 0.5 + humor if isinstance(humor, (int, float)) else 1.0
         humor_added = None
 
+        # A reply that is only a question gets no fact or pun in front of it
+        joke_allowed = bool(response)
+
         # Apply shares_facts quirk
-        if "shares_facts" in quirks:
+        if "shares_facts" in quirks and joke_allowed:
             # Probability increases slightly with friendship level
             base_probability = 0.20
             level_bonus = (personality.friendship_level - 1) * 0.02
@@ -607,7 +615,7 @@ INSTRUCTIONS:
                 humor_added = "fact"
 
         # Apply tells_puns quirk
-        if "tells_puns" in quirks:
+        if "tells_puns" in quirks and joke_allowed:
             # Probability increases slightly with friendship level
             base_probability = 0.25
             level_bonus = (personality.friendship_level - 1) * 0.02
@@ -620,8 +628,10 @@ INSTRUCTIONS:
             if response != before:
                 humor_added = "pun"
 
-        if features is not None and ("shares_facts" in quirks or "tells_puns" in quirks):
+        if features is not None and joke_allowed and ("shares_facts" in quirks or "tells_puns" in quirks):
             features["humor"] = humor_added or "none"
+
+        response = f"{response} {closing_question}".strip() if closing_question else response
 
         # Apply uses_emojis quirk with enhanced emoji service
         if "uses_emojis" in quirks:
@@ -635,15 +645,35 @@ INSTRUCTIONS:
                 response, mood=personality.mood, intensity=intensity
             )
 
-        # Add catchphrase occasionally (if feature unlocked)
+        # Add catchphrase occasionally (if feature unlocked), before any closing question
         if (
             can_use_catchphrase(personality)
             and personality.catchphrase
             and random.random() < 0.1
         ):
-            response += f" {personality.catchphrase}"
+            body, closing_question = self._split_closing_question(response)
+            response = " ".join(p for p in (body, personality.catchphrase, closing_question) if p)
 
         return response
+
+    @staticmethod
+    def _split_closing_question(text: str) -> Tuple[str, str]:
+        """
+        Split a reply into (body, closing question). The closing question is the run of
+        sentences at the end that are questions; emoji-only fragments stay with the
+        sentence before them. ("Cool! What's yours? 😄" -> ("Cool!", "What's yours? 😄"))
+        """
+        sentences = []
+        for part in re.split(r"(?<=[.!?])\s+", text.strip()):
+            if sentences and not re.search(r"\w", part):
+                sentences[-1] = f"{sentences[-1]} {part}"
+            elif part:
+                sentences.append(part)
+
+        split = len(sentences)
+        while split > 0 and re.search(r"\?\W*$", sentences[split - 1]):
+            split -= 1
+        return " ".join(sentences[:split]), " ".join(sentences[split:])
 
     def _fallback_response(self, context: Dict) -> str:
         """Generate fallback response when LLM is not available"""
