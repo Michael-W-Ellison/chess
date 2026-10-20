@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { PARENT_API_URL, parentFetch } from '../services/parentAuth';
 
 interface SafetyFlag {
   id: number;
@@ -35,7 +36,7 @@ export const useSafetyFlags = (userId: number, filter: string) => {
 
         // Determine API endpoint based on filter type
         let endpoint = '';
-        const baseUrl = 'http://localhost:8000/api/parent';
+        const baseUrl = PARENT_API_URL;
 
         switch (filter) {
           case 'all':
@@ -57,7 +58,7 @@ export const useSafetyFlags = (userId: number, filter: string) => {
             endpoint = `${baseUrl}/safety-flags/all?user_id=${userId}&limit=100`;
         }
 
-        const response = await fetch(endpoint);
+        const response = await parentFetch(endpoint);
 
         if (!response.ok) {
           throw new Error(`Failed to fetch safety flags: ${response.statusText}`);

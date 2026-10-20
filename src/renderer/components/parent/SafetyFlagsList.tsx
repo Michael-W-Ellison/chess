@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { useSafetyFlags } from '../../hooks/useSafetyFlags';
 import { SeverityBadge } from '../common/SeverityBadge';
+import { parentFetch } from '../../services/parentAuth';
 
 interface SafetyFlagsListProps {
   userId: number;
@@ -32,8 +33,8 @@ export const SafetyFlagsList: React.FC<SafetyFlagsListProps> = ({ userId }) => {
 
   const handleMarkAsReviewed = async (flagId: number) => {
     try {
-      const response = await fetch(
-        `http://localhost:8000/api/parent/safety-flags/${flagId}/acknowledge?user_id=${userId}`,
+      const response = await parentFetch(
+        `/safety-flags/${flagId}/acknowledge?user_id=${userId}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

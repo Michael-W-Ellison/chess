@@ -339,7 +339,7 @@ This TODO list is generated from the technical design document in `chatbot.txt`.
 These are not in the original 183-task plan; they were found while evaluating and testing the code.
 
 ### Frontend
-- [ ] F1. Add a parent login step to the frontend: call `POST /api/parent/auth/login`, store the token, and send `Authorization: Bearer <token>` on all `/api/parent/*` requests (these endpoints now require authentication)
+- [x] F1. Parent login added to the frontend: the Parent Dashboard checks `GET /api/parent/auth/status`, shows a password form when a password is required (`ParentLogin.tsx`), keeps the token in sessionStorage, and sends it on all `/api/parent/*` requests (`services/parentAuth.ts`, `parentFetch`); a rejected token returns to the form, and there is a Log out button. If a password is required but not set up, or the backend is not responding, the dashboard says so. Also pinned `bcrypt==4.0.1`: with bcrypt 5 (installed by `passlib[bcrypt]`), passlib 1.7.4 cannot hash or check passwords, so login always failed
 - [ ] F2. Fix the remaining renderer TypeScript errors (`npx tsc --noEmit -p tsconfig.json`: 78 errors, e.g. `MessageBubble.tsx` uses snake_case metadata fields, `ExportDialog.tsx`/`MemoryExport.tsx` type mismatches)
 - [x] F3. Fix the Electron main-process TypeScript errors (`npx tsc --noEmit -p tsconfig.main.json`: 37 errors), which block `npm run build:main` and `npm run dev`
 - [x] F4. Fix the end-conversation call: frontend calls `POST /api/conversation/end/{id}`, backend expects `POST /api/conversation/end` with the ID in the body (backend now accepts both; the app also ends the conversation when the window closes)
@@ -377,6 +377,6 @@ These are not in the original 183-task plan; they were found while evaluating an
 **In Progress:** 0
 **Pending:** 16 (task 72, tasks 167-177, 179, 181-183)
 
-**Follow-up Items:** 7 pending, 15 completed
+**Follow-up Items:** 6 pending, 16 completed
 
 **Current Phase:** Phase 7 - Testing & Refinement

@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { useNotificationPreferences } from '../../hooks/useNotificationPreferences';
 import { SeverityBadge } from '../common/SeverityBadge';
+import { parentFetch } from '../../services/parentAuth';
 
 interface NotificationPreferencesProps {
   userId: number;
@@ -32,7 +33,7 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
   const handleTestNotification = async () => {
     setTestingNotification(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/parent/test-notification?user_id=${userId}`, {
+      const response = await parentFetch(`/test-notification?user_id=${userId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
