@@ -1,5 +1,5 @@
 {
-  "_comment": "Knowledge base for the rule-based response engine (services/response_engine.py). Patterns use spaCy DependencyMatcher syntax; a string value starting with '@' inside an IN list refers to a lexicon below. A rule's suppressed_by lists rules whose match cancels it. Response text placeholders: {slot} is the slot from the bot's perspective (my -> your), {slot_raw} is the child's original wording, {slot_slug} is a key-safe form. Always available: {user_name}, {bot_name}, {bot_mood}.",
+  "_comment": "Knowledge base for the rule-based response engine (services/response_engine.py). Patterns use spaCy DependencyMatcher syntax; a string value starting with '@' inside an IN list refers to a lexicon below. A rule's suppressed_by lists rules whose match cancels it. Response text placeholders: {slot} is the slot from the bot's perspective (my -> your), {slot_raw} is the child's original wording, {slot_slug} is a key-safe form. Always available: {user_name}, {bot_name}, {bot_mood}. A rule's answer (optional) names what its reply says, from the child's point of view (\"your name\"), so the child can refer to it with \"it\" or \"that\".",
 
   "lexicons": {
     "like_verbs": ["love", "like", "enjoy", "adore"],
@@ -151,6 +151,7 @@
   "rules": [
     {
       "id": "bot_name_question",
+      "answer": "your name",
       "priority": 90,
       "patterns": [[
         {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
@@ -161,6 +162,7 @@
     },
     {
       "id": "bot_how_are_you",
+      "answer": "being {bot_mood}",
       "priority": 90,
       "patterns": [[
         {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
@@ -480,6 +482,7 @@
     },
     {
       "id": "bot_identity_question",
+      "answer": "being an AI",
       "priority": 92,
       "patterns": [[
         {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
@@ -491,6 +494,7 @@
     },
     {
       "id": "bot_day_question",
+      "answer": "talking with me",
       "priority": 90,
       "patterns": [[
         {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "do"}},
@@ -795,6 +799,7 @@
     },
     {
       "id": "play_request",
+      "answer": "playing a game",
       "priority": 86,
       "patterns": [[
         {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "play", "TAG": "VB"}},
@@ -945,6 +950,7 @@
     },
     {
       "id": "ability_question",
+      "answer": "being a computer program",
       "priority": 34,
       "patterns": [[
         {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"TAG": "VB", "LEMMA": {"NOT_IN": "@ability_exclusions"}}},

@@ -216,9 +216,13 @@ response engine instead of the LLM:
 - `services/reference_tracker.py` remembers the people, things and events mentioned in the
   last few turns, including what the bot itself said, and replaces pronouns before analysis
   ("She yelled at me" after "My teacher gave us a test" is analyzed as "My teacher yelled at
-  me"; "That was fun" after "We went swimming" as "Going swimming was fun"; "That's so cool"
-  after a fun fact as "Your fun fact is so cool"). When "she"/"he" could mean two people
-  mentioned together, the bot asks which one instead of guessing. The stored message and any
+  me"; "That was fun" after "We went swimming" as "Going swimming was fun"; "That was scary"
+  after "My dad got mad" as "My dad getting mad was scary"; "That's so cool" after a fun fact
+  as "Your fun fact is so cool"; "I like it" after the bot says its name as "I like your
+  name"). A rule's `answer` field names what its reply says so the child can refer to it.
+  When "she"/"he" could mean two or more recent people whose pronouns are not known
+  (gendered relation words like "mom" or "brother" count as known), the bot asks which one
+  instead of guessing. The stored message and any
   LLM prompt keep the child's original wording; references reset with each new conversation.
 - `services/engagement_tracker.py` scores each of the child's messages for engagement
   (length, answering the bot's question, staying on topic, asking back, sharing feelings;

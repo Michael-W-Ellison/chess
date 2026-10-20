@@ -359,7 +359,7 @@ These are not in the original 183-task plan; they were found while evaluating an
 - [x] R3. Track the last-mentioned person and topic across turns so follow-ups like "she said no" can be understood
 - [x] R7. Reference limits: "it"/"that" are only resolved as the subject of "was fun/hard/..." or the object of like/love/hate; references to what the bot said, and to whole events ("that" = "going to the zoo"), are not resolved; when two unfamiliar people are mentioned together, "she"/"he" goes to the most recent one until the child's own usage shows otherwise
 - [x] R4. Learn from engagement: favor reply types the child responds to (longer answers, returning to a topic)
-- [ ] R10. Remaining reference limits: events are only recorded for the child's own actions ("I/we ..."), not other people's ("my dad got mad"); the bot's own answers are only referable for its favorites and picks, jokes and facts, and nouns it introduced; an ambiguous "she"/"he" is only detected for people mentioned in the same turn
+- [x] R10. Reference limits: other people's actions are recorded as events ("My dad got mad" / "That was scary" -> "My dad getting mad was scary"), except for "it"/"that" in a message that names the actor; rules can name their reply's answer in an `answer` field (bot name, mood, identity, ability, day, play) so "I like it" / "That's weird" refer to it; "That's a cool color" picks the recent thing the noun names; an ambiguous "she"/"he" is detected across recent turns (people mentioned after the last person known to have that pronoun), and gendered relation words ("mom", "brother") count as known pronouns
 - [x] R8. Engagement limits: scoring uses only the text of the next message (not response time or the child leaving); rules with two templates still alternate, so template preferences only apply to rules with three or more; with the LLM enabled, only pun/fact choices are learned
 - [x] R5. The quirk filter appended puns, facts and the catchphrase after the bot's closing question; they now go before it
 - [ ] R11. Engagement timing thresholds (2 minutes = slow, 15 minutes = left) are estimates; tune them with real usage data
@@ -377,6 +377,6 @@ These are not in the original 183-task plan; they were found while evaluating an
 **In Progress:** 0
 **Pending:** 16 (task 72, tasks 167-177, 179, 181-183)
 
-**Follow-up Items:** 9 pending, 13 completed
+**Follow-up Items:** 8 pending, 14 completed
 
 **Current Phase:** Phase 7 - Testing & Refinement
