@@ -5,9 +5,8 @@ Provides tools to monitor and optimize memory usage
 
 import psutil
 import gc
-import sys
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from datetime import datetime
 
 logger = logging.getLogger("chatbot.memory")
@@ -95,22 +94,6 @@ class MemoryProfiler:
         logger.info(f"GC freed {freed_mb:.2f} MB, collected {collected} objects")
         return stats
 
-    def get_largest_objects(self, limit: int = 10) -> list:
-        """
-        Get the largest objects in memory (debugging)
-
-        Args:
-            limit: Number of objects to return
-
-        Returns:
-            List of tuples (type, size_bytes, count)
-        """
-        try:
-            import objgraph
-            return objgraph.most_common_types(limit=limit)
-        except ImportError:
-            logger.warning("objgraph not installed - install with: pip install objgraph")
-            return []
 
     def log_memory_summary(self, context: str = "") -> None:
         """
@@ -153,7 +136,3 @@ def log_memory(context: str = "") -> None:
     """Log current memory usage with optional context"""
     memory_profiler.log_memory_summary(context)
 
-
-def set_memory_baseline() -> None:
-    """Set current memory as baseline"""
-    memory_profiler.set_baseline()

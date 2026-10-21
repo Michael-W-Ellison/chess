@@ -4,7 +4,7 @@ Generates periodic safety and activity reports for parents
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func

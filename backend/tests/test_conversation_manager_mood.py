@@ -3,11 +3,10 @@ Tests for ConversationManager Mood Change on Crisis
 Tests that bot mood changes to 'concerned' when crisis is detected
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
 from datetime import datetime
 
-from services.conversation_manager import ConversationManager, conversation_manager
+from services.conversation_manager import ConversationManager
 
 
 class TestMoodChangeOnCrisis:

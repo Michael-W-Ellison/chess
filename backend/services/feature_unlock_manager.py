@@ -3,10 +3,9 @@ Feature Unlock Manager Service
 Manages feature availability based on friendship level
 """
 
-from typing import Dict, List, Set, Optional
+from typing import Dict, List, Optional
 import logging
 
-from sqlalchemy.orm import Session
 from models.personality import BotPersonality
 
 logger = logging.getLogger("chatbot.feature_unlock_manager")

@@ -3,7 +3,6 @@ Tests for Advice Category Detector Service
 Comprehensive test coverage for advice detection and categorization
 """
 
-import pytest
 from services.advice_category_detector import (
     AdviceCategoryDetector,
     advice_category_detector,

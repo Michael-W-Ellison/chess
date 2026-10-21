@@ -3,9 +3,7 @@ Tests for Template Personalization Service
 Comprehensive test coverage for template personalization with user data
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock
-import json
+from unittest.mock import Mock
 
 from services.template_personalization_service import (
     TemplatePersonalizationService,

@@ -4,7 +4,7 @@ Automatically sends weekly/daily reports based on user preferences
 """
 
 import logging
-from datetime import datetime, time as dt_time
+from datetime import datetime
 from typing import List
 from sqlalchemy.orm import Session
 
@@ -12,7 +12,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from database.database import SessionLocal
-from models.user import User
 from models.parent_preferences import ParentNotificationPreferences
 from services.weekly_report_service import weekly_report_service
 from utils.config import settings
@@ -226,18 +225,3 @@ class ReportScheduler:
 # Global scheduler instance
 report_scheduler = ReportScheduler()
 
-
-# Convenience functions
-def start_scheduler():
-    """Start the report scheduler"""
-    report_scheduler.start()
-
-
-def stop_scheduler():
-    """Stop the report scheduler"""
-    report_scheduler.stop()
-
-
-def force_check():
-    """Force immediate check for due reports"""
-    report_scheduler.force_check_now()

@@ -365,10 +365,3 @@ class TestShortTermMemory:
         db_session.delete(personality)
         db_session.commit()
 
-
-# Pytest configuration
-def pytest_configure(config):
-    """Configure pytest"""
-    config.addinivalue_line(
-        "markers", "short_term_memory: marks tests for short-term memory feature"
-    )

@@ -11,7 +11,7 @@ Integrates multiple specialized services:
 - SeverityScorer: Centralized severity scoring and classification
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 import logging
 from datetime import datetime
 
@@ -125,8 +125,6 @@ class SafetyFilter:
         action = "allow"
         response_message = ""
         details = {}
-
-        message_lower = message.lower()
 
         # ============================================================
         # PRIORITY 1: Crisis Detection (CRITICAL - HIGHEST PRIORITY)

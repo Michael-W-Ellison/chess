@@ -623,17 +623,6 @@ export const TIER_COLORS: Record<AchievementTier, { bg: string; text: string; bo
 };
 
 /**
- * Rarity colors for visual representation
- */
-export const RARITY_COLORS: Record<string, { bg: string; text: string }> = {
-  common: { bg: '#9CA3AF', text: '#FFFFFF' },
-  uncommon: { bg: '#10B981', text: '#FFFFFF' },
-  rare: { bg: '#3B82F6', text: '#FFFFFF' },
-  epic: { bg: '#8B5CF6', text: '#FFFFFF' },
-  legendary: { bg: '#F59E0B', text: '#FFFFFF' },
-};
-
-/**
  * Category names for display
  */
 export const CATEGORY_NAMES: Record<AchievementCategory, string> = {

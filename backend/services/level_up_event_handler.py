@@ -5,10 +5,8 @@ Handles friendship level-up events, rewards, and celebrations
 
 from typing import Dict, List, Optional
 import logging
-from datetime import datetime
 
 from sqlalchemy.orm import Session
-from models.personality import BotPersonality
 from models.level_up_event import LevelUpEvent
 from services.friendship_progression import friendship_manager
 

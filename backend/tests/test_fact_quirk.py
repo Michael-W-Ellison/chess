@@ -3,7 +3,6 @@ Tests for Fact Quirk Service
 Task 71: Implement shares_facts quirk
 """
 
-import pytest
 from services.fact_quirk_service import FactQuirkService, fact_quirk_service
 
 

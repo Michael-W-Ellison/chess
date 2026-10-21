@@ -94,55 +94,6 @@ export function playMessageReceiveSound(): void {
 }
 
 /**
- * Play an achievement unlock sound effect
- * Creates an exciting "success" sound
- */
-export function playAchievementSound(): void {
-  if (!isSoundEnabled()) return;
-
-  try {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-
-    // Create multiple oscillators for a richer sound
-    const osc1 = audioContext.createOscillator();
-    const osc2 = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-
-    osc1.connect(gainNode);
-    osc2.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-
-    // Configure the sound - rising chord
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
-    osc1.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
-    osc1.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2); // G5
-
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(261.63, audioContext.currentTime); // C4
-    osc2.frequency.setValueAtTime(329.63, audioContext.currentTime + 0.1); // E4
-    osc2.frequency.setValueAtTime(392.00, audioContext.currentTime + 0.2); // G4
-
-    // Configure volume envelope
-    gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
-
-    // Play the sound
-    osc1.start(audioContext.currentTime);
-    osc2.start(audioContext.currentTime);
-    osc1.stop(audioContext.currentTime + 0.4);
-    osc2.stop(audioContext.currentTime + 0.4);
-
-    // Clean up
-    setTimeout(() => {
-      audioContext.close();
-    }, 500);
-  } catch (error) {
-    console.warn('Failed to play achievement sound:', error);
-  }
-}
-
-/**
  * Play a level-up celebration sound effect
  * Creates an exciting ascending fanfare sound
  */

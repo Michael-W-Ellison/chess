@@ -4,7 +4,7 @@ Tests comprehensive detection of bullying indicators across all categories
 """
 
 import pytest
-from services.bullying_keyword_list import BullyingKeywordList, bullying_keyword_list
+from services.bullying_keyword_list import BullyingKeywordList
 
 
 class TestBullyingKeywordListBasics:

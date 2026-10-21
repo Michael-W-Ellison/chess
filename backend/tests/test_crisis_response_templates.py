@@ -3,7 +3,6 @@ Tests for Crisis Response Templates Service
 Comprehensive test coverage for crisis response template generation
 """
 
-import pytest
 from services.crisis_response_templates import (
     CrisisResponseTemplates,
     crisis_response_templates,

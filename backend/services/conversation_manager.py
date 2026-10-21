@@ -7,7 +7,7 @@ from typing import Dict, Optional, List, Tuple
 import logging
 import random
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 from models.user import User
@@ -19,7 +19,7 @@ from services.safety_filter import safety_filter
 from services.memory_manager import memory_manager
 from services.personality_manager import personality_manager
 from services.conversation_tracker import conversation_tracker
-from services.feature_gates import can_use_catchphrase, apply_feature_modifiers
+from services.feature_gates import can_use_catchphrase
 from services.personality_drift_calculator import personality_drift_calculator
 from services.emoji_quirk_service import emoji_quirk_service
 from services.pun_quirk_service import pun_quirk_service
@@ -168,7 +168,7 @@ class ConversationManager:
 
             # Store the message and response
             user_msg = self._store_message(conversation_id, "user", user_message, db, flagged=True)
-            bot_msg = self._store_message(conversation_id, "assistant", response, db)
+            self._store_message(conversation_id, "assistant", response, db)
 
             # Log safety event with message ID
             safety_filter.log_safety_event(db, user_id, safety_result, message_id=user_msg.id)
@@ -562,9 +562,6 @@ class ConversationManager:
         reply_plan: Optional[Dict[str, bool]] = None,
     ) -> str:
         """Build LLM prompt with personality and context"""
-        # Get user info
-        user_name = "friend"  # Default, could be extracted from memories
-
         # Get personality descriptions
         trait_descs = personality_manager.get_personality_description(personality)
 

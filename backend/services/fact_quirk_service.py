@@ -4,7 +4,7 @@ Handles the shares_facts personality quirk
 """
 
 import random
-from typing import List, Optional
+from typing import Optional
 
 from services.pun_quirk_service import join_transition
 

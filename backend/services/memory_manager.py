@@ -11,7 +11,6 @@ import json
 from sqlalchemy.orm import Session
 from models.user import User
 from models.memory import UserProfile
-from models.conversation import Message
 from services.prompts import MemoryExtractionPrompt
 from services.response_engine import response_engine
 from utils.config import settings
@@ -1436,7 +1435,7 @@ class MemoryManager:
         Returns:
             Relevance score (0.0 to 100.0)
         """
-        from datetime import datetime, timedelta
+        from datetime import datetime
 
         if strategy == "recency":
             # Score based on how recently the memory was mentioned

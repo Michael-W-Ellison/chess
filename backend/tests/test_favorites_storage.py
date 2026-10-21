@@ -7,7 +7,6 @@ Run with: pytest backend/tests/test_favorites_storage.py -v
 import pytest
 import sys
 import os
-from datetime import datetime
 
 # Add backend to path
 backend_path = os.path.join(os.path.dirname(__file__), '..')
@@ -373,10 +372,3 @@ class TestFavoritesStorage:
         db_session.delete(user2)
         db_session.commit()
 
-
-# Pytest configuration
-def pytest_configure(config):
-    """Configure pytest"""
-    config.addinivalue_line(
-        "markers", "favorites: marks tests for favorites storage feature"
-    )

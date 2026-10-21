@@ -9,7 +9,6 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
-import logging
 
 from utils.config import settings
 from utils.logging_config import setup_logging

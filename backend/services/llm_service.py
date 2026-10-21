@@ -4,12 +4,10 @@ Wrapper for llama-cpp-python to handle local LLM inference with optimized loadin
 Includes response caching for improved performance
 """
 
-from typing import Optional, Dict, Any, Iterator
+from typing import Optional, Dict, Any
 import logging
-from pathlib import Path
 import threading
 import time
-import hashlib
 
 from utils.config import settings
 from utils.cache import TTLCache, generate_cache_key, cache_cleanup_scheduler
@@ -222,7 +220,6 @@ class LLMService:
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
         stop: Optional[list] = None,
-        stream: bool = False,
         use_cache: bool = True,
     ) -> str:
         """
@@ -233,7 +230,6 @@ class LLMService:
             max_tokens: Maximum tokens to generate (defaults to settings)
             temperature: Sampling temperature (defaults to settings)
             stop: List of stop sequences
-            stream: Whether to stream the response (not implemented yet)
             use_cache: Whether to use response cache (default: True)
 
         Returns:
@@ -330,87 +326,7 @@ class LLMService:
         # Use the utility function to generate hash
         return generate_cache_key(**key_data)
 
-    def generate_stream(
-        self,
-        prompt: str,
-        max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
-        stop: Optional[list] = None,
-    ) -> Iterator[str]:
-        """
-        Generate a streaming response from the LLM (token by token)
 
-        Args:
-            prompt: The full prompt to send to the model
-            max_tokens: Maximum tokens to generate
-            temperature: Sampling temperature
-            stop: List of stop sequences
-
-        Yields:
-            Generated text tokens
-
-        Raises:
-            RuntimeError: If model is not loaded or cannot be loaded
-        """
-        # Ensure model is loaded (lazy loading)
-        if not self.is_loaded:
-            logger.info("Model not loaded, attempting lazy load...")
-            if not self.ensure_loaded():
-                raise RuntimeError(f"Model could not be loaded: {self.load_error or 'Unknown error'}")
-
-        if self.model is None:
-            raise RuntimeError("Model not loaded. Call load_model() first.")
-
-        if max_tokens is None:
-            max_tokens = self.max_tokens
-        if temperature is None:
-            temperature = self.temperature
-        if stop is None:
-            stop = ["\n\nUser:", "\n\nHuman:", "<|endoftext|>"]
-
-        try:
-            logger.debug("Starting streaming generation")
-
-            # Generate with streaming
-            for output in self.model(
-                prompt,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                stop=stop,
-                stream=True,
-                echo=False,
-            ):
-                if isinstance(output, dict) and "choices" in output:
-                    token = output["choices"][0]["text"]
-                    if token:
-                        yield token
-
-        except Exception as e:
-            logger.error(f"Error in streaming generation: {e}", exc_info=True)
-            yield "I'm having trouble thinking right now. Can you try asking again?"
-
-    def get_embedding(self, text: str) -> list[float]:
-        """
-        Get embedding vector for text (if model supports it)
-
-        Args:
-            text: Text to embed
-
-        Returns:
-            List of floats representing the embedding
-
-        Raises:
-            RuntimeError: If model is not loaded
-            NotImplementedError: If model doesn't support embeddings
-        """
-        if not self.is_loaded or self.model is None:
-            raise RuntimeError("Model not loaded. Call load_model() first.")
-
-        try:
-            embedding = self.model.embed(text)
-            return embedding
-        except AttributeError:
-            raise NotImplementedError("Model does not support embeddings")
 
     def clear_cache(self) -> Dict[str, int]:
         """
@@ -433,15 +349,6 @@ class LLMService:
         """
         return self._response_cache.get_stats()
 
-    def set_cache_enabled(self, enabled: bool) -> None:
-        """
-        Enable or disable response caching
-
-        Args:
-            enabled: True to enable, False to disable
-        """
-        self._cache_enabled = enabled
-        logger.info(f"LLM response cache {'enabled' if enabled else 'disabled'}")
 
     def get_model_info(self) -> Dict[str, Any]:
         """
@@ -505,16 +412,6 @@ def generate_response(prompt: str, **kwargs) -> str:
         Generated response text
     """
     return llm_service.generate(prompt, **kwargs)
-
-
-def is_model_loaded() -> bool:
-    """Check if the model is loaded"""
-    return llm_service.is_loaded
-
-
-def is_model_loading() -> bool:
-    """Check if the model is currently loading"""
-    return llm_service.is_loading
 
 
 def get_model_info() -> Dict[str, Any]:

@@ -7,8 +7,7 @@ import hashlib
 import json
 import logging
 import time
-from typing import Optional, Dict, Any, Callable
-from functools import wraps
+from typing import Optional, Dict, Any
 from collections import OrderedDict
 
 logger = logging.getLogger("chatbot.cache")
@@ -153,45 +152,6 @@ class TTLCache:
         }
 
 
-class LRUCache:
-    """
-    Least Recently Used Cache - evicts least recently used items when full
-    Simpler than TTL cache, no expiration
-    """
-
-    def __init__(self, max_size: int = 100):
-        """
-        Initialize LRU cache
-
-        Args:
-            max_size: Maximum number of items to cache
-        """
-        self.max_size = max_size
-        self._cache: OrderedDict[str, Any] = OrderedDict()
-
-    def get(self, key: str) -> Optional[Any]:
-        """Get value and move to end (most recent)"""
-        if key not in self._cache:
-            return None
-
-        self._cache.move_to_end(key)
-        return self._cache[key]
-
-    def set(self, key: str, value: Any) -> None:
-        """Set value, evicting oldest if necessary"""
-        if key in self._cache:
-            self._cache.move_to_end(key)
-        elif len(self._cache) >= self.max_size:
-            # Evict oldest
-            self._cache.popitem(last=False)
-
-        self._cache[key] = value
-
-    def clear(self) -> None:
-        """Clear all entries"""
-        self._cache.clear()
-
-
 def generate_cache_key(*args, **kwargs) -> str:
     """
     Generate a cache key from function arguments
@@ -214,53 +174,6 @@ def generate_cache_key(*args, **kwargs) -> str:
     return hashlib.sha256(key_str.encode()).hexdigest()
 
 
-def cached(ttl: int = 300, cache_instance: Optional[TTLCache] = None):
-    """
-    Decorator for caching function results with TTL
-
-    Args:
-        ttl: Time-to-live in seconds
-        cache_instance: Specific cache instance to use (creates default if None)
-
-    Returns:
-        Decorated function with caching
-    """
-    if cache_instance is None:
-        cache_instance = TTLCache(default_ttl=ttl)
-
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            # Generate cache key
-            cache_key = f"{func.__name__}:{generate_cache_key(*args, **kwargs)}"
-
-            # Try to get from cache
-            cached_result = cache_instance.get(cache_key)
-            if cached_result is not None:
-                return cached_result
-
-            # Call function and cache result
-            result = func(*args, **kwargs)
-            cache_instance.set(cache_key, result, ttl=ttl)
-
-            return result
-
-        # Expose cache for manual control
-        wrapper._cache = cache_instance
-        wrapper._cache_key = lambda *args, **kwargs: f"{func.__name__}:{generate_cache_key(*args, **kwargs)}"
-
-        return wrapper
-
-    return decorator
-
-
-# Global cache instances for different use cases
-llm_response_cache = TTLCache(default_ttl=3600, max_size=500)  # 1 hour, 500 responses
-personality_cache = TTLCache(default_ttl=60, max_size=100)     # 1 minute, 100 personalities
-profile_cache = TTLCache(default_ttl=300, max_size=100)        # 5 minutes, 100 profiles
-template_cache = LRUCache(max_size=1000)                       # No expiration, 1000 templates
-
-
 class CacheCleanupScheduler:
     """
     Periodic cleanup scheduler for TTL caches
@@ -274,7 +187,6 @@ class CacheCleanupScheduler:
         Args:
             interval_seconds: How often to run cleanup (default: 5 minutes)
         """
-        import threading
 
         self.interval = interval_seconds
         self._running = False

@@ -4,7 +4,7 @@ Handles the tells_puns personality quirk
 """
 
 import random
-from typing import List, Optional
+from typing import Optional
 
 
 def join_transition(transition: str, text: str) -> str:

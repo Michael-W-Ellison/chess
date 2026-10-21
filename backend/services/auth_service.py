@@ -209,20 +209,6 @@ class AuthService:
         payload = self.verify_token(token)
         return payload is not None
 
-    def get_token_expiry(self, token: str) -> Optional[datetime]:
-        """
-        Get the expiration time of a token
-
-        Args:
-            token: JWT token string
-
-        Returns:
-            Expiration datetime if token is valid, None otherwise
-        """
-        payload = self.verify_token(token)
-        if payload and "exp" in payload:
-            return datetime.fromtimestamp(payload["exp"])
-        return None
 
 
 # Global service instance

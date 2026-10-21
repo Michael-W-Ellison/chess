@@ -12,7 +12,7 @@ from database.database import Base
 from models.user import User
 from models.personality import BotPersonality
 from models.level_up_event import LevelUpEvent
-from services.personality_manager import PersonalityManager, personality_manager
+from services.personality_manager import PersonalityManager
 from services.conversation_manager import ConversationManager
 
 

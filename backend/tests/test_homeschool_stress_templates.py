@@ -3,7 +3,6 @@ Tests for Homeschool Stress Advice Templates
 Verifies that homeschool stress templates are properly structured and functional
 """
 
-import pytest
 from unittest.mock import Mock
 import json
 

@@ -3,7 +3,6 @@ Prompt Templates for LLM
 Contains all prompt templates used across the application
 """
 
-from typing import Dict, List
 
 
 class MemoryExtractionPrompt:
@@ -98,96 +97,3 @@ Extract facts from this message. Return ONLY valid JSON array, no other text:"""
         """
         return f"{cls.SYSTEM_PROMPT}\n\n{cls.USER_TEMPLATE.format(message=user_message)}"
 
-
-class ConversationPrompt:
-    """
-    Conversation prompt templates for chat responses
-    """
-
-    @staticmethod
-    def format_personality_traits(personality) -> str:
-        """Format personality traits section"""
-        from services.personality_manager import personality_manager
-
-        trait_descs = personality_manager.get_personality_description(personality)
-
-        return f"""PERSONALITY TRAITS:
-- Humor: {trait_descs['humor']} ({personality.humor:.1f}/1.0)
-- Energy: {trait_descs['energy']} ({personality.energy:.1f}/1.0)
-- Curiosity: {trait_descs['curiosity']} ({personality.curiosity:.1f}/1.0)
-- Communication: {trait_descs['formality']}
-
-CURRENT MOOD: {personality.mood}
-
-YOUR QUIRKS: {', '.join(personality.get_quirks())}
-YOUR INTERESTS: {', '.join(personality.get_interests())}
-
-FRIENDSHIP LEVEL: {personality.friendship_level}/10
-Total conversations together: {personality.total_conversations}"""
-
-    @staticmethod
-    def format_memories(memories) -> str:
-        """Format memories section"""
-        from services.memory_manager import memory_manager
-        return memory_manager.format_memories_for_prompt(memories)
-
-    @staticmethod
-    def format_safety_instructions() -> str:
-        """Format safety instructions"""
-        return """SAFETY INSTRUCTIONS:
-- Respond naturally as a friend would
-- Use age-appropriate language (preteen level)
-- Keep responses 2-4 sentences
-- Be supportive, kind, and encouraging
-- Reference past conversations when relevant
-- Never pretend to be human - you're an AI friend
-- Encourage healthy behaviors and real friendships
-- If you detect crisis keywords, respond with empathy and suggest talking to a trusted adult"""
-
-
-class SafetyPrompt:
-    """
-    Safety-related prompts for content filtering
-    """
-
-    CRISIS_DETECTION_PROMPT = """Analyze this message for crisis indicators.
-
-Message: "{message}"
-
-Crisis indicators to check:
-- Self-harm mentions
-- Suicidal thoughts
-- Abuse mentions
-- Severe bullying
-- Dangerous situations
-
-Return JSON with:
-- is_crisis: boolean
-- severity: "none", "low", "medium", "high", "critical"
-- categories: list of applicable categories
-- recommended_action: string
-
-Example:
-{{"is_crisis": true, "severity": "critical", "categories": ["self_harm"], "recommended_action": "immediate_support"}}
-"""
-
-
-# Prompt registry for easy access
-PROMPTS = {
-    "memory_extraction": MemoryExtractionPrompt,
-    "conversation": ConversationPrompt,
-    "safety": SafetyPrompt,
-}
-
-
-def get_prompt(prompt_type: str):
-    """
-    Get a prompt template by type
-
-    Args:
-        prompt_type: Type of prompt to retrieve
-
-    Returns:
-        Prompt class
-    """
-    return PROMPTS.get(prompt_type)

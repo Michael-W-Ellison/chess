@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 from sqlalchemy.orm import Session
 
-from services.safety_flag_service import SafetyFlagService, safety_flag_service
+from services.safety_flag_service import SafetyFlagService
 from models.safety import SafetyFlag
 
 

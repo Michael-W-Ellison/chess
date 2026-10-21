@@ -5,7 +5,6 @@ Provides commands to seed, reset, and manage the database
 """
 
 import sys
-import os
 from pathlib import Path
 
 # Add parent directory to path so we can import from backend
@@ -14,7 +13,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import argparse
 import logging
 from database.database import init_db, reset_database, SessionLocal, seed_initial_data
-from database.seed import seed_advice_templates
 from models.safety import AdviceTemplate
 
 # Setup logging

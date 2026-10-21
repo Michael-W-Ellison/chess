@@ -3,7 +3,6 @@ Tests for Mood Detection from User Messages
 Tests the keyword-based mood detection system
 """
 
-import pytest
 from services.conversation_manager import ConversationManager
 
 

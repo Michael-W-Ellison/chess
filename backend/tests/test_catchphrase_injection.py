@@ -7,7 +7,7 @@ import pytest
 from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from database.database import Base
 from models.user import User

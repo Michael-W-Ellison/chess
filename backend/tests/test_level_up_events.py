@@ -3,7 +3,6 @@ Tests for level-up event handling system
 """
 
 import pytest
-from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -13,7 +12,6 @@ from models.level_up_event import LevelUpEvent
 from database.database import Base
 from services.level_up_event_handler import (
     LevelUpEventHandler,
-    level_up_event_handler,
     create_level_up_event,
     get_unacknowledged_events,
     acknowledge_event,

@@ -3,7 +3,6 @@ Tests for using the stored advice templates in conversations
 (advice_template_service.find_relevant_template and the conversation pipeline)
 """
 
-from unittest.mock import patch
 
 import pytest
 from sqlalchemy import create_engine

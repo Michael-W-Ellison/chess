@@ -6,7 +6,7 @@ This service handles selecting appropriate advice templates from the database
 based on detected advice categories, user friendship level, age, and other factors.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 import logging
 import math
 import random

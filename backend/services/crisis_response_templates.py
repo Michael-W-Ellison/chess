@@ -144,8 +144,7 @@ class CrisisResponseTemplates:
     def get_response(
         self,
         category: str,
-        user_name: Optional[str] = None,
-        personalize: bool = True
+        user_name: Optional[str] = None
     ) -> str:
         """
         Get crisis response for a specific category
@@ -153,7 +152,6 @@ class CrisisResponseTemplates:
         Args:
             category: Crisis category (suicide, self_harm, abuse_physical, abuse_emotional, abuse_sexual)
             user_name: Optional user name for personalization
-            personalize: Whether to include personalization
 
         Returns:
             Complete crisis response message

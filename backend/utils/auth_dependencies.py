@@ -79,28 +79,6 @@ async def get_current_user(
     return payload
 
 
-async def verify_parent_access(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
-) -> bool:
-    """
-    Verify parent dashboard access
-
-    This is a simpler dependency that just returns True/False.
-    Use get_current_user if you need the full payload.
-
-    Args:
-        credentials: HTTP Authorization credentials from request
-
-    Returns:
-        True if access is granted
-
-    Raises:
-        HTTPException: 401 if authentication fails
-    """
-    await get_current_user(credentials)
-    return True
-
-
 async def require_parent_auth(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
@@ -131,4 +109,3 @@ async def require_parent_auth(
 
 # Dependency that can be used in route parameters
 RequireAuth = Depends(get_current_user)
-RequireParentAccess = Depends(verify_parent_access)

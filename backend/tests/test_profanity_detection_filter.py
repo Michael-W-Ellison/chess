@@ -3,10 +3,8 @@ Tests for Profanity Detection Filter Service
 Comprehensive tests for profanity detection and educational responses
 """
 
-import pytest
 from services.profanity_detection_filter import (
     ProfanityDetectionFilter,
-    profanity_detection_filter,
     check_message,
     get_educational_alternatives,
     reset_user_violations,

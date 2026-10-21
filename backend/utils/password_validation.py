@@ -4,7 +4,7 @@ Validates password strength and requirements
 """
 
 import re
-from typing import List, Dict
+from typing import Dict
 import logging
 
 logger = logging.getLogger("chatbot.password_validation")
@@ -185,20 +185,6 @@ def validate_password(password: str) -> Dict[str, any]:
         Validation result dictionary
     """
     return password_validator.validate(password)
-
-
-def is_password_strong_enough(password: str) -> bool:
-    """
-    Check if a password meets minimum requirements
-
-    Args:
-        password: Password to check
-
-    Returns:
-        True if password is valid
-    """
-    result = password_validator.validate(password)
-    return result["valid"]
 
 
 def get_password_requirements() -> str:

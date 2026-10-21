@@ -5,7 +5,6 @@ Comprehensive profanity detection and educational response system
 
 from typing import Dict, List, Optional
 import logging
-from datetime import datetime
 
 from services.profanity_word_list import profanity_word_list
 from utils.config import settings

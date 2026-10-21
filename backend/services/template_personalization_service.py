@@ -13,7 +13,6 @@ import re
 from sqlalchemy.orm import Session
 from models.user import User
 from models.personality import BotPersonality
-from models.conversation import Message
 from models.safety import AdviceTemplate
 
 logger = logging.getLogger("chatbot.template_personalization")

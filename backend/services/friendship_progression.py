@@ -3,9 +3,9 @@ Friendship Progression Service
 Manages friendship level progression based on multiple factors
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 from models.personality import BotPersonality

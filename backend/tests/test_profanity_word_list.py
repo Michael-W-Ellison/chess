@@ -3,10 +3,8 @@ Tests for Profanity Word List Service
 Comprehensive tests for age-appropriate profanity filtering
 """
 
-import pytest
 from services.profanity_word_list import (
     ProfanityWordList,
-    profanity_word_list,
     is_profanity,
     contains_profanity,
     get_severity,

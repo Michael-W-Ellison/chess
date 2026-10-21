@@ -22,7 +22,6 @@ import logging
 
 from database.database import get_db
 from models.user import User
-from models.safety import SafetyFlag
 from models.conversation import Conversation
 from services.safety_flag_service import safety_flag_service
 from services.parent_notification_service import parent_notification_service
@@ -31,7 +30,7 @@ from services.conversation_summary_service import conversation_summary_service
 from services.weekly_report_service import weekly_report_service
 from services.report_scheduler import report_scheduler
 from services.auth_service import auth_service
-from utils.auth_dependencies import get_current_user, require_parent_auth, RequireAuth
+from utils.auth_dependencies import require_parent_auth, RequireAuth
 from utils.config import settings
 from utils.rate_limiter import auth_rate_limiter
 from utils.password_validation import (

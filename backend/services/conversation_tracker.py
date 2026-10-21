@@ -3,7 +3,7 @@ Conversation Tracker Service
 Tracks conversation metrics, streaks, and awards friendship points
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 import logging
 from datetime import date, datetime, timedelta
 

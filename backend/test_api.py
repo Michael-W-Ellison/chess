@@ -5,7 +5,6 @@ Simple script to verify all API endpoints are working correctly
 
 import requests
 import json
-from typing import Dict, Any
 
 BASE_URL = "http://localhost:8000"
 

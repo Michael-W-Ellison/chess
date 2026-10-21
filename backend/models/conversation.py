@@ -118,9 +118,6 @@ class Message(Base):
                 return {}
         return {}
 
-    def set_metadata(self, metadata_dict):
-        """Set metadata from dictionary"""
-        self.message_metadata = json.dumps(metadata_dict)
 
     def __repr__(self):
         content_preview = self.content[:50] + "..." if len(self.content) > 50 else self.content

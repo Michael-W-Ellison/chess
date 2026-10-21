@@ -3,11 +3,10 @@ Feature Gates
 Decorators and utilities for feature gating based on friendship level
 """
 
-from typing import Callable, Optional
+from typing import Callable
 from functools import wraps
 import logging
 
-from sqlalchemy.orm import Session
 from models.personality import BotPersonality
 from services.feature_unlock_manager import feature_unlock_manager
 

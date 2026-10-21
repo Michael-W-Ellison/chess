@@ -3,8 +3,7 @@ Conversation Summary Service
 Generates summaries of conversations using LLM for parent review
 """
 
-from typing import Optional, Dict, List
-from datetime import datetime
+from typing import Dict, List
 from sqlalchemy.orm import Session
 import logging
 
@@ -119,25 +118,6 @@ class ConversationSummaryService:
 
         return results
 
-    def get_summary(self, conversation_id: int, db: Session) -> Optional[str]:
-        """
-        Get existing summary for a conversation
-
-        Args:
-            conversation_id: ID of the conversation
-            db: Database session
-
-        Returns:
-            Summary text or None if not available
-        """
-        conversation = db.query(Conversation).filter(
-            Conversation.id == conversation_id
-        ).first()
-
-        if conversation:
-            return conversation.conversation_summary
-
-        return None
 
     def _build_conversation_text(self, messages: List[Message]) -> str:
         """

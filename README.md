@@ -244,8 +244,7 @@ chess/
 │   │       └── api.ts
 │   └── shared/              # Shared types
 │       ├── types.ts         # TypeScript types
-│       ├── constants.ts     # App constants
-│       └── utils.ts         # Utilities
+│       └── constants.ts     # App constants
 ├── package.json             # Node dependencies
 ├── tsconfig.json           # TypeScript config
 ├── vite.config.ts          # Vite config

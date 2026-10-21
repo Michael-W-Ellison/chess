@@ -34,7 +34,6 @@ assert params == ['user_id', 'db'], f"Method should have user_id and db paramete
 print("✓ Method has correct signature: (user_id, db)")
 
 # Check that _build_context uses the new method
-import ast
 import inspect as insp
 
 source = insp.getsource(cm._build_context)

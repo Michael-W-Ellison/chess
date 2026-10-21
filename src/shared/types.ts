@@ -79,18 +79,6 @@ export interface ImportantPerson {
   notes?: string;
 }
 
-export interface Goal {
-  description: string;
-  category: string;
-  dateSet: Date;
-  achieved?: boolean;
-}
-
-export interface Achievement {
-  description: string;
-  date: Date;
-}
-
 /** GET /api/profile */
 export interface UserProfile {
   name: string;
@@ -148,65 +136,12 @@ export interface ChatMessage {
 // Conversation Types
 // ============================================================================
 
-export type ConversationGoal = 'casual' | 'advice' | 'storytelling' | 'game';
-
-export interface ConversationContext {
-  personality: PersonalityState;
-  userProfile: UserProfile;
-  recentMessages: ChatMessage[];  // Last 10 messages
-  relevantMemories: string[];     // Retrieved from long-term memory
-  currentTopic?: string;
-  conversationGoal?: ConversationGoal;
-  timeSinceLastChat?: number;     // Hours
-}
-
 export interface ConversationSummary {
   date: string;
   messageCount: number;
   topics: string[];
   moodDetected: string;
   flagsRaised: number;
-}
-
-// ============================================================================
-// Safety Types
-// ============================================================================
-
-export type FlagType = 'profanity' | 'crisis' | 'bullying' | 'inappropriate';
-
-export type Severity = 'low' | 'medium' | 'high' | 'critical';
-
-export interface SafetyFlag {
-  id: number;
-  userId: number;
-  messageId?: number;
-  flagType: FlagType;
-  severity: Severity;
-  contentSnippet?: string;
-  actionTaken: string;
-  timestamp: Date;
-  parentNotified: boolean;
-}
-
-// ============================================================================
-// Advice Types
-// ============================================================================
-
-export type AdviceCategory =
-  | 'school_stress'
-  | 'friend_conflict'
-  | 'performance_anxiety'
-  | 'family_issues'
-  | 'boredom'
-  | 'self_confidence';
-
-export interface AdviceTemplate {
-  id: number;
-  category: AdviceCategory;
-  keywords: string[];
-  template: string;
-  minFriendshipLevel: number;
-  expertReviewed: boolean;
 }
 
 // ============================================================================
@@ -220,69 +155,12 @@ export interface StartConversationResponse {
   personality: ConversationPersonality;
 }
 
-/** POST /api/message */
-export interface SendMessageRequest {
-  content: string;
-  conversation_id: number;
-  user_id?: number;
-}
-
 export interface SendMessageResponse {
   message_id: number;
   content: string;
   timestamp: string;
   metadata: MessageMetadata;
 }
-
-export interface ParentDashboardData {
-  conversationSummaries: ConversationSummary[];
-  safetyFlags: SafetyFlag[];
-  stats: {
-    totalConversations: number;
-    currentStreak: number;
-    averageSessionLength: string;
-  };
-}
-
-export interface GetParentDashboardRequest {
-  password: string;
-}
-
-export interface GetParentDashboardResponse {
-  data: ParentDashboardData;
-}
-
-// ============================================================================
-// Settings Types
-// ============================================================================
-
-// Comprehensive settings schema - re-export from settings modules
-export type {
-  AppSettings,
-  AppearanceSettings,
-  SoundSettings,
-  NotificationSettings,
-  PrivacySettings,
-  ChatSettings,
-  PersonalitySettings,
-  AccessibilitySettings,
-  ParentalSettings,
-  AdvancedSettings,
-  WindowSettings,
-  AppMetadata,
-  Theme,
-  ColorTheme,
-  SafetyLevel,
-  FontSize,
-  SettingsPath,
-  SettingsCategory,
-  SettingsValidationError,
-  SettingsValidationResult,
-} from './settings-schema';
-
-export { DEFAULT_SETTINGS } from './settings-defaults';
-export { DEFAULT_USER_ID } from './settings-schema';
-export { validateSettings, sanitizeSettings } from './settings-validation';
 
 // ============================================================================
 // Memory Types
@@ -301,94 +179,3 @@ export interface Memory {
   lastMentioned: Date;
   mentionCount: number;
 }
-
-// ============================================================================
-// Database Model Types (for reference)
-// ============================================================================
-
-export interface User {
-  id: number;
-  name: string;
-  age?: number;
-  grade?: number;
-  createdAt: Date;
-  lastActive: Date;
-  parentEmail?: string;
-}
-
-export interface BotPersonality {
-  id: number;
-  userId: number;
-  name: string;
-  humor: number;
-  energy: number;
-  curiosity: number;
-  formality: number;
-  friendshipLevel: number;
-  totalConversations: number;
-  mood: Mood;
-  quirks: string;        // JSON array
-  interests: string;     // JSON array
-  catchphrase?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface Conversation {
-  id: number;
-  userId: number;
-  timestamp: Date;
-  conversationSummary?: string;
-  moodDetected?: string;
-  topics?: string;       // JSON array
-  durationSeconds?: number;
-  messageCount?: number;
-}
-
-export interface Message {
-  id: number;
-  conversationId: number;
-  role: MessageRole;
-  content: string;
-  timestamp: Date;
-  flagged: boolean;
-  metadata?: string;     // JSON
-}
-
-// ============================================================================
-// IPC Response Wrapper
-// ============================================================================
-
-export interface IPCResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
-// ============================================================================
-// Utility Types
-// ============================================================================
-
-export type FriendshipLevelLabel =
-  | 'New Friends'
-  | 'Good Friends'
-  | 'Close Friends'
-  | 'Best Friends'
-  | 'Lifelong Friends';
-
-export interface FriendshipLevel {
-  level: number;
-  label: FriendshipLevelLabel;
-  color: string;
-  minConversations: number;
-  maxConversations: number;
-  unlockedFeatures: string[];
-}
-
-// ============================================================================
-// Export all types
-// ============================================================================
-
-export type {
-  // Re-export commonly used types for convenience
-};

@@ -3,10 +3,8 @@ Tests for Inappropriate Request Detector Service
 Comprehensive tests for inappropriate request detection
 """
 
-import pytest
 from services.inappropriate_request_detector import (
     InappropriateRequestDetector,
-    inappropriate_request_detector,
     check_message,
     should_notify_parent,
     get_stats,

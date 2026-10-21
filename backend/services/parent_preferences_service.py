@@ -8,7 +8,6 @@ from typing import Dict, Optional
 from sqlalchemy.orm import Session
 
 from models.parent_preferences import ParentNotificationPreferences
-from models.user import User
 
 logger = logging.getLogger("chatbot.parent_preferences")
 
