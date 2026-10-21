@@ -502,6 +502,23 @@ class NotificationHistoryResponse(BaseModel):
 
 
 # Endpoints
+def _flat_safety_summary(summary: Dict) -> Dict:
+    """
+    The dashboard's summary fields from safety_flag_service.get_user_safety_summary(),
+    which returns nested stats: {"all_time": stats, "last_7_days": stats, "most_recent_flag": flag}
+    """
+    all_time = summary["all_time"]
+    by_type = all_time.get("by_type") or {}
+    most_recent = summary.get("most_recent_flag")
+    return {
+        "total_flags_all_time": all_time["total_flags"],
+        "total_flags_last_7_days": summary["last_7_days"]["total_flags"],
+        "critical_flags_count": all_time["by_severity"].get("critical", 0),
+        "last_flag_timestamp": most_recent["timestamp"] if most_recent else None,
+        "most_common_flag_type": max(by_type, key=by_type.get) if by_type else None,
+    }
+
+
 @router.get("/dashboard")
 async def get_parent_dashboard(
     user_id: int = Query(..., description="Child's user ID"),
@@ -534,7 +551,7 @@ async def get_parent_dashboard(
             raise HTTPException(status_code=404, detail="User not found")
 
         # Get safety summary
-        summary = safety_flag_service.get_user_safety_summary(db, user_id)
+        summary = _flat_safety_summary(safety_flag_service.get_user_safety_summary(db, user_id))
 
         # Get recent safety flags (last 7 days)
         recent_flags = safety_flag_service.get_recent_flags(db, user_id=user_id, hours=168)
@@ -662,7 +679,7 @@ async def get_parent_dashboard_overview(
             raise HTTPException(status_code=404, detail="User not found")
 
         # Get safety summary
-        summary = safety_flag_service.get_user_safety_summary(db, user_id)
+        summary = _flat_safety_summary(safety_flag_service.get_user_safety_summary(db, user_id))
 
         # Determine if requires attention (has critical flags or recent unnotified flags)
         critical_flags = safety_flag_service.get_critical_flags(

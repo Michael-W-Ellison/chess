@@ -348,7 +348,7 @@ These are not in the original 183-task plan; they were found while evaluating an
 - [x] F6. React StrictMode (development) no longer starts two conversations per launch: `useChat` and `App` defer their mount side effects (starting a conversation; recording the login, streak activity and session start) to a timer that the cleanup cancels, so only the second StrictMode mount runs them; a conversation whose start request finishes after unmount is ended. Checked in the Vite dev server: 3 page loads went from 6 conversation starts (4 never ended) to 3. StrictMode stays on
 - [ ] F9. Every launch replaces the stored login history with only today's entry, so login streaks never grow: `LoginContext` loads the history from localStorage in a `useEffect`, which runs after `App`'s mount effect has already recorded the login against the empty default history (checked: seeded history for the two previous days was gone after one launch)
 - [ ] F10. `trackSessionStart` (`AchievementContext`) calls `updateStats` and then `updateDailyStreak`, which calls `updateStats` again with the same old `stats`; on the first session of a day the second write drops the first (`conversationCount + 1`, `currentSessionStartTime`), so session length is not tracked
-- [ ] F7. Several Electron IPC handlers are stubs: `get-parent-dashboard` returns mock data and `update-settings` does not save (`src/main/ipc-handlers.ts`)
+- [x] F7. Electron IPC handlers implemented (`src/main/ipc-handlers.ts`): `get-parent-dashboard(password, userId)` logs in to the backend and returns `GET /api/parent/dashboard`; `update-settings(updates)` checks the values against the stored settings' types and saves them to electron-store; `export-memory-book(content, defaultFileName)` shows a save dialog and writes the file. Also fixed: `send-message` sent `user_message` (the backend expects `content`, so it always failed), `cleanupIpcHandlers` used `removeAllListeners`, which does not remove `ipcMain.handle` handlers, and `/api/parent/dashboard` and `/dashboard/overview` always returned 500 (they read flat keys from the nested safety summary; their tests mocked the flat shape). The app's renderer calls the backend over HTTP and does not use these channels; `test-ipc-integration.ts` does
 
 ### Backend
 - [x] B1. Move `GET /api/conversation/stats`, `/recent` and `/streak` above `GET /api/conversation/{conversation_id}` in `routes/conversation.py`; they returned 422
@@ -380,6 +380,6 @@ These are not in the original 183-task plan; they were found while evaluating an
 **In Progress:** 0
 **Pending:** 16 (task 72, tasks 167-177, 179, 181-183)
 
-**Follow-up Items:** 6 pending, 19 completed
+**Follow-up Items:** 5 pending, 20 completed
 
 **Current Phase:** Phase 7 - Testing & Refinement

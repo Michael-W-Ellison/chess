@@ -66,7 +66,7 @@ export interface StoreSchema {
  * Default Store Values
  * These values are used when the store is first initialized
  */
-const defaults: StoreSchema = {
+export const defaults: StoreSchema = {
   user: {
     id: 1,
     name: undefined,
