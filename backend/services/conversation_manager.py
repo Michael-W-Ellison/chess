@@ -25,6 +25,7 @@ from services.emoji_quirk_service import emoji_quirk_service
 from services.pun_quirk_service import pun_quirk_service
 from services.fact_quirk_service import fact_quirk_service
 from services.advice_category_detector import advice_category_detector
+from services.advice_template_service import advice_template_service
 from services.conversation_summary_service import conversation_summary_service
 from services.response_engine import response_engine
 from services.engagement_tracker import engagement_tracker
@@ -257,6 +258,8 @@ class ConversationManager:
 
         # 6. Build context
         context = self._build_context(analysis_message, user_id, personality, db)
+        # Advice from a stored template matching what the child asked about, if any
+        context["advice"] = self._template_advice(user_message, context, personality, db)
 
         # 7. Generate response
         # Use the LLM when enabled and loadable (lazy loading); otherwise the rule-based engine.
@@ -285,8 +288,9 @@ class ConversationManager:
         # 8. Apply personality to response
         final_response = self._apply_personality_filter(
             raw_response, personality, user_message, features=reply_features,
-            # A requested joke or fact does not get another one added
-            allow_jokes=not response_engine.rule_flag(reply_features.get("rule"), "no_jokes"),
+            # A requested joke or fact does not get another one added, and advice gets none
+            allow_jokes=not response_engine.rule_flag(reply_features.get("rule"), "no_jokes")
+            and not context.get("advice"),
         )
 
         # 9. Safety check on response (optional)
@@ -598,6 +602,12 @@ Total conversations together: {personality.total_conversations}
             system += f"- Type: {category_desc}\n"
             system += f"- The user is asking for your advice and guidance on this topic.\n"
             system += f"- Provide supportive, age-appropriate advice.\n"
+        advice_text = context.get("advice")
+        if advice_text:
+            system += (
+                "\nADVICE TO GIVE (from a reviewed advice template; use its ideas in your own "
+                "words and keep to the length below):\n" + advice_text + "\n"
+            )
 
         # Add instructions
         system += """
@@ -872,8 +882,13 @@ INSTRUCTIONS:
         """
         Generate a reply with the rule-based response engine, or a canned fallback.
         The engine's choices are steered by the child's engagement history and recorded in
-        features.
+        features. Advice from a matching template (context["advice"]) is used as the reply.
         """
+        advice = context.get("advice")
+        if advice:
+            if features is not None:
+                features["rule"] = "advice"
+            return advice
         try:
             if personality is not None and response_engine.is_available():
                 user = getattr(personality, "user", None)
@@ -891,6 +906,36 @@ INSTRUCTIONS:
         except Exception as e:
             logger.error(f"Error generating rule-based response: {e}", exc_info=True)
         return self._fallback_response(context)
+
+    def _template_advice(
+        self,
+        user_message: str,
+        context: Dict,
+        personality: Optional[BotPersonality],
+        db: Session,
+    ) -> Optional[str]:
+        """
+        Personalized advice from the stored templates when the message asks for advice and a
+        template available at this friendship level and age matches what it is about
+        (see advice_template_service.find_relevant_template); otherwise None
+        """
+        detection = context.get("advice_request") or {}
+        if personality is None or not detection.get("is_advice_request"):
+            return None
+        try:
+            user = getattr(personality, "user", None)
+            return advice_template_service.get_advice_for_context(
+                db=db,
+                advice_detection=detection,
+                personality=personality,
+                user_id=personality.user_id,
+                user_message=user_message,
+                user_age=getattr(user, "age", None),
+                detected_mood=context.get("detected_mood"),
+            )
+        except Exception as e:
+            logger.error(f"Error getting template advice: {e}", exc_info=True)
+            return None
 
     def _detect_user_mood(self, message: str) -> str:
         """Detect mood from sentence structure if available, otherwise from keywords"""

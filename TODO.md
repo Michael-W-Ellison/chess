@@ -354,7 +354,7 @@ These are not in the original 183-task plan; they were found while evaluating an
 ### Backend
 - [x] B1. Move `GET /api/conversation/stats`, `/recent` and `/streak` above `GET /api/conversation/{conversation_id}` in `routes/conversation.py`; they returned 422
 - [x] B2. Parent endpoints now return 503 (not 500) when password protection is on but no password is set up, with a message naming `PARENT_DASHBOARD_PASSWORD` and `JWT_SECRET_KEY` and the setup endpoint (`utils/auth_dependencies.py`); `/auth/*` stays reachable and `/auth/status` reports `configured: false`. Login keeps returning 403 in this state (the frontend login form relies on it)
-- [ ] B3. Advice templates (`advice_template_service`) are not called from the conversation pipeline; detected advice requests only add a category hint to the LLM prompt, so the stored templates are never used (and with no model loaded, advice requests get the generic fallback reply)
+- [x] B3. Advice templates are now used in conversations: when the detector finds an advice request (confidence >= 0.5), `process_message` asks `advice_template_service` for a template; without the LLM it is the reply (with no joke or fact added), and with the LLM it is put in the prompt as the advice to give in its own words. Templates are now chosen by what the message is about (`find_relevant_template`: matched keywords weighted by how rare they are across templates, from all categories, at the child's friendship level and age); the old selection picked any template in the detected category (e.g. advice about siblings for "my parents are fighting"). Messages with no specific match ("help me with my friend") and templates above the friendship level get no template and keep the existing reply
 
 ### Rule-Based Engine (no-LLM mode, prototype added 2026-10-20)
 - [x] R1. Parse messages into dependency trees (spaCy) and match structural rules from `backend/knowledge/conversation_rules.json` for replies, memory extraction and mood (`services/response_engine.py`)
@@ -381,6 +381,6 @@ These are not in the original 183-task plan; they were found while evaluating an
 **In Progress:** 0
 **Pending:** 16 (task 72, tasks 167-177, 179, 181-183)
 
-**Follow-up Items:** 1 pending, 25 completed
+**Follow-up Items:** 0 pending, 26 completed
 
 **Current Phase:** Phase 7 - Testing & Refinement

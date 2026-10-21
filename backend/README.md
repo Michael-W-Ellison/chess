@@ -224,6 +224,11 @@ response engine instead of the LLM:
   (gendered relation words like "mom" or "brother" count as known), the bot asks which one
   instead of guessing. The stored message and any
   LLM prompt keep the child's original wording; references reset with each new conversation.
+- `services/advice_template_service.py` supplies advice from the seeded templates when a
+  message asks for advice: the template whose keywords best match the message (rarer keywords
+  weigh more), among those available at the child's friendship level and age. Without the LLM
+  it is the reply; with the LLM it is given to the model as the advice to put in its own words.
+  Requests with no specific match keep the normal reply.
 - `services/engagement_tracker.py` scores each of the child's messages for engagement
   (length, answering the bot's question, staying on topic, asking back, sharing feelings;
   brush-offs like "ok"/"idk" score near zero; slow replies count for less, and very late
