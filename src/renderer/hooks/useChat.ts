@@ -7,6 +7,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import type { ChatMessage, ConversationPersonality } from '../../shared/types';
 import { playMessageReceiveSound } from '../../shared/soundEffects';
+import { useAchievements } from './useAchievements';
 
 // Memory optimization: Limit number of messages in memory
 // Full conversation history is still stored in backend database
@@ -49,6 +50,7 @@ export function useChat(): UseChatState {
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [personality, setPersonality] = useState<ConversationPersonality | null>(null);
+  const { trackMessage } = useAchievements();
 
   // Ref to track if conversation is active
   const isConversationActiveRef = useRef(false);
@@ -138,6 +140,9 @@ export function useChat(): UseChatState {
         // Send to backend
         const response = await api.conversation.sendMessage(conversationId, content.trim());
 
+        // Count the message for achievements (messages, words, questions, emojis)
+        trackMessage(content.trim());
+
         // Add assistant response
         const assistantMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
@@ -167,7 +172,7 @@ export function useChat(): UseChatState {
         setIsLoading(false);
       }
     },
-    [conversationId]
+    [conversationId, trackMessage]
   );
 
   /**

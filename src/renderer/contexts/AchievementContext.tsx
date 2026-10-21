@@ -365,7 +365,8 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
   const trackMessage = useCallback(
     (text: string) => {
       const words = text.trim().split(/\s+/).length;
-      const emojis = (text.match(/[\p{Emoji}]/gu) || []).length;
+      // Extended_Pictographic: \p{Emoji} also matches digits, '#', '*' and skin-tone modifiers
+      const emojis = (text.match(/\p{Extended_Pictographic}/gu) || []).length;
       const hasQuestionMark = text.includes('?');
       const stats = statsRef.current;
 
