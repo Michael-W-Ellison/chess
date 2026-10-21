@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { useChat } from '../hooks/useChat';
+import { useChatContext } from '../contexts/ChatContext';
 import { MessageBubble } from './MessageBubble';
 import { InputArea } from './InputArea';
 import { TypingIndicator } from './TypingIndicator';
@@ -24,7 +24,7 @@ export const ChatWindow: React.FC = () => {
     sendMessage,
     startConversation,
     clearError,
-  } = useChat();
+  } = useChatContext();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);

@@ -7,6 +7,7 @@ import { AchievementProvider } from './contexts/AchievementContext';
 import { LoginProvider } from './contexts/LoginContext';
 import { StreakProvider } from './contexts/StreakContext';
 import { MemoryProvider } from './contexts/MemoryContext';
+import { ChatProvider } from './contexts/ChatContext';
 import './styles/index.css';
 
 // Load IPC integration tests in development mode
@@ -25,7 +26,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <StreakProvider>
             <LoginProvider>
               <AchievementProvider>
-                <App />
+                <ChatProvider>
+                  <App />
+                </ChatProvider>
               </AchievementProvider>
             </LoginProvider>
           </StreakProvider>
