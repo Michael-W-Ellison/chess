@@ -6,7 +6,7 @@ Stores parent preferences for safety notifications
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from typing import Optional, Dict, List
+from typing import Dict
 
 from database.database import Base
 

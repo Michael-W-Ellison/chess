@@ -3,7 +3,7 @@
  * Unified streak management for all activity types
  */
 
-import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useState, useCallback, ReactNode } from 'react';
 import {
   StreakRecord,
   StreakResult,
@@ -11,7 +11,6 @@ import {
   calculateStreakStats,
   isStreakAtRisk,
   getStreakMilestone,
-  getNextMilestone,
   getProgressToNextMilestone,
   getTodayISO,
 } from '../../shared/streakUtils';
@@ -76,36 +75,37 @@ const DEFAULT_OPTIONS: StreakOptions = {
   includeFutureDates: false,
 };
 
+/**
+ * Streak data from localStorage, read when the provider is created so it is there on the
+ * first render (App records the login activity on mount; loading it in an effect afterwards
+ * let that write overwrite the stored records with only today's)
+ */
+function loadStoredStreakData(): Map<StreakType, StreakData> {
+  const dataMap = new Map<StreakType, StreakData>();
+  try {
+    const stored = localStorage.getItem(STREAK_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      Object.entries(parsed).forEach(([type, data]) => {
+        const streakType = type as StreakType;
+        const streakInfo = data as StreakData;
+        const stats = calculateStreakStats(streakInfo.records, streakInfo.options);
+        dataMap.set(streakType, {
+          ...streakInfo,
+          stats,
+        });
+      });
+    }
+  } catch (error) {
+    console.error('Failed to load streak data:', error);
+  }
+  return dataMap;
+}
+
 export const StreakProvider: React.FC<StreakProviderProps> = ({ children }) => {
-  const [streakData, setStreakData] = useState<Map<StreakType, StreakData>>(new Map());
+  const [streakData, setStreakData] = useState<Map<StreakType, StreakData>>(loadStoredStreakData);
   const [recentMilestones, setRecentMilestones] = useState<StreakMilestoneEvent[]>([]);
 
-  /**
-   * Load streak data from localStorage
-   */
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STREAK_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        const dataMap = new Map<StreakType, StreakData>();
-
-        Object.entries(parsed).forEach(([type, data]) => {
-          const streakType = type as StreakType;
-          const streakInfo = data as StreakData;
-          const stats = calculateStreakStats(streakInfo.records, streakInfo.options);
-          dataMap.set(streakType, {
-            ...streakInfo,
-            stats,
-          });
-        });
-
-        setStreakData(dataMap);
-      }
-    } catch (error) {
-      console.error('Failed to load streak data:', error);
-    }
-  }, []);
 
   /**
    * Save streak data to localStorage

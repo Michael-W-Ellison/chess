@@ -1176,18 +1176,13 @@ chatbot-friend/
 │   │   ├── hooks/         # Custom React hooks
 │   │   │   ├── useChat.ts
 │   │   │   ├── usePersonality.ts
-│   │   │   ├── useProfile.ts
-│   │   │   └── useElectronStore.ts
+│   │   │   └── useProfile.ts
 │   │   ├── services/      # API client layer
 │   │   │   └── api.ts     # HTTP requests to backend
 │   │   └── styles/        # CSS files
 │   └── shared/            # Shared types and utilities
 │       ├── types.ts       # TypeScript interfaces
-│       ├── settings-schema.ts    # Settings types
-│       ├── settings-defaults.ts  # Default values
-│       ├── settings-validation.ts # Validation
 │       ├── constants.ts   # App constants
-│       ├── utils.ts       # Utility functions
 │       └── soundEffects.ts # Audio synthesis
 ├── dist/                  # Build output (gitignored)
 ├── release/               # Packaged apps (gitignored)

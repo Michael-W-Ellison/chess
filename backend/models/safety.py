@@ -188,7 +188,7 @@ class AdviceTemplate(Base):
         """
         try:
             return self.template.format(**kwargs)
-        except KeyError as e:
+        except KeyError:
             # Missing variable - return template as-is with placeholders
             return self.template
 

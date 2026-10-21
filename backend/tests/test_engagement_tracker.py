@@ -261,6 +261,7 @@ def test_parent_engagement_endpoint(client):
     assert response.status_code == 200
     assert response.json()["user_id"] == 1
     assert isinstance(response.json()["stats"], list)
+    assert response.json()["reply_timing"]["slow_after_seconds"] == 120
 
 
 class TestTiming:
@@ -286,6 +287,86 @@ class TestTiming:
         late = tracker.record_response(1, message, db, now=datetime.now() + timedelta(minutes=30))
         assert quick > 0.5
         assert late == pytest.approx(0.1)
+
+
+class TestPersonalTiming:
+    def reply_after(self, tracker, db, seconds, message="the best part was the slide at the water park"):
+        from datetime import datetime, timedelta
+        tracker.set_pending(1, "What was the best part?", {"follow_up": "yes"})
+        return tracker.record_response(1, message, db, now=datetime.now() + timedelta(seconds=seconds))
+
+    def test_defaults_until_enough_delays(self, tracker, db):
+        from services.engagement_tracker import DELAY_MIN_SAMPLES
+        for _ in range(DELAY_MIN_SAMPLES - 1):
+            self.reply_after(tracker, db, 300)
+        thresholds = tracker.thresholds(1, db)
+        assert (thresholds.slow, thresholds.away, thresholds.personalized) == (120, 900, False)
+
+    def test_slow_typer_gets_higher_thresholds(self, tracker, db):
+        from services.engagement_tracker import DELAY_MIN_SAMPLES
+        for index in range(DELAY_MIN_SAMPLES):
+            self.reply_after(tracker, db, 200 + index * 10)  # 200s to 390s
+        thresholds = tracker.thresholds(1, db)
+        assert thresholds.personalized
+        assert thresholds.slow == pytest.approx(370)  # 90th percentile
+        assert thresholds.away == pytest.approx(370 * 900 / 120)
+        # A 5-minute reply is normal for this child, not slow
+        fast = score_engagement("What was the best part?", "the best part was the slide at the water park")
+        assert self.reply_after(tracker, db, 300) == pytest.approx(fast)
+
+    def test_fast_typer_keeps_the_defaults_as_minimum(self, tracker, db):
+        from services.engagement_tracker import DELAY_MIN_SAMPLES
+        for _ in range(DELAY_MIN_SAMPLES):
+            self.reply_after(tracker, db, 5)
+        thresholds = tracker.thresholds(1, db)
+        assert (thresholds.slow, thresholds.away) == (120, 900)
+        assert thresholds.personalized
+
+    def test_settings_change_the_defaults(self, tracker, db):
+        with patch("utils.config.settings.ENGAGEMENT_SLOW_REPLY_SECONDS", 60), \
+                patch("utils.config.settings.ENGAGEMENT_AWAY_SECONDS", 600):
+            thresholds = tracker.thresholds(1, db)
+        assert (thresholds.slow, thresholds.away) == (60, 600)
+
+    def test_return_after_leaving_is_not_recorded(self, tracker, db):
+        from models.engagement import ReplyDelay
+        self.reply_after(tracker, db, 30)
+        self.reply_after(tracker, db, 60 * 60)
+        assert [row.seconds for row in db.query(ReplyDelay)] == [pytest.approx(30, abs=1)]
+
+    def test_only_recent_delays_are_kept(self, tracker, db):
+        from models.engagement import ReplyDelay
+        with patch("services.engagement_tracker.DELAY_HISTORY", 5):
+            for seconds in range(10, 80, 10):
+                self.reply_after(tracker, db, seconds)
+            db.commit()
+            assert db.query(ReplyDelay).count() == 5
+            assert tracker._recent_delays(1, db) == pytest.approx([30, 40, 50, 60, 70], abs=1)
+
+    def test_delays_survive_a_restart(self, db):
+        from services.engagement_tracker import DELAY_MIN_SAMPLES
+        first = EngagementTracker(rng=random.Random(0))
+        for _ in range(DELAY_MIN_SAMPLES):
+            self.reply_after(first, db, 400)
+        restarted = EngagementTracker(rng=random.Random(0))
+        assert restarted.thresholds(1, db).slow == pytest.approx(400, abs=1)
+
+    def test_timing_summary(self, tracker, db):
+        assert tracker.timing_summary(1, db)["samples"] == 0
+        assert tracker.timing_summary(1, db)["median_seconds"] is None
+        for seconds in (10, 20, 30):
+            self.reply_after(tracker, db, seconds)
+        summary = tracker.timing_summary(1, db)
+        assert summary["samples"] == 3
+        assert summary["median_seconds"] == pytest.approx(20, abs=1)
+        assert summary["personalized"] is False
+
+    @pytest.mark.parametrize("values,fraction,expected", [
+        ([5], 0.9, 5), ([1, 2, 3, 4], 0.5, 2), (list(range(1, 11)), 0.9, 9), ([3, 1, 2], 1.0, 3),
+    ])
+    def test_percentile(self, values, fraction, expected):
+        from services.engagement_tracker import percentile
+        assert percentile(values, fraction) == expected
 
 
 class TestLeaving:

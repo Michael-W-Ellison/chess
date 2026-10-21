@@ -4,7 +4,7 @@ Tests comprehensive severity determination across all safety categories
 """
 
 import pytest
-from services.severity_scorer import SeverityScorer, SeverityLevel, severity_scorer
+from services.severity_scorer import SeverityScorer, SeverityLevel
 
 
 class TestSeverityLevelEnum:

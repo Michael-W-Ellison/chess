@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { PARENT_API_URL, parentFetch } from '../services/parentAuth';
 
 interface Statistics {
   total_flags: number;
@@ -25,12 +26,12 @@ export const useSafetyStatistics = (userId: number, sinceDays: number | null) =>
         setIsLoading(true);
         setError(null);
 
-        const baseUrl = 'http://localhost:8000/api/parent/safety-flags/stats';
+        const baseUrl = `${PARENT_API_URL}/safety-flags/stats`;
         const url = sinceDays
           ? `${baseUrl}?user_id=${userId}&since_days=${sinceDays}`
           : `${baseUrl}?user_id=${userId}`;
 
-        const response = await fetch(url);
+        const response = await parentFetch(url);
 
         if (!response.ok) {
           throw new Error(`Failed to fetch statistics: ${response.statusText}`);

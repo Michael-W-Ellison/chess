@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { COLOR_THEMES, ColorTheme } from '../../shared/colors';
+import { COLOR_THEMES } from '../../shared/colors';
 import { useColor } from '../hooks/useColor';
 
 interface ColorSelectorProps {

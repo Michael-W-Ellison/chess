@@ -12,7 +12,6 @@ from models.level_up_event import LevelUpEvent  # Import to resolve SQLAlchemy r
 from database.database import Base
 from services.feature_unlock_manager import (
     FeatureUnlockManager,
-    feature_unlock_manager,
     is_feature_unlocked,
     get_unlocked_features,
     get_feature_summary,

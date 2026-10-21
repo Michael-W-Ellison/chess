@@ -6,7 +6,6 @@ Endpoints for chat conversation management
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import Optional
 import logging
 
 from database.database import get_db
@@ -102,7 +101,6 @@ async def send_message(request: SendMessageRequest, db: Session = Depends(get_db
 
         # Get the last message (bot's response) from database
         from models.conversation import Message
-        from datetime import datetime
 
         last_message = (
             db.query(Message)

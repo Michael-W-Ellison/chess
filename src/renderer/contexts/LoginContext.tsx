@@ -3,7 +3,7 @@
  * Manages daily login tracking and history
  */
 
-import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useState, useCallback, ReactNode } from 'react';
 import {
   calculateCurrentStreak,
   calculateLongestStreak,
@@ -47,6 +47,61 @@ const DEFAULT_STATS: LoginStats = {
   thisMonthLogins: 0,
 };
 
+/**
+ * Calculate statistics from login history
+ */
+function calculateStats(history: LoginRecord[]): LoginStats {
+  if (history.length === 0) {
+    return DEFAULT_STATS;
+  }
+
+  // Sort by date descending
+  const sortedHistory = [...history].sort((a, b) => b.date.localeCompare(a.date));
+
+  // Use centralized streak calculation utilities
+  const currentStreak = calculateCurrentStreak(history);
+  const longestStreak = calculateLongestStreak(history);
+
+  // Calculate this week's logins
+  const today = getTodayISO();
+  const todayTime = new Date(today).getTime();
+  const weekAgo = new Date(todayTime - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const thisWeekLogins = sortedHistory.filter((record) => record.date >= weekAgo).length;
+
+  // Calculate this month's logins
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  const monthStartStr = monthStart.toISOString().split('T')[0];
+  const thisMonthLogins = sortedHistory.filter((record) => record.date >= monthStartStr).length;
+
+  return {
+    totalLogins: history.length,
+    currentStreak,
+    longestStreak,
+    lastLoginDate: sortedHistory[0].date,
+    loginHistory: sortedHistory,
+    thisWeekLogins,
+    thisMonthLogins,
+  };
+}
+
+/**
+ * Login history from localStorage, read when the provider is created so it is there on the
+ * first render (App records the login on mount; loading it in an effect afterwards let that
+ * login overwrite the stored history with only today's entry)
+ */
+function loadStoredStats(): LoginStats {
+  try {
+    const stored = localStorage.getItem(LOGIN_STORAGE_KEY);
+    if (stored) {
+      return calculateStats(JSON.parse(stored) as LoginRecord[]);
+    }
+  } catch (error) {
+    console.error('Failed to load login history:', error);
+  }
+  return DEFAULT_STATS;
+}
+
 export const LoginContext = createContext<LoginContextType | undefined>(undefined);
 
 interface LoginProviderProps {
@@ -54,24 +109,7 @@ interface LoginProviderProps {
 }
 
 export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
-  const [stats, setStats] = useState<LoginStats>(DEFAULT_STATS);
-
-
-  /**
-   * Load login history from localStorage
-   */
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(LOGIN_STORAGE_KEY);
-      if (stored) {
-        const loginHistory: LoginRecord[] = JSON.parse(stored);
-        const calculatedStats = calculateStats(loginHistory);
-        setStats(calculatedStats);
-      }
-    } catch (error) {
-      console.error('Failed to load login history:', error);
-    }
-  }, []);
+  const [stats, setStats] = useState<LoginStats>(loadStoredStats);
 
   /**
    * Save login history to localStorage
@@ -84,43 +122,6 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     }
   }, []);
 
-  /**
-   * Calculate statistics from login history
-   */
-  const calculateStats = useCallback((history: LoginRecord[]): LoginStats => {
-    if (history.length === 0) {
-      return DEFAULT_STATS;
-    }
-
-    // Sort by date descending
-    const sortedHistory = [...history].sort((a, b) => b.date.localeCompare(a.date));
-
-    // Use centralized streak calculation utilities
-    const currentStreak = calculateCurrentStreak(history);
-    const longestStreak = calculateLongestStreak(history);
-
-    // Calculate this week's logins
-    const today = getTodayISO();
-    const todayTime = new Date(today).getTime();
-    const weekAgo = new Date(todayTime - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const thisWeekLogins = sortedHistory.filter((record) => record.date >= weekAgo).length;
-
-    // Calculate this month's logins
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    const monthStartStr = monthStart.toISOString().split('T')[0];
-    const thisMonthLogins = sortedHistory.filter((record) => record.date >= monthStartStr).length;
-
-    return {
-      totalLogins: history.length,
-      currentStreak,
-      longestStreak,
-      lastLoginDate: sortedHistory[0].date,
-      loginHistory: sortedHistory,
-      thisWeekLogins,
-      thisMonthLogins,
-    };
-  }, []);
 
   /**
    * Check if user has logged in today
@@ -165,7 +166,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     setStats(newStats);
 
     console.log(`📅 Login recorded for ${today}. Current streak: ${newStats.currentStreak} days`);
-  }, [stats.loginHistory, saveLoginHistory, calculateStats]);
+  }, [stats.loginHistory, saveLoginHistory]);
 
   /**
    * Get login history for the last N days

@@ -588,6 +588,7 @@ class ResponseEngine:
 
         context = context or {}
         user_id = getattr(personality, "user_id", 0) or 0
+        self._last_mentions.pop(user_id, None)
         level = getattr(personality, "friendship_level", 1) or 1
         globals_ = {
             "user_name": user_name or "friend",
@@ -605,6 +606,7 @@ class ResponseEngine:
             frame = responding[0]
             slots = _BlankDict({**globals_, **frame.slots})
             self._compute_slots(frame, slots, personality)
+            self._record_answer(frame.rule, slots, user_id)
             core = self._choose_template(frame.rule, slots, level, user_id, policy, features)
             features["rule"] = frame.rule_id
 
@@ -615,6 +617,7 @@ class ResponseEngine:
             if second is not None:
                 second_slots = _BlankDict({**globals_, **second.slots})
                 self._compute_slots(second, second_slots, personality)
+                self._record_answer(second.rule, second_slots, user_id)
                 second_core = self._choose_template(second.rule, second_slots, level, user_id, policy, features)
                 # Answer in the order the sentences were written
                 core = f"{core} {second_core}" if frame.sentence < second.sentence else f"{second_core} {core}"
@@ -694,6 +697,15 @@ class ResponseEngine:
                     _stable_index(f"{seed_id}:{slots.get('thing_slug', '')}", 3) == 0
                 if shares and thing:
                     slots["bot_shares_like"] = "yes"
+
+    def _record_answer(self, rule: Dict[str, Any], slots: Dict[str, str], user_id: int) -> None:
+        """
+        Let the child refer to the bot's answer: a rule's "answer" names what its reply says
+        from the child's point of view ("your name"), so "I like it" means "I like your name"
+        """
+        answer = rule.get("answer")
+        if answer:
+            self._last_mentions.setdefault(user_id, []).append(answer.format_map(slots))
 
     def _requested_content(self, kind: str, slots: Dict[str, str], user_id: int) -> None:
         """Fill {content} with a joke or fact (topical if the message names a topic)"""

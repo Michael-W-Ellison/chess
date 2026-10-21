@@ -216,14 +216,27 @@ response engine instead of the LLM:
 - `services/reference_tracker.py` remembers the people, things and events mentioned in the
   last few turns, including what the bot itself said, and replaces pronouns before analysis
   ("She yelled at me" after "My teacher gave us a test" is analyzed as "My teacher yelled at
-  me"; "That was fun" after "We went swimming" as "Going swimming was fun"; "That's so cool"
-  after a fun fact as "Your fun fact is so cool"). When "she"/"he" could mean two people
-  mentioned together, the bot asks which one instead of guessing. The stored message and any
+  me"; "That was fun" after "We went swimming" as "Going swimming was fun"; "That was scary"
+  after "My dad got mad" as "My dad getting mad was scary"; "That's so cool" after a fun fact
+  as "Your fun fact is so cool"; "I like it" after the bot says its name as "I like your
+  name"). A rule's `answer` field names what its reply says so the child can refer to it.
+  When "she"/"he" could mean two or more recent people whose pronouns are not known
+  (gendered relation words like "mom" or "brother" count as known), the bot asks which one
+  instead of guessing. The stored message and any
   LLM prompt keep the child's original wording; references reset with each new conversation.
+- `services/advice_template_service.py` supplies advice from the seeded templates when a
+  message asks for advice: the template whose keywords best match the message (rarer keywords
+  weigh more), among those available at the child's friendship level and age. Without the LLM
+  it is the reply; with the LLM it is given to the model as the advice to put in its own words.
+  Requests with no specific match keep the normal reply.
 - `services/engagement_tracker.py` scores each of the child's messages for engagement
   (length, answering the bot's question, staying on topic, asking back, sharing feelings;
-  brush-offs like "ok"/"idk" score near zero; replies after 2+ minutes count for less, and
-  after 15 minutes, or a conversation ending without a goodbye, count as the child leaving)
+  brush-offs like "ok"/"idk" score near zero; slow replies count for less, and very late
+  replies, or a conversation ending without a goodbye, count as the child leaving). Slow
+  starts at 2 minutes and leaving at 15 (`ENGAGEMENT_SLOW_REPLY_SECONDS`,
+  `ENGAGEMENT_AWAY_SECONDS`); after 20 recorded reply delays (`reply_delays` table), slow is
+  the child's own 90th-percentile delay and leaving scales with it, never below the settings.
+  `GET /api/parent/engagement` reports each child's delays and thresholds (`reply_timing`)
   and credits the score to the choices in the bot's previous reply: follow-up question or
   not, mentioning an old memory or not, template variant, pun/fact or not. With the LLM, the
   follow-up and memory choices are given to the model as instructions and credited by what

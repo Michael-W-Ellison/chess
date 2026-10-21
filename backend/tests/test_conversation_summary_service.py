@@ -3,7 +3,6 @@ Tests for Conversation Summary Service
 """
 
 import pytest
-from unittest.mock import Mock
 from datetime import datetime
 
 from services.conversation_summary_service import ConversationSummaryService

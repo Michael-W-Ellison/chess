@@ -3,12 +3,10 @@ Personality Drift Calculator Service
 Calculates personality trait changes based on conversation metrics
 """
 
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 import logging
-from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from models.personality import BotPersonality
 from models.personality_drift import PersonalityDrift
 from models.conversation import Conversation, Message
@@ -46,7 +44,6 @@ class PersonalityDriftCalculator:
 
     def __init__(self):
         """Initialize the drift calculator"""
-        pass
 
     def calculate_drift_after_conversation(
         self,

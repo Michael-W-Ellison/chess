@@ -6,13 +6,12 @@ This service manages parent notifications for critical safety events,
 including crisis detection (suicide, self-harm, abuse) and high-severity incidents.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 import logging
 from datetime import datetime
 
 from sqlalchemy.orm import Session
 from models.safety import SafetyFlag
-from models.conversation import Message
 from models.user import User
 from services.email_service import email_service
 
@@ -70,7 +69,6 @@ class ParentNotificationService:
         flags = safety_result.get("flags", [])
         severity = safety_result.get("severity", "unknown")
         details = safety_result.get("details", {})
-        original_message = safety_result.get("original_message", "")
 
         # Determine notification category
         notification_category = self._get_notification_category(flags, details)
@@ -81,7 +79,6 @@ class ParentNotificationService:
             conversation_id=conversation_id,
             category=notification_category,
             severity=severity,
-            message_snippet=original_message[:100],
             db=db
         )
 
@@ -153,7 +150,6 @@ class ParentNotificationService:
             conversation_id=conversation_id,
             category=notification_category,
             severity=severity,
-            message_snippet=safety_result.get("original_message", "")[:100],
             db=db
         )
 
@@ -415,7 +411,6 @@ This notification was generated automatically by the safety monitoring system. Y
         conversation_id: int,
         category: str,
         severity: str,
-        message_snippet: str,
         db: Session
     ) -> None:
         """
@@ -426,7 +421,6 @@ This notification was generated automatically by the safety monitoring system. Y
             conversation_id: Conversation ID
             category: Notification category
             severity: Severity level
-            message_snippet: Snippet of the flagged message
             db: Database session
         """
         # Update the most recent SafetyFlag for this user to mark parent as notified

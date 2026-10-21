@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { useChat } from '../hooks/useChat';
+import { useChatContext } from '../contexts/ChatContext';
 import { useAchievements } from '../hooks/useAchievements';
 import { useLogin } from '../hooks/useLogin';
 import { useMemory } from '../contexts/MemoryContext';
@@ -36,7 +36,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   defaultType = 'complete',
   defaultFormat = 'markdown',
 }) => {
-  const { messages, personality } = useChat();
+  const { messages, personality } = useChatContext();
   const { unlockedAchievements } = useAchievements();
   const { stats } = useLogin();
   const { memories } = useMemory();

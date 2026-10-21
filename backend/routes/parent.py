@@ -22,7 +22,6 @@ import logging
 
 from database.database import get_db
 from models.user import User
-from models.safety import SafetyFlag
 from models.conversation import Conversation
 from services.safety_flag_service import safety_flag_service
 from services.parent_notification_service import parent_notification_service
@@ -31,7 +30,7 @@ from services.conversation_summary_service import conversation_summary_service
 from services.weekly_report_service import weekly_report_service
 from services.report_scheduler import report_scheduler
 from services.auth_service import auth_service
-from utils.auth_dependencies import get_current_user, require_parent_auth, RequireAuth
+from utils.auth_dependencies import require_parent_auth, RequireAuth
 from utils.config import settings
 from utils.rate_limiter import auth_rate_limiter
 from utils.password_validation import (
@@ -502,6 +501,23 @@ class NotificationHistoryResponse(BaseModel):
 
 
 # Endpoints
+def _flat_safety_summary(summary: Dict) -> Dict:
+    """
+    The dashboard's summary fields from safety_flag_service.get_user_safety_summary(),
+    which returns nested stats: {"all_time": stats, "last_7_days": stats, "most_recent_flag": flag}
+    """
+    all_time = summary["all_time"]
+    by_type = all_time.get("by_type") or {}
+    most_recent = summary.get("most_recent_flag")
+    return {
+        "total_flags_all_time": all_time["total_flags"],
+        "total_flags_last_7_days": summary["last_7_days"]["total_flags"],
+        "critical_flags_count": all_time["by_severity"].get("critical", 0),
+        "last_flag_timestamp": most_recent["timestamp"] if most_recent else None,
+        "most_common_flag_type": max(by_type, key=by_type.get) if by_type else None,
+    }
+
+
 @router.get("/dashboard")
 async def get_parent_dashboard(
     user_id: int = Query(..., description="Child's user ID"),
@@ -534,7 +550,7 @@ async def get_parent_dashboard(
             raise HTTPException(status_code=404, detail="User not found")
 
         # Get safety summary
-        summary = safety_flag_service.get_user_safety_summary(db, user_id)
+        summary = _flat_safety_summary(safety_flag_service.get_user_safety_summary(db, user_id))
 
         # Get recent safety flags (last 7 days)
         recent_flags = safety_flag_service.get_recent_flags(db, user_id=user_id, hours=168)
@@ -662,7 +678,7 @@ async def get_parent_dashboard_overview(
             raise HTTPException(status_code=404, detail="User not found")
 
         # Get safety summary
-        summary = safety_flag_service.get_user_safety_summary(db, user_id)
+        summary = _flat_safety_summary(safety_flag_service.get_user_safety_summary(db, user_id))
 
         # Determine if requires attention (has critical flags or recent unnotified flags)
         critical_flags = safety_flag_service.get_critical_flags(
@@ -1138,10 +1154,16 @@ async def get_engagement(
 
     Each entry is a reply choice (feature/arm, e.g. follow_up=yes, humor=pun) with the
     number of times the child responded to it and the mean engagement score (0.0-1.0).
+    reply_timing has the child's recent reply delays (count, median, 90th percentile) and the
+    thresholds after which a reply counts as slow or the child as having left.
     """
     from services.engagement_tracker import engagement_tracker
 
-    return {"user_id": user_id, "stats": engagement_tracker.summary(user_id, db)}
+    return {
+        "user_id": user_id,
+        "stats": engagement_tracker.summary(user_id, db),
+        "reply_timing": engagement_tracker.timing_summary(user_id, db),
+    }
 
 
 @router.get("/statistics", response_model=SafetyStatsResponse)

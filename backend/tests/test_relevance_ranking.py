@@ -451,10 +451,3 @@ class TestRelevanceRanking:
         db_session.delete(high_freq)
         db_session.commit()
 
-
-# Pytest configuration
-def pytest_configure(config):
-    """Configure pytest"""
-    config.addinivalue_line(
-        "markers", "ranking: marks tests for relevance ranking feature"
-    )

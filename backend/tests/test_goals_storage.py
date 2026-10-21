@@ -7,7 +7,6 @@ Run with: pytest backend/tests/test_goals_storage.py -v
 import pytest
 import sys
 import os
-from datetime import datetime
 
 # Add backend to path
 backend_path = os.path.join(os.path.dirname(__file__), '..')
@@ -431,10 +430,3 @@ class TestGoalsStorage:
             db_session.delete(goal)
         db_session.commit()
 
-
-# Pytest configuration
-def pytest_configure(config):
-    """Configure pytest"""
-    config.addinivalue_line(
-        "markers", "goals: marks tests for goals storage feature"
-    )

@@ -226,20 +226,6 @@ export function getRandomStoryPrompt(
 }
 
 /**
- * Get story prompts by theme
- */
-export function getStoryPromptsByTheme(theme: StoryTheme): StoryPrompt[] {
-  return STORY_PROMPTS.filter((p) => p.theme === theme);
-}
-
-/**
- * Get story prompts by difficulty
- */
-export function getStoryPromptsByDifficulty(difficulty: StoryDifficulty): StoryPrompt[] {
-  return STORY_PROMPTS.filter((p) => p.difficulty === difficulty);
-}
-
-/**
  * Validate story contribution (basic checks)
  */
 export function validateContribution(text: string): {
@@ -272,8 +258,8 @@ export function validateContribution(text: string): {
  * Generate AI story contribution (placeholder - would use actual AI in production)
  */
 export function generateAIContribution(
-  prompt: StoryPrompt,
-  storyText: string,
+  _prompt: StoryPrompt,
+  _storyText: string,
   turnNumber: number
 ): string {
   // In a real implementation, this would call an AI API

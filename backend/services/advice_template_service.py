@@ -6,9 +6,11 @@ This service handles selecting appropriate advice templates from the database
 based on detected advice categories, user friendship level, age, and other factors.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 import logging
+import math
 import random
+import re
 
 from sqlalchemy.orm import Session
 from models.safety import AdviceTemplate
@@ -16,6 +18,11 @@ from models.personality import BotPersonality
 from services.template_personalization_service import template_personalization_service
 
 logger = logging.getLogger("chatbot.advice_template_service")
+
+# A template is used for a message only if its matched keywords weigh at least this much.
+# A keyword's weight is log(templates / templates with that keyword): "friend" (in about
+# 10 of 56 templates) weighs 1.7, so it is not enough on its own; "recital" (in one) weighs 4.0
+RELEVANCE_THRESHOLD = 2.5
 
 
 class AdviceTemplateService:
@@ -132,16 +139,26 @@ class AdviceTemplateService:
         Returns:
             Formatted advice string or None if no template found
         """
-        # Get template
-        template = self.get_advice_template(
-            db=db,
-            category=category,
-            friendship_level=friendship_level,
-            age=age,
-            subcategory=subcategory,
-            tone=tone,
-            strategy=strategy
-        )
+        # Get template: the one that matches what the child said, if the message is given
+        if user_message:
+            template = self.find_relevant_template(
+                db=db,
+                user_message=user_message,
+                friendship_level=friendship_level,
+                age=age,
+                category=category,
+                tone=tone,
+            )
+        else:
+            template = self.get_advice_template(
+                db=db,
+                category=category,
+                friendship_level=friendship_level,
+                age=age,
+                subcategory=subcategory,
+                tone=tone,
+                strategy=strategy
+            )
 
         if not template:
             return None
@@ -166,6 +183,73 @@ class AdviceTemplateService:
         db.commit()
 
         return formatted
+
+    def find_relevant_template(
+        self,
+        db: Session,
+        user_message: str,
+        friendship_level: int,
+        age: Optional[int] = None,
+        category: Optional[str] = None,
+        tone: Optional[str] = None,
+    ) -> Optional[AdviceTemplate]:
+        """
+        The available template whose keywords best match the child's message
+
+        Templates from every category are considered (the detector's categories do not line
+        up with the templates': a test is "school", its templates are "school_stress" and
+        "emotional"). Each matched keyword adds its weight (rarer keywords weigh more); the
+        detected category, then the preferred tone, then expert review break ties.
+
+        Args:
+            db: Database session
+            user_message: The child's message
+            friendship_level: Current friendship level (templates above it are not used)
+            age: User's age (templates for other ages are not used)
+            category: Detected advice category, used to break ties
+            tone: Preferred tone, used to break ties
+
+        Returns:
+            The best matching template, or None if none reaches RELEVANCE_THRESHOLD
+        """
+        all_templates = db.query(AdviceTemplate).all()
+        if not all_templates:
+            return None
+
+        # Keyword weights from how many templates use each keyword
+        counts: Dict[str, int] = {}
+        for template in all_templates:
+            for keyword in {k.lower() for k in template.get_keywords()}:
+                counts[keyword] = counts.get(keyword, 0) + 1
+        weights = {k: math.log(len(all_templates) / n) for k, n in counts.items()}
+
+        text = user_message.lower()
+        scored = []
+        for template in all_templates:
+            if template.min_friendship_level > friendship_level:
+                continue
+            if template.max_friendship_level is not None and template.max_friendship_level < friendship_level:
+                continue
+            if age and not (template.min_age <= age <= template.max_age):
+                continue
+            score = sum(weights[k] for k in {k.lower() for k in template.get_keywords()}
+                        if self._mentions(text, k))
+            if score >= RELEVANCE_THRESHOLD:
+                in_category = bool(category) and template.category.startswith(category)
+                scored.append((score, in_category, template.tone == tone, template.expert_reviewed,
+                               random.random(), template))
+
+        if not scored:
+            return None
+        best = max(scored, key=lambda entry: entry[:5])[-1]
+        self.templates_used += 1
+        logger.info(f"Selected template {best.id} ({best.category}) for the message")
+        return best
+
+    @staticmethod
+    def _mentions(text: str, keyword: str) -> bool:
+        """The keyword or phrase as whole words, also with an ending ("fight" in "fighting")"""
+        return re.search(rf"\b{re.escape(keyword)}(?:s|es|d|ed|ing)?\b", text) is not None
 
     def get_multiple_advice_options(
         self,

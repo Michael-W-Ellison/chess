@@ -5,8 +5,9 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { api } from '../services/api';
-import type { ChatMessage, PersonalityState } from '../../shared/types';
+import type { ChatMessage, ConversationPersonality } from '../../shared/types';
 import { playMessageReceiveSound } from '../../shared/soundEffects';
+import { useAchievements } from './useAchievements';
 
 // Memory optimization: Limit number of messages in memory
 // Full conversation history is still stored in backend database
@@ -19,7 +20,7 @@ export interface UseChatState {
   error: string | null;
   conversationId: number | null;
   isConversationActive: boolean;
-  personality: PersonalityState | null;
+  personality: ConversationPersonality | null;
 
   // Actions
   startConversation: () => Promise<void>;
@@ -48,10 +49,14 @@ export function useChat(): UseChatState {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<number | null>(null);
-  const [personality, setPersonality] = useState<PersonalityState | null>(null);
+  const [personality, setPersonality] = useState<ConversationPersonality | null>(null);
+  const { trackMessage } = useAchievements();
 
   // Ref to track if conversation is active
   const isConversationActiveRef = useRef(false);
+
+  // False after unmount, so a conversation whose start request finishes later is ended
+  const isMountedRef = useRef(false);
 
   // Current conversation ID, readable from unmount/unload handlers registered on mount
   const conversationIdRef = useRef<number | null>(null);
@@ -70,6 +75,12 @@ export function useChat(): UseChatState {
 
       const response = await api.conversation.start();
 
+      if (!isMountedRef.current) {
+        // Unmounted while the request was in flight: nothing will end this conversation later
+        api.conversation.end(response.conversation_id).catch(() => undefined);
+        return;
+      }
+
       setConversationId(response.conversation_id);
       setPersonality(response.personality);
       isConversationActiveRef.current = true;
@@ -81,7 +92,7 @@ export function useChat(): UseChatState {
         role: 'assistant',
         timestamp: new Date().toISOString(),
         metadata: {
-          safetyFlag: false,
+          safety_flag: false,
         },
       };
 
@@ -129,6 +140,9 @@ export function useChat(): UseChatState {
         // Send to backend
         const response = await api.conversation.sendMessage(conversationId, content.trim());
 
+        // Count the message for achievements (messages, words, questions, emojis)
+        trackMessage(content.trim());
+
         // Add assistant response
         const assistantMessage: ChatMessage = {
           id: `assistant-${Date.now()}`,
@@ -158,7 +172,7 @@ export function useChat(): UseChatState {
         setIsLoading(false);
       }
     },
-    [conversationId]
+    [conversationId, trackMessage]
   );
 
   /**
@@ -199,7 +213,10 @@ export function useChat(): UseChatState {
    * Auto-start conversation on mount
    */
   useEffect(() => {
-    startConversation();
+    isMountedRef.current = true;
+    // Deferred to a timer that the cleanup cancels: in development, React StrictMode mounts,
+    // unmounts and remounts synchronously, so only the second mount starts a conversation
+    const startTimer = setTimeout(startConversation, 0);
 
     // End the conversation when the window closes (React does not unmount on window close),
     // so the backend runs its end-of-conversation updates (traits, drift, summary)
@@ -214,6 +231,8 @@ export function useChat(): UseChatState {
 
     // Cleanup: end conversation on unmount
     return () => {
+      isMountedRef.current = false;
+      clearTimeout(startTimer);
       window.removeEventListener('beforeunload', endActiveConversation);
       endActiveConversation();
     };

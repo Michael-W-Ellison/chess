@@ -200,23 +200,6 @@ export function getCategoryDisplayName(category: MemoryCategory): string {
 }
 
 /**
- * Sort memories by relevance (confidence and recency)
- */
-export function sortMemoriesByRelevance(memories: Memory[]): Memory[] {
-  return [...memories].sort((a, b) => {
-    // First sort by confidence
-    if (a.confidence !== b.confidence) {
-      return b.confidence - a.confidence;
-    }
-
-    // Then by last mentioned date (most recent first)
-    const aDate = a.lastMentioned instanceof Date ? a.lastMentioned : new Date(a.lastMentioned);
-    const bDate = b.lastMentioned instanceof Date ? b.lastMentioned : new Date(b.lastMentioned);
-    return bDate.getTime() - aDate.getTime();
-  });
-}
-
-/**
  * Create a memory summary for display
  */
 export function createMemorySummary(memories: Memory[]): {
@@ -257,21 +240,6 @@ export function createMemorySummary(memories: Memory[]): {
     mostMentioned,
     recent,
   };
-}
-
-/**
- * Build memory context string for AI
- */
-export function buildMemoryContext(memories: Memory[], maxItems: number = 10): string {
-  const sorted = sortMemoriesByRelevance(memories).slice(0, maxItems);
-
-  if (sorted.length === 0) {
-    return 'No previous memories.';
-  }
-
-  const lines = sorted.map((memory) => `- ${formatMemoryForDisplay(memory)}`);
-
-  return `Previous memories about the user:\n${lines.join('\n')}`;
 }
 
 /**

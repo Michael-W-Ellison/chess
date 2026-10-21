@@ -3,16 +3,32 @@
  * Functions to export conversation history, achievements, and stats
  */
 
-import { Message } from './types';
+import { MessageRole } from './types';
 import { Achievement } from './achievements';
 
 export type ExportFormat = 'text' | 'markdown' | 'json';
+
+/** A chat message to export (ChatMessage from the chat, or a stored message) */
+export interface ExportMessage {
+  role: MessageRole;
+  content: string;
+  timestamp: Date | string;
+}
+
+/** Login statistics to export (the fields of LoginStats in the renderer's LoginContext) */
+export interface ExportLoginStats {
+  totalLogins: number;
+  currentStreak: number;
+  longestStreak: number;
+  thisWeekLogins: number;
+  thisMonthLogins: number;
+}
 
 /**
  * Export conversations to text format
  */
 export function exportConversationsToText(
-  messages: Message[],
+  messages: ExportMessage[],
   personalityName: string = 'Chess Tutor'
 ): string {
   const header = `
@@ -58,7 +74,7 @@ ${msg.content}
  * Export conversations to markdown format
  */
 export function exportConversationsToMarkdown(
-  messages: Message[],
+  messages: ExportMessage[],
   personalityName: string = 'Chess Tutor'
 ): string {
   const header = `# Chess Tutor - Conversation History
@@ -204,13 +220,7 @@ export function exportAchievementsToMarkdown(
 /**
  * Export login stats to text format
  */
-export function exportLoginStatsToText(stats: {
-  totalLogins: number;
-  currentStreak: number;
-  longestStreak: number;
-  weeklyLogins: number;
-  monthlyLogins: number;
-}): string {
+export function exportLoginStatsToText(stats: ExportLoginStats): string {
   return `
 ================================================================================
   CHESS TUTOR - LOGIN STATISTICS
@@ -221,8 +231,8 @@ Date Exported: ${new Date().toLocaleString()}
 Current Streak: ${stats.currentStreak} days
 Longest Streak: ${stats.longestStreak} days
 Total Logins: ${stats.totalLogins}
-This Week: ${stats.weeklyLogins} logins
-This Month: ${stats.monthlyLogins} logins
+This Week: ${stats.thisWeekLogins} logins
+This Month: ${stats.thisMonthLogins} logins
 
 ================================================================================
 `;
@@ -232,17 +242,11 @@ This Month: ${stats.monthlyLogins} logins
  * Export complete memory book (all data)
  */
 export function exportCompleteMemoryBook(data: {
-  messages: Message[];
+  messages: ExportMessage[];
   personalityName: string;
   achievements: Achievement[];
   unlockedAchievements: string[];
-  loginStats: {
-    totalLogins: number;
-    currentStreak: number;
-    longestStreak: number;
-    weeklyLogins: number;
-    monthlyLogins: number;
-  };
+  loginStats: ExportLoginStats;
   format: ExportFormat;
 }): string {
   const { messages, personalityName, achievements, unlockedAchievements, loginStats, format } = data;
@@ -283,8 +287,8 @@ export function exportCompleteMemoryBook(data: {
 - **Current Streak:** ${loginStats.currentStreak} days
 - **Longest Streak:** ${loginStats.longestStreak} days
 - **Total Logins:** ${loginStats.totalLogins}
-- **This Week:** ${loginStats.weeklyLogins} logins
-- **This Month:** ${loginStats.monthlyLogins} logins
+- **This Week:** ${loginStats.thisWeekLogins} logins
+- **This Month:** ${loginStats.thisMonthLogins} logins
 
 ---
 

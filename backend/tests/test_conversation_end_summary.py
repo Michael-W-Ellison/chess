@@ -3,8 +3,7 @@ Tests for Automatic Conversation Summary Generation on End
 Tests that LLM summaries are generated when conversations end
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
 from datetime import datetime
 
 from services.conversation_manager import ConversationManager

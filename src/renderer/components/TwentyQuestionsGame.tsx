@@ -3,7 +3,7 @@
  * Chess-themed 20 questions guessing game
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { GameItem, getRandomItem, QUESTIONS, GAME_ITEMS } from '../../shared/twentyQuestionsData';
 
 type Answer = 'yes' | 'no' | 'maybe';
@@ -18,7 +18,6 @@ type GameState = 'selecting' | 'playing' | 'won' | 'lost';
 
 export const TwentyQuestionsGame: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>('selecting');
-  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [secretItem, setSecretItem] = useState<GameItem | null>(null);
   const [questionHistory, setQuestionHistory] = useState<QuestionHistory[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -32,7 +31,6 @@ export const TwentyQuestionsGame: React.FC = () => {
   const startGame = useCallback((selectedDifficulty: 'easy' | 'medium' | 'hard') => {
     const item = getRandomItem(selectedDifficulty);
     setSecretItem(item);
-    setDifficulty(selectedDifficulty);
     setGameState('playing');
     setQuestionHistory([]);
     setCurrentQuestionIndex(0);
@@ -50,7 +48,7 @@ export const TwentyQuestionsGame: React.FC = () => {
 
       setPossibleItems((prev) => {
         return prev.filter((item) => {
-          const propertyValue = item.properties[propertyKey];
+          const propertyValue = item.properties[propertyKey as keyof GameItem['properties']];
 
           if (answer === 'yes') {
             return propertyValue === true;

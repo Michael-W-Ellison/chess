@@ -9,7 +9,6 @@ import random
 
 from sqlalchemy.orm import Session
 from models.personality import BotPersonality
-from models.user import User
 
 logger = logging.getLogger("chatbot.personality_manager")
 
@@ -37,7 +36,6 @@ class PersonalityManager:
 
         # Drift limits
         self.max_change_per_conversation = 0.02
-        self.max_change_per_month = 0.15
 
         # Available quirks
         self.available_quirks = [

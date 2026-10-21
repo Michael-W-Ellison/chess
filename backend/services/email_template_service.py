@@ -6,7 +6,7 @@ Handles rendering of email templates using Jinja2
 import logging
 from pathlib import Path
 from typing import Dict, Any
-from jinja2 import Environment, FileSystemLoader, Template, TemplateNotFound
+from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
 logger = logging.getLogger("chatbot.email_template")
 
@@ -252,28 +252,10 @@ class EmailTemplateService:
 
         return sorted(templates)
 
-    def template_exists(self, template_name: str) -> bool:
-        """
-        Check if a template exists
-
-        Args:
-            template_name: Name of the template file
-
-        Returns:
-            True if template exists
-        """
-        template_path = self.templates_dir / template_name
-        return template_path.exists()
 
 
 # Global service instance
 email_template_service = EmailTemplateService()
-
-
-# Convenience functions
-def render_template(template_name: str, context: Dict[str, Any]) -> str:
-    """Render a template with the given context"""
-    return email_template_service.render(template_name, context)
 
 
 def render_report(report_data: Dict[str, Any], prefs: Any, format_type: str = 'html') -> str:

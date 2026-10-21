@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { parentFetch } from '../services/parentAuth';
 
 interface Preferences {
   id: number;
@@ -69,7 +70,7 @@ export const useNotificationPreferences = (userId: number) => {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(`http://localhost:8000/api/parent/preferences?user_id=${userId}`);
+      const response = await parentFetch(`/preferences?user_id=${userId}`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch preferences: ${response.statusText}`);
@@ -114,7 +115,7 @@ export const useNotificationPreferences = (userId: number) => {
     try {
       setIsSaving(true);
 
-      const response = await fetch(`http://localhost:8000/api/parent/preferences?user_id=${userId}`, {
+      const response = await parentFetch(`/preferences?user_id=${userId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),

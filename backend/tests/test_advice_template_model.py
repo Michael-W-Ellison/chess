@@ -3,9 +3,7 @@ Tests for AdviceTemplate Model
 Comprehensive test coverage for advice template database structure
 """
 
-import pytest
 from unittest.mock import Mock
-from datetime import datetime
 import json
 
 from models.safety import AdviceTemplate

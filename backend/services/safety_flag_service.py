@@ -15,9 +15,7 @@ from datetime import datetime, timedelta
 import logging
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, or_
 from models.safety import SafetyFlag
-from models.user import User
 
 logger = logging.getLogger("chatbot.safety_flag_service")
 

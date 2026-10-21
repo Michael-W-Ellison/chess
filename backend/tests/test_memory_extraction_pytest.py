@@ -212,10 +212,3 @@ class TestAccuracyMetrics:
         # Should find at least 1 of the 2 facts
         assert "basic" in categories, "Should extract at least some basic info"
 
-
-# Pytest configuration
-def pytest_configure(config):
-    """Configure pytest"""
-    config.addinivalue_line(
-        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
-    )

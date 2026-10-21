@@ -3,7 +3,7 @@
  * Manages achievement unlocking and progress tracking
  */
 
-import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { Achievement, ACHIEVEMENTS, getAchievementById } from '../../shared/achievements';
 import { AchievementNotification } from '../components/AchievementNotification';
 import { useLogin } from '../hooks/useLogin';
@@ -81,35 +81,40 @@ interface AchievementProviderProps {
   children: ReactNode;
 }
 
+/**
+ * A value from localStorage, read when the provider is created so it is there on the first
+ * render (App records the session start on mount; loading it in an effect afterwards let
+ * that write overwrite the stored stats and achievements with the defaults)
+ */
+function loadStored<T>(key: string): T | null {
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? (JSON.parse(stored) as T) : null;
+  } catch (error) {
+    console.error('Failed to load achievement data:', error);
+    return null;
+  }
+}
+
 export const AchievementProvider: React.FC<AchievementProviderProps> = ({ children }) => {
-  const [unlockedAchievements, setUnlockedAchievements] = useState<string[]>([]);
+  const [unlockedAchievements, setUnlockedAchievements] = useState<string[]>(
+    () => loadStored<string[]>(ACHIEVEMENT_STORAGE_KEY) ?? []
+  );
   const [recentAchievements, setRecentAchievements] = useState<RecentAchievement[]>([]);
-  const [stats, setStats] = useState<UserStats>(DEFAULT_STATS);
+  const [stats, setStats] = useState<UserStats>(
+    () => loadStored<UserStats>(STATS_STORAGE_KEY) ?? DEFAULT_STATS
+  );
   const [notificationQueue, setNotificationQueue] = useState<Achievement[]>([]);
   const loginContext = useLogin();
 
-  /**
-   * Load achievements and stats from localStorage
-   */
-  useEffect(() => {
-    try {
-      const storedAchievements = localStorage.getItem(ACHIEVEMENT_STORAGE_KEY);
-      const storedStats = localStorage.getItem(STATS_STORAGE_KEY);
+  // The latest stats, unlocked list and login streak, updated on every write. Callbacks read
+  // these rather than the values of the render they were created in, so two updates in a row
+  // (or a check scheduled with setTimeout) do not start from an old copy and drop changes
+  const statsRef = useRef(stats);
+  const unlockedRef = useRef(unlockedAchievements);
+  const loginStreakRef = useRef(loginContext.stats.currentStreak);
+  loginStreakRef.current = loginContext.stats.currentStreak;
 
-      if (storedAchievements) {
-        setUnlockedAchievements(JSON.parse(storedAchievements));
-      }
-
-      if (storedStats) {
-        setStats(JSON.parse(storedStats));
-      } else {
-        // Initialize stats
-        setStats(DEFAULT_STATS);
-      }
-    } catch (error) {
-      console.error('Failed to load achievement data:', error);
-    }
-  }, []);
 
   /**
    * Save achievements to localStorage
@@ -132,6 +137,19 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
       console.error('Failed to save stats:', error);
     }
   }, []);
+
+  /**
+   * Update stats (merged into the latest stats, not the ones from this render)
+   */
+  const updateStats = useCallback(
+    (updates: Partial<UserStats>) => {
+      const newStats = { ...statsRef.current, ...updates };
+      statsRef.current = newStats;
+      setStats(newStats);
+      saveStats(newStats);
+    },
+    [saveStats]
+  );
 
   /**
    * Check if achievement is unlocked
@@ -207,7 +225,7 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
    */
   const unlockAchievement = useCallback(
     (achievementId: string): boolean => {
-      if (isUnlocked(achievementId)) {
+      if (unlockedRef.current.includes(achievementId)) {
         return false; // Already unlocked
       }
 
@@ -217,7 +235,8 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
       }
 
       // Add to unlocked list
-      const newUnlocked = [...unlockedAchievements, achievementId];
+      const newUnlocked = [...unlockedRef.current, achievementId];
+      unlockedRef.current = newUnlocked;
       setUnlockedAchievements(newUnlocked);
       saveAchievements(newUnlocked);
 
@@ -229,13 +248,10 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
       setRecentAchievements((prev) => [recentAchievement, ...prev.slice(0, 9)]); // Keep last 10
 
       // Update total points
-      const newStats = {
-        ...stats,
-        totalPoints: stats.totalPoints + achievement.points,
+      updateStats({
+        totalPoints: statsRef.current.totalPoints + achievement.points,
         lastAchievementUnlocked: achievementId,
-      };
-      setStats(newStats);
-      saveStats(newStats);
+      });
 
       // Trigger notification
       setNotificationQueue((prev) => [...prev, achievement]);
@@ -243,7 +259,7 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
 
       return true;
     },
-    [unlockedAchievements, stats, isUnlocked, saveAchievements, saveStats]
+    [saveAchievements, updateStats]
   );
 
   /**
@@ -251,7 +267,8 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
    */
   const checkAndUnlockAchievements = useCallback(() => {
     ACHIEVEMENTS.forEach((achievement) => {
-      if (isUnlocked(achievement.id)) return;
+      if (unlockedRef.current.includes(achievement.id)) return;
+      const stats = statsRef.current;
 
       const { condition } = achievement;
       let shouldUnlock = false;
@@ -267,7 +284,7 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
           shouldUnlock = stats.dailyStreak >= condition.value;
           break;
         case 'login_streak':
-          shouldUnlock = loginContext.stats.currentStreak >= condition.value;
+          shouldUnlock = loginStreakRef.current >= condition.value;
           break;
         case 'session_length':
           shouldUnlock = stats.longestSessionMinutes >= condition.value;
@@ -313,7 +330,7 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
         unlockAchievement(achievement.id);
       }
     });
-  }, [stats, loginContext.stats.currentStreak, isUnlocked, unlockAchievement]);
+  }, [unlockAchievement]);
 
   /**
    * Check login streak achievements when login stats change
@@ -330,28 +347,16 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
   }, [loginContext.stats.currentStreak, checkAndUnlockAchievements]);
 
   /**
-   * Update stats
-   */
-  const updateStats = useCallback(
-    (updates: Partial<UserStats>) => {
-      const newStats = { ...stats, ...updates };
-      setStats(newStats);
-      saveStats(newStats);
-    },
-    [stats, saveStats]
-  );
-
-  /**
    * Increment a stat value
    */
   const incrementStat = useCallback(
     (stat: keyof UserStats, amount: number = 1) => {
-      const currentValue = stats[stat];
+      const currentValue = statsRef.current[stat];
       if (typeof currentValue === 'number') {
         updateStats({ [stat]: currentValue + amount } as Partial<UserStats>);
       }
     },
-    [stats, updateStats]
+    [updateStats]
   );
 
   /**
@@ -360,8 +365,10 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
   const trackMessage = useCallback(
     (text: string) => {
       const words = text.trim().split(/\s+/).length;
-      const emojis = (text.match(/[\p{Emoji}]/gu) || []).length;
+      // Extended_Pictographic: \p{Emoji} also matches digits, '#', '*' and skin-tone modifiers
+      const emojis = (text.match(/\p{Extended_Pictographic}/gu) || []).length;
       const hasQuestionMark = text.includes('?');
+      const stats = statsRef.current;
 
       updateStats({
         messageCount: stats.messageCount + 1,
@@ -375,7 +382,7 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
       // Check for achievements after updating stats
       setTimeout(() => checkAndUnlockAchievements(), 100);
     },
-    [stats, updateStats, checkAndUnlockAchievements]
+    [updateStats, checkAndUnlockAchievements]
   );
 
   /**
@@ -383,6 +390,7 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
    */
   const updateDailyStreak = useCallback(() => {
     const today = new Date().toDateString();
+    const stats = statsRef.current;
     const lastChat = stats.lastChatDate;
 
     if (lastChat) {
@@ -422,12 +430,12 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
     if (dayOfWeek === 0 || dayOfWeek === 6) {
       // Weekend
       updateStats({
-        weekendDaysCount: stats.weekendDaysCount + 1,
+        weekendDaysCount: statsRef.current.weekendDaysCount + 1,
       });
     }
 
     setTimeout(() => checkAndUnlockAchievements(), 100);
-  }, [stats, updateStats, checkAndUnlockAchievements]);
+  }, [updateStats, checkAndUnlockAchievements]);
 
   /**
    * Track session start
@@ -436,15 +444,16 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
     const now = Date.now();
     updateStats({
       currentSessionStartTime: now,
-      conversationCount: stats.conversationCount + 1,
+      conversationCount: statsRef.current.conversationCount + 1,
     });
     updateDailyStreak();
-  }, [stats, updateStats, updateDailyStreak]);
+  }, [updateStats, updateDailyStreak]);
 
   /**
    * Track session end
    */
   const trackSessionEnd = useCallback(() => {
+    const stats = statsRef.current;
     if (stats.currentSessionStartTime) {
       const sessionMinutes = Math.floor(
         (Date.now() - stats.currentSessionStartTime) / 60000
@@ -458,14 +467,14 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
 
       setTimeout(() => checkAndUnlockAchievements(), 100);
     }
-  }, [stats, updateStats, checkAndUnlockAchievements]);
+  }, [updateStats, checkAndUnlockAchievements]);
 
   /**
    * Track avatar change
    */
   const trackAvatarChange = useCallback(
     (avatarId: string) => {
-      const uniqueAvatars = stats.uniqueAvatarsUsed || [];
+      const uniqueAvatars = statsRef.current.uniqueAvatarsUsed || [];
       if (!uniqueAvatars.includes(avatarId)) {
         updateStats({
           uniqueAvatarsUsed: [...uniqueAvatars, avatarId],
@@ -474,13 +483,15 @@ export const AchievementProvider: React.FC<AchievementProviderProps> = ({ childr
         setTimeout(() => checkAndUnlockAchievements(), 100);
       }
     },
-    [stats, updateStats, checkAndUnlockAchievements]
+    [updateStats, checkAndUnlockAchievements]
   );
 
   /**
    * Reset all achievement progress (for testing/demo)
    */
   const resetAllProgress = useCallback(() => {
+    unlockedRef.current = [];
+    statsRef.current = DEFAULT_STATS;
     setUnlockedAchievements([]);
     setRecentAchievements([]);
     setStats(DEFAULT_STATS);

@@ -163,3 +163,24 @@ def test_ending_after_goodbye_is_not_leaving(api):
     before = engagement_rows(USER_ID)
     api.post(f"/api/conversation/end/{conversation_id}")
     assert engagement_rows(USER_ID) == before
+
+
+def test_advice_request_gets_matching_template_advice(api):
+    from database.database import SessionLocal
+    from models.personality import BotPersonality
+
+    user_id = 8
+    conversation_id = api.post(f"/api/conversation/start?user_id={user_id}").json()["conversation_id"]
+    session = SessionLocal()
+    try:
+        session.query(BotPersonality).filter(BotPersonality.user_id == user_id).update({"friendship_level": 5})
+        session.commit()
+    finally:
+        session.close()
+    response = api.post("/api/message", json={
+        "content": "How do I stop being nervous before my piano recital?",
+        "conversation_id": conversation_id, "user_id": user_id,
+    })
+    reply = response.json()["content"]
+    assert "Stage fright" in reply
+    assert "Did you know" not in reply and "Fun fact" not in reply  # no jokes added to advice

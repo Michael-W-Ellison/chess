@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Achievement, TIER_COLORS, RARITY_COLORS } from '../../shared/achievements';
+import { Achievement, TIER_COLORS } from '../../shared/achievements';
 
 interface AchievementBadgeProps {
   achievement: Achievement;
@@ -24,7 +24,6 @@ export const AchievementBadge: React.FC<AchievementBadgeProps> = ({
   onClick,
 }) => {
   const tierColors = TIER_COLORS[achievement.tier];
-  const rarityColor = achievement.rarity ? RARITY_COLORS[achievement.rarity] : null;
 
   const sizeConfig = {
     small: { container: 'w-20 h-20', emoji: 'text-3xl', text: 'text-xs', padding: 'p-2' },

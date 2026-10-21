@@ -18,5 +18,5 @@
     }
   },
   "include": ["src/main/**/*"],
-  "exclude": ["node_modules", "dist", "src/renderer", "src/shared", "src/main/test-store.ts"]
+  "exclude": ["node_modules", "dist", "src/renderer", "src/shared"]
 }

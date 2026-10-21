@@ -4,7 +4,6 @@ Comprehensive test coverage for parent safety monitoring endpoints
 """
 
 import pytest
-from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch
 from datetime import datetime, timedelta
 
@@ -41,6 +40,85 @@ def mock_safety_flag():
     return flag
 
 
+def safety_summary(total, last_7_days, critical, by_type):
+    """The shape safety_flag_service.get_user_safety_summary() returns"""
+    def stats(count):
+        return {"total_flags": count, "by_severity": {"low": 0, "medium": 0, "high": 0, "critical": critical},
+                "by_type": by_type, "parent_notified": 0, "parent_unnotified": count, "last_24_hours": 0}
+    return {
+        "user_id": 1,
+        "all_time": stats(total),
+        "last_7_days": stats(last_7_days),
+        "critical_needing_attention": critical,
+        "most_recent_flag": {"timestamp": datetime.now().isoformat()},
+    }
+
+
+def memory_session():
+    """An in-memory database session with user 1, usable from the test client's thread"""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+    from database.database import Base
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine)()
+    session.add(User(id=1, name="Sam"))
+    return session
+
+
+@pytest.fixture
+def db_with_flags():
+    """A real database session with a user and three safety flags"""
+
+    session = memory_session()
+    now = datetime.now()
+    session.add_all([
+        SafetyFlag(user_id=1, flag_type="profanity", severity="low", timestamp=now - timedelta(days=30)),
+        SafetyFlag(user_id=1, flag_type="profanity", severity="medium", timestamp=now - timedelta(days=2)),
+        SafetyFlag(user_id=1, flag_type="crisis", severity="critical", timestamp=now - timedelta(hours=1)),
+    ])
+    session.commit()
+    yield session
+    session.close()
+
+
+class TestDashboardWithRealService:
+    """The dashboard endpoints with the real safety flag service and database"""
+
+    def test_dashboard_overview(self, client, db_with_flags):
+        with patch("routes.parent.get_db", return_value=db_with_flags):
+            response = client.get("/api/parent/dashboard/overview?user_id=1")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_flags_all_time"] == 3
+        assert data["total_flags_last_7_days"] == 2
+        assert data["critical_flags_count"] == 1
+        assert data["most_common_flag_type"] == "profanity"
+        assert data["last_flag_timestamp"] is not None
+        assert data["requires_attention"] is True
+
+    def test_dashboard(self, client, db_with_flags):
+        with patch("routes.parent.get_db", return_value=db_with_flags):
+            response = client.get("/api/parent/dashboard?user_id=1")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user"]["name"] == "Sam"
+        assert data["safety_summary"]["total_flags_all_time"] == 3
+        assert data["safety_statistics"]["by_severity"]["critical"] == 1
+        assert len(data["recent_flags"]) == 2  # last 7 days
+
+    def test_no_flags(self, client):
+        session = memory_session()
+        session.commit()
+        with patch("routes.parent.get_db", return_value=session):
+            data = client.get("/api/parent/dashboard/overview?user_id=1").json()
+        assert data["total_flags_all_time"] == 0
+        assert data["most_common_flag_type"] is None
+        assert data["last_flag_timestamp"] is None
+
+
 class TestDashboardOverview:
     """Test parent dashboard overview endpoint"""
 
@@ -56,13 +134,8 @@ class TestDashboardOverview:
             mock_db.query.return_value.filter.return_value.first.return_value = mock_user
 
             # Mock service responses
-            mock_service.get_user_safety_summary.return_value = {
-                "total_flags_all_time": 10,
-                "total_flags_last_7_days": 3,
-                "critical_flags_count": 1,
-                "last_flag_timestamp": datetime.now().isoformat(),
-                "most_common_flag_type": "profanity"
-            }
+            mock_service.get_user_safety_summary.return_value = safety_summary(
+                total=10, last_7_days=3, critical=1, by_type={"profanity": 7, "bullying": 3})
             mock_service.get_critical_flags.return_value = []
             mock_service.get_unnotified_flags.return_value = []
 
@@ -83,13 +156,8 @@ class TestDashboardOverview:
             mock_get_db.return_value = mock_db
             mock_db.query.return_value.filter.return_value.first.return_value = mock_user
 
-            mock_service.get_user_safety_summary.return_value = {
-                "total_flags_all_time": 10,
-                "total_flags_last_7_days": 3,
-                "critical_flags_count": 2,
-                "last_flag_timestamp": datetime.now().isoformat(),
-                "most_common_flag_type": "crisis"
-            }
+            mock_service.get_user_safety_summary.return_value = safety_summary(
+                total=10, last_7_days=3, critical=2, by_type={"crisis": 6, "profanity": 4})
 
             # Return critical unnotified flags
             mock_flag = Mock()

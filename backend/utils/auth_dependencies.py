@@ -34,18 +34,24 @@ async def get_current_user(
 
     Raises:
         HTTPException: 401 if authentication fails
+        HTTPException: 503 if password protection is on but no password is set up
     """
     # If password protection is disabled, allow access
     if not settings.PARENT_DASHBOARD_REQUIRE_PASSWORD:
         logger.debug("Password protection disabled - allowing access")
         return {"sub": "parent", "access": "unrestricted"}
 
-    # Check if authentication is configured
+    # Password protection is on but no password is set up: no token can be valid until it is,
+    # so the parent API is unavailable (503), not failing (500)
     if not auth_service.is_configured:
         logger.error("Authentication required but not properly configured")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Authentication not properly configured"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Parent dashboard password is not set up. Set PARENT_DASHBOARD_PASSWORD and "
+                "JWT_SECRET_KEY (POST /api/parent/auth/setup-password generates both), then "
+                "restart the backend."
+            ),
         )
 
     # Check if credentials are provided
@@ -71,28 +77,6 @@ async def get_current_user(
 
     logger.debug(f"Authentication successful for: {payload.get('sub')}")
     return payload
-
-
-async def verify_parent_access(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
-) -> bool:
-    """
-    Verify parent dashboard access
-
-    This is a simpler dependency that just returns True/False.
-    Use get_current_user if you need the full payload.
-
-    Args:
-        credentials: HTTP Authorization credentials from request
-
-    Returns:
-        True if access is granted
-
-    Raises:
-        HTTPException: 401 if authentication fails
-    """
-    await get_current_user(credentials)
-    return True
 
 
 async def require_parent_auth(
@@ -125,4 +109,3 @@ async def require_parent_auth(
 
 # Dependency that can be used in route parameters
 RequireAuth = Depends(get_current_user)
-RequireParentAccess = Depends(verify_parent_access)

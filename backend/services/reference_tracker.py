@@ -10,24 +10,33 @@ Before rules are matched, third-person pronouns are replaced with what they refe
     turn 1: "We went swimming"
     turn 2: "That was so fun"             ->  "Going swimming was so fun"
 
+    turn 1: "My dad got mad"
+    turn 2: "That was scary"              ->  "My dad getting mad was scary"
+
     bot:    "...Did you know? Sea otters hold hands while sleeping!"
     child:  "That's so cool"              ->  "Your fun fact is so cool"
 
 Only the first matching pronoun per person is replaced; later ones are left as they are.
 
 The tracker keeps, per user:
-- people (name, relation, plural, the pronoun the child used for them),
+- people (name, relation, plural, their pronoun if known),
 - things (noun phrases from the child's messages and new ones from the bot's replies),
-- events (the child's last actions, as phrases like "going to the zoo"),
+- events (the last action the child told about, as phrases like "going to the zoo" or
+  "my dad getting mad"),
 mentioned in the last MAX_AGE turns.
 
 "it" prefers a thing and "that"/"this" prefer an event or what the bot just said.
+In "That's a cool color" the pronoun refers to a recent thing named by the noun if there
+is one, even if something else was mentioned after it, and the repeated noun is dropped
+("Your favorite color is cool"). In "That's a hard question" it is left as it is.
 They are only resolved as a subject, object or object of a preposition, and not in
-"It is raining", "It's time to go", "I get it", "I made it!", "I think that...",
-or "the game that I played".
+"It is raining", "It's time to go", "That sounds fun", "I get it", "I made it!",
+"I think that...", or "the game that I played".
 
-If "she"/"he" could mean two people mentioned together whose pronouns the child has not
-used yet, nothing is guessed: the pronoun stays, ambiguous_options() names the people so
+A person's pronoun is known once the child has used one for them, or from a gendered
+relation word ("my mom", "my brother"). If "she"/"he" could mean two or more recent people
+whose pronouns are not known (and no more recent person is known to be "she"/"he"),
+nothing is guessed: the pronoun stays, ambiguous_options() names the people so
 the bot can ask "Do you mean Maya or Jake?", and if the child answers with one of the
 names, the earlier message is resolved with that person.
 
@@ -37,7 +46,7 @@ guess anyone's pronouns itself.
 
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 MAX_AGE = 3  # turns a person, thing or event stays available as an antecedent
 
@@ -49,6 +58,14 @@ _PERSON_PRONOUNS = {
 _THING_PRONOUNS = {"it", "that", "this"}
 _EVENT_PRONOUNS = {"that", "this"}
 _POSSESSIVE_FORMS = {"his", "hers", "their", "theirs"}
+# "That's a hard question" is about the question just asked, which is not tracked
+_UNTRACKED_COMPLEMENTS = {"question"}
+_GENDERED_RELATIONS = {
+    **dict.fromkeys(("mom", "mother", "mum", "mommy", "grandma", "grandmother", "nana", "aunt",
+                     "sister", "stepmom", "stepsister"), "she"),
+    **dict.fromkeys(("dad", "father", "daddy", "grandpa", "grandfather", "uncle", "brother",
+                     "stepdad", "stepbrother"), "he"),
+}
 _TIME_WORDS = {"today", "tomorrow", "yesterday", "tonight", "morning", "afternoon", "evening",
                "night", "week", "weekend", "month", "year", "time", "day", "lot", "thing", "something",
                "one", "anything", "everything", "nothing"}
@@ -59,6 +76,9 @@ _WEATHER_VERBS = {"rain", "snow", "hail", "thunder", "storm", "drizzle", "pour",
 _NON_REFERENTIAL_COMPLEMENTS = {"time", "turn", "cold", "hot", "warm", "sunny", "cloudy", "rainy", "windy",
                                 "dark", "late", "early", "night", "morning", "raining", "snowing", "freezing"}
 _NON_REFERENTIAL_SUBJECT_VERBS = {"seem", "happen", "matter", "depend"}
+# "That sounds fun" is a reaction whose reply does not need the referent, and a gerund
+# subject is misparsed ("Playing a game sounds fun" makes "fun" an object)
+_REACTION_VERBS = {"sound", "look"}
 # Idioms with "it" as object: "I made it" (succeeded), "I get it" (understand), "I mean it"
 _IDIOM_OBJECT_VERBS = {"make", "get", "take", "mean", "fake", "nail"}
 # Verbs that describe a state or wish rather than something the child did
@@ -85,7 +105,7 @@ class Person:
     name: Optional[str] = None
     relation: Optional[str] = None
     plural: bool = False
-    pronoun: Optional[str] = None  # learned from the child's own usage
+    pronoun: Optional[str] = None  # from the child's own usage or a gendered relation word
     turn: int = 0
     order: int = 0  # when first mentioned, for listing people in the order the child named them
 
@@ -124,6 +144,7 @@ class Event:
     text: str  # e.g. "going to the zoo"
     turn: int = 0
     order: int = 0
+    actor: frozenset = frozenset()  # words naming who did it, if not the child ("dad")
 
 
 @dataclass
@@ -193,13 +214,20 @@ class ReferenceTracker:
         chosen = self._clarification_answer(doc, pending) if pending else None
         if chosen is not None:
             chosen.pronoun = pending.pronoun
+            chosen.turn = state.turn  # ahead of anyone mentioned after them
             doc = self.parser.parse(pending.message)
 
         parts = []
         resolved_people = set()
+        named = {t.lower_ for t in doc}  # words naming who is in this message, for events
+        drop = set()  # indexes of words made redundant by a replacement
         replaced_previous = False
         for token in doc:
-            replacement = self._antecedent(token, state, resolved_people, doc.text)
+            if token.i in drop:
+                # Keep the dropped word's spacing: "a cool name!" -> "cool!"
+                parts[-1] = parts[-1].rstrip() + token.whitespace_
+                continue
+            replacement = self._antecedent(token, state, resolved_people, doc.text, named, drop)
             if replacement is None and replaced_previous and token.lower_ == "'s" and token.lemma_ == "be":
                 # "That's cool" -> "Your fun fact is cool", not the possessive "fact's"
                 parts[-1] = parts[-1].rstrip() + " "
@@ -234,7 +262,8 @@ class ReferenceTracker:
                         and not any(t.pos_ == "PRON" or t.tag_ in ("WDT", "WP") for t in chunk)
                         and root.lemma_.lower() not in self.relations
                         and root.lemma_.lower() not in _TIME_WORDS
-                        and root.lemma_.lower() not in state.last_child_words):
+                        and root.lemma_.lower() not in state.last_child_words
+                        and not self._describes_bot(root)):
                     self._remember_thing(self._thing_text(chunk), state, plural=root.tag_ in ("NNS", "NNPS"))
         for mention in mentions:
             mention_doc = self.parser.parse(mention)
@@ -250,7 +279,8 @@ class ReferenceTracker:
     def _recent(self, items, state: DiscourseState):
         return [item for item in items if state.turn - item.turn <= MAX_AGE]
 
-    def _antecedent(self, token, state: DiscourseState, resolved_people: set, message: str) -> Optional[str]:
+    def _antecedent(self, token, state: DiscourseState, resolved_people: set, message: str,
+                    named: set, drop: set) -> Optional[str]:
         lower = token.lower_
 
         if lower in _PERSON_PRONOUNS and token.pos_ == "PRON":
@@ -268,17 +298,22 @@ class ReferenceTracker:
             if not candidates:
                 return None
 
-            # Most recent turn first; within a turn, someone the child already called "she"/"he"
+            # Most recent turn first; within a turn, someone known to be "she"/"he"
             candidates.sort(key=lambda p: (-p.turn, p.pronoun != gender))
             person = candidates[0]
             if gender != "they" and person.pronoun is None:
-                same_turn = [p for p in candidates if p.turn == person.turn and p.pronoun is None]
-                if len(same_turn) > 1:
-                    # Two people mentioned together, and the child has not shown which one
-                    # this is: ask instead of guessing
+                # The people whose pronouns are not known, back to the most recent person
+                # known to be "she"/"he" (who is less likely than anyone mentioned after them)
+                unknown = []
+                for candidate in candidates:
+                    if candidate.pronoun is not None:
+                        break
+                    unknown.append(candidate)
+                if len(unknown) > 1:
+                    # The child has not shown which one this is: ask instead of guessing
                     if state.ambiguity is None:
                         state.ambiguity = Ambiguity(message=message, pronoun=gender,
-                                                    people=sorted(same_turn, key=lambda p: p.order))
+                                                    people=sorted(unknown, key=lambda p: p.order))
                     return None
             if gender != "they":
                 person.pronoun = gender
@@ -287,15 +322,26 @@ class ReferenceTracker:
             if id(person) in resolved_people:
                 return None
             resolved_people.add(id(person))
+            named.update(person.phrase().lower().split())
             possessive = lower in _POSSESSIVE_FORMS or (lower == "her" and token.dep_ == "poss")
             return self._match_case(person.phrase(possessive), token)
 
         if lower in _THING_PRONOUNS and self._is_thing_reference(token):
+            match, attr = self._named_thing(token, state)
+            if match is not None:
+                match.turn = state.turn
+                if any(c.dep_ == "amod" for c in attr.children):
+                    # "That's a cool name" -> "Your name is cool", not "Your name is a cool name"
+                    drop.add(attr.i)
+                    drop.update(c.i for c in attr.children if c.dep_ == "det")
+                return self._match_case(match.text, token)
             things = self._recent(state.things, state)
             if lower == "it":
                 # "it" is singular: prefer a singular thing ("that" can point at "cats")
                 things = [t for t in things if not t.plural] or things
-            events = self._recent(state.events, state)
+            # Not an event done by someone this message names: "She started it" is not
+            # "My sister started my sister and my brother fighting"
+            events = [e for e in self._recent(state.events, state) if not e.actor & named]
             thing = things[0] if things else None
             event = events[0] if events else None
             if lower in _EVENT_PRONOUNS:
@@ -310,6 +356,34 @@ class ReferenceTracker:
         return None
 
     @staticmethod
+    def _attr_noun(token):
+        """The noun in "that is a <noun>", if the pronoun is the subject of one"""
+        if token.dep_ != "nsubj" or token.head.lemma_ != "be":
+            return None
+        return next((c for c in token.head.children if c.dep_ == "attr" and c.pos_ == "NOUN"), None)
+
+    def _named_thing(self, token, state: DiscourseState):
+        """
+        In "That's a cool color", the recent thing the noun names ("the color orange") and
+        the noun, or (None, None)
+        """
+        attr = self._attr_noun(token)
+        if attr is None:
+            return None, None
+        noun = attr.lemma_.lower()
+        for thing in self._recent(state.things, state):
+            last = thing.text.lower().split()[-1]
+            if last in (noun, noun + "s", noun + "es"):
+                return thing, attr
+        return None, None
+
+    @staticmethod
+    def _describes_bot(token) -> bool:
+        """A noun in the bot's "I'm a big fan" / "I'm a computer program", which is not a thing"""
+        return token.dep_ == "attr" and any(
+            c.dep_ == "nsubj" and c.lower_ == "i" for c in token.head.children)
+
+    @staticmethod
     def _is_thing_reference(token) -> bool:
         """
         A pronoun in a position that can refer back to something: subject, object or
@@ -318,8 +392,12 @@ class ReferenceTracker:
         head = token.head
         if token.dep_ in ("expl", "mark", "det") or head.dep_ == "relcl":
             return False
+        attr = ReferenceTracker._attr_noun(token)
+        if attr is not None and attr.lemma_.lower() in _UNTRACKED_COMPLEMENTS:
+            return False
         if token.dep_ in ("nsubj", "nsubjpass"):
-            if head.lemma_ in _WEATHER_VERBS or head.lemma_ in _NON_REFERENTIAL_SUBJECT_VERBS:
+            if head.lemma_ in _WEATHER_VERBS or head.lemma_ in _NON_REFERENTIAL_SUBJECT_VERBS \
+                    or head.lemma_ in _REACTION_VERBS:
                 return False
             complements = [c for c in head.children if c.dep_ in ("acomp", "attr")]
             if any(c.lemma_.lower() in _NON_REFERENTIAL_COMPLEMENTS for c in complements):
@@ -374,6 +452,7 @@ class ReferenceTracker:
                     name=name_token.text if name_token is not None else None,
                     relation=relation.lower(),
                     plural=token.tag_ == "NNS",
+                    pronoun=_GENDERED_RELATIONS.get(token.lemma_.lower()),
                 ))
 
         for token in doc:
@@ -403,8 +482,9 @@ class ReferenceTracker:
 
         event = self._event_phrase(doc)
         if event:
-            state.events = [e for e in state.events if e.text != event]
-            state.events.insert(0, Event(text=event, turn=state.turn, order=state.tick()))
+            text, actor = event
+            state.events = [e for e in state.events if e.text != text]
+            state.events.insert(0, Event(text=text, turn=state.turn, order=state.tick(), actor=actor))
             del state.events[3:]
 
     @staticmethod
@@ -431,17 +511,29 @@ class ReferenceTracker:
         del state.things[6:]
 
     @staticmethod
-    def _event_phrase(doc) -> Optional[str]:
+    def _event_phrase(doc) -> Optional[Tuple[str, frozenset]]:
         """
-        The child's last action as a phrase that can stand in for "that":
-        "We went to the zoo yesterday" -> "going to the zoo"
+        The last action in the message as a phrase that can stand in for "that":
+        "We went to the zoo yesterday" -> "going to the zoo",
+        "My dad got mad" -> "my dad getting mad", with the words naming the actor ({"dad"})
         """
         for sentence in reversed(list(doc.sents)):
             root = sentence.root
             if root.pos_ != "VERB" or root.lemma_ in _NON_EVENT_VERBS or sentence.text.strip().endswith("?"):
                 continue
-            if not any(c.dep_ == "nsubj" and any(t.lower_ in ("i", "we") for t in c.subtree)
-                       for c in root.children):
+            subject = next((c for c in root.children if c.dep_ == "nsubj"), None)
+            if subject is None:
+                continue
+            actor_words = frozenset()
+            if any(t.lower_ in ("i", "we") for t in subject.subtree):
+                actor = []
+            elif subject.pos_ in ("NOUN", "PROPN"):
+                # Someone else's action; pronouns other than "I"/"we" were not resolved
+                actor = [t.text for t in subject.subtree]
+                if subject.left_edge.is_sent_start and subject.left_edge.pos_ != "PROPN":
+                    actor[0] = actor[0][:1].lower() + actor[0][1:]
+                actor_words = frozenset(t.lower_ for t in subject.subtree if t.pos_ in ("NOUN", "PROPN"))
+            else:
                 continue
             excluded = set()
             for child in root.children:
@@ -449,7 +541,7 @@ class ReferenceTracker:
                         or child.ent_type_ in ("DATE", "TIME") or child.lemma_.lower() in _TIME_WORDS:
                     excluded.update(t.i for t in child.subtree)
             rest = [t.text for t in root.subtree if t.i > root.i and t.i not in excluded]
-            return " ".join([gerund(root.lemma_.lower()), *rest])
+            return " ".join([*actor, gerund(root.lemma_.lower()), *rest]), actor_words
         return None
 
     def _is_person_name(self, token) -> bool:
@@ -483,6 +575,7 @@ class ReferenceTracker:
             ):
                 existing.name = existing.name or person.name
                 existing.relation = existing.relation or person.relation
+                existing.pronoun = existing.pronoun or person.pronoun
                 existing.turn = state.turn
                 state.people.remove(existing)
                 state.people.insert(0, existing)

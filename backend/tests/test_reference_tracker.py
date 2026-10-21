@@ -185,6 +185,26 @@ class TestEvents:
     def test_that_refers_to_what_the_child_did(self, engine, first, expected):
         assert run(engine, first, "That was fun") == expected
 
+    @pytest.mark.parametrize("first,expected", [
+        ("My dad got mad", "My dad getting mad was scary"),
+        ("My best friend Maya moved away", "My best friend Maya moving away was scary"),
+        ("The dog chased the cat", "The dog chasing the cat was scary"),
+    ])
+    def test_that_refers_to_what_someone_else_did(self, engine, first, expected):
+        assert run(engine, first, "That was scary") == expected
+
+    def test_resolved_pronoun_subject_is_kept_in_the_event(self, engine):
+        resolved = run(engine, "My teacher gave us a test", "She yelled at me", "That was mean")
+        assert resolved == "My teacher yelling at me was mean"
+
+    def test_unresolved_pronoun_subject_is_not_an_event(self, engine):
+        run(engine, "It rained all day")
+        assert engine.references.state(USER).events == []
+
+    def test_event_is_not_used_for_someone_in_it(self, engine):
+        resolved = run(engine, "My sister and my brother fought", "She started it")
+        assert resolved == "My sister started it"
+
     def test_questions_and_states_are_not_events(self, engine):
         run(engine, "Do you like pizza?")
         run(engine, "I feel tired")
@@ -228,6 +248,49 @@ class TestBotReplies:
         self.reply_and_record(engine, "Do you like dinosaurs?")
         assert run(engine, "Yes I love them") == "Yes I love dinosaurs"
 
+    @pytest.mark.parametrize("question,reply,expected", [
+        ("What's your name?", "I like it", "I like your name"),
+        ("How are you?", "That's good", "Being happy is good"),
+        ("Are you a robot?", "That's weird", "Being an AI is weird"),
+        ("Can we play a game?", "I want to do that", "I want to do playing a game"),
+        ("Can you fly?", "That's sad", "Being a computer program is sad"),
+    ])
+    def test_that_refers_to_the_bots_answer(self, engine, question, reply, expected):
+        self.reply_and_record(engine, question)
+        assert run(engine, reply) == expected
+
+    def test_answer_is_not_kept_after_a_reply_without_one(self, engine):
+        resolved = engine.resolve_references("What's your name?", USER)
+        engine.generate_response(resolved, personality())
+        resolved = engine.resolve_references("I like soccer", USER)
+        engine.generate_response(resolved, personality())
+        assert engine._last_mentions.get(USER) is None
+
+    def test_noun_picks_the_thing_it_names(self, engine):
+        self.reply_and_record(engine, "What is your favorite color?")
+        self.reply_and_record(engine, "I love pizza")
+        assert run(engine, "That's a cool color") == "Your favorite color is cool"
+
+    def test_repeated_noun_is_dropped_with_its_spacing(self, engine):
+        self.reply_and_record(engine, "What's your name?")
+        assert run(engine, "That's a really cool name!") == "Your name is really cool!"
+
+    @pytest.mark.parametrize("message", ["That's a hard question", "That's a good question"])
+    def test_question_is_not_resolved(self, engine, message):
+        self.reply_and_record(engine, "Do you like pizza?")
+        assert run(engine, message) == message
+
+    @pytest.mark.parametrize("message", ["That sounds fun", "It looks cool"])
+    def test_reactions_are_not_resolved(self, engine, message):
+        self.reply_and_record(engine, "We went to the zoo")
+        assert run(engine, message) == message
+
+    def test_bots_self_description_is_not_a_thing(self, engine):
+        engine.resolve_references("Do you like pizza?", USER)
+        engine.record_bot_reply(USER, "Ooh, pizza? I'm a big fan! What about you?")
+        texts = [t.text for t in engine.references.state(USER).things]
+        assert not any("fan" in text for text in texts)
+
     def test_bot_echo_does_not_replace_the_childs_event(self, engine):
         self.reply_and_record(engine, "We went to the zoo")
         assert run(engine, "That was fun") == "Going to the zoo was fun"
@@ -252,6 +315,27 @@ class TestAmbiguousPeople:
     def test_other_reply_clears_the_question(self, engine):
         run(engine, "Maya and Jake came over", "She was nice", "Never mind")
         assert engine.references.ambiguous_options(USER) == []
+
+    def test_people_from_different_turns_are_not_guessed(self, engine):
+        assert run(engine, "I played with Maya", "Then Jake came over", "She was nice") == "She was nice"
+        assert engine.references.ambiguous_options(USER) == ["Maya", "Jake"]
+
+    def test_answer_picks_an_earlier_turns_person(self, engine):
+        run(engine, "I played with Maya", "Then Jake came over", "She was nice")
+        assert run(engine, "Maya") == "Maya was nice"
+
+    def test_newer_person_is_preferred_over_one_known_to_be_she(self, engine):
+        resolved = run(engine, "I played with Zoe", "She is my cousin",
+                       "My teacher gave us a test", "She yelled at me")
+        assert resolved == "My teacher yelled at me"
+
+    @pytest.mark.parametrize("pronoun,expected", [("He", "My dad"), ("She", "My mom")])
+    def test_gendered_relations_are_not_ambiguous(self, engine, pronoun, expected):
+        resolved = run(engine, "My mom made pancakes", "My dad was late", f"{pronoun} was grumpy")
+        assert resolved == f"{expected} was grumpy"
+
+    def test_gendered_relation_mentioned_together(self, engine):
+        assert run(engine, "My sister and my brother fought", "He cried") == "My brother cried"
 
     def test_known_pronoun_is_not_ambiguous(self, engine):
         run(engine, "I played with Maya", "She was nice", "Maya and Jake came over")

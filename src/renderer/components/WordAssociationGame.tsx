@@ -21,7 +21,6 @@ interface WordEntry {
 
 export const WordAssociationGame: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>('selecting');
-  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [currentPrompt, setCurrentPrompt] = useState<WordPrompt | null>(null);
   const [userInput, setUserInput] = useState('');
   const [usedWords, setUsedWords] = useState<string[]>([]);
@@ -42,7 +41,6 @@ export const WordAssociationGame: React.FC = () => {
   const startGame = useCallback((selectedDifficulty: 'easy' | 'medium' | 'hard') => {
     const prompt = getRandomPrompt(selectedDifficulty);
     setCurrentPrompt(prompt);
-    setDifficulty(selectedDifficulty);
     setGameState('playing');
     setUserInput('');
     setUsedWords([]);

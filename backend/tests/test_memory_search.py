@@ -320,10 +320,3 @@ class TestMemorySearch:
         db_session.delete(low)
         db_session.commit()
 
-
-# Pytest configuration
-def pytest_configure(config):
-    """Configure pytest"""
-    config.addinivalue_line(
-        "markers", "search: marks tests for memory search feature"
-    )

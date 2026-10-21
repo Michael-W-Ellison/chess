@@ -5,7 +5,6 @@
 
 import React, { useState } from 'react';
 import {
-  Avatar,
   AvatarCategory,
   AVATARS,
   getCategories,

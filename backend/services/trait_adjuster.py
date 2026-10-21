@@ -3,9 +3,8 @@ Trait Adjustment Service
 Provides bounded, validated personality trait adjustments
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Tuple
 import logging
-from datetime import datetime
 
 from sqlalchemy.orm import Session
 from models.personality import BotPersonality
@@ -41,7 +40,6 @@ class TraitAdjuster:
 
     def __init__(self):
         """Initialize the trait adjuster"""
-        pass
 
     def validate_trait_name(self, trait_name: str) -> bool:
         """

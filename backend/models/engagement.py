@@ -1,6 +1,7 @@
 """
-EngagementStat model
-Per-child record of how engaging each kind of reply choice has been
+Engagement models
+EngagementStat: per-child record of how engaging each kind of reply choice has been
+ReplyDelay: per-child record of how long the child took to answer the bot's replies
 """
 
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, UniqueConstraint
@@ -56,3 +57,27 @@ class EngagementStat(Base):
 
     def __repr__(self):
         return f"<EngagementStat(user_id={self.user_id}, {self.feature}={self.arm}, n={self.count}, mean={self.mean:.2f})>"
+
+
+class ReplyDelay(Base):
+    """
+    ReplyDelay model - seconds between a bot reply and the child's answer
+
+    Only the most recent delays are kept per child (see services/engagement_tracker.py);
+    they set the child's own thresholds for slow replies and for having left.
+
+    Relationships:
+        - Many-to-one with User
+    """
+
+    __tablename__ = "reply_delays"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    seconds = Column(Float, nullable=False)
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+
+    user = relationship("User", back_populates="reply_delays")
+
+    def __repr__(self):
+        return f"<ReplyDelay(user_id={self.user_id}, seconds={self.seconds:.1f})>"

@@ -3,7 +3,6 @@ Tests for Friend Conflict Advice Templates
 Verifies that friend conflict templates are properly structured and functional
 """
 
-import pytest
 from unittest.mock import Mock
 import json
 

@@ -384,10 +384,3 @@ class TestContextBuilder:
 
         assert len(keywords) <= 10, "Should limit to 10 keywords"
 
-
-# Pytest configuration
-def pytest_configure(config):
-    """Configure pytest"""
-    config.addinivalue_line(
-        "markers", "context: marks tests for context builder feature"
-    )

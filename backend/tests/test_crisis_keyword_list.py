@@ -4,7 +4,7 @@ Tests comprehensive detection of suicide, self-harm, and abuse keywords
 """
 
 import pytest
-from services.crisis_keyword_list import CrisisKeywordList, crisis_keyword_list
+from services.crisis_keyword_list import CrisisKeywordList
 
 
 class TestCrisisKeywordListBasics:

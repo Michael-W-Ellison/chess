@@ -18,7 +18,7 @@ import { AchievementBadge } from './AchievementBadge';
 import { ExportDialog } from './ExportDialog';
 
 export const AchievementsPanel: React.FC = () => {
-  const { unlockedAchievements, stats, isUnlocked, getProgress } = useAchievements();
+  const { unlockedAchievements, isUnlocked, getProgress } = useAchievements();
   const [selectedCategory, setSelectedCategory] = useState<AchievementCategory | 'all'>('all');
   const [selectedAchievement, setSelectedAchievement] = useState<string | null>(null);
   const [showExportDialog, setShowExportDialog] = useState(false);

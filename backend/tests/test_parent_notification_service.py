@@ -3,8 +3,7 @@ Tests for Parent Notification Service
 Comprehensive test coverage for parent notification system
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
 from datetime import datetime
 
 from services.parent_notification_service import (

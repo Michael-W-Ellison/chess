@@ -5,7 +5,7 @@ Centralized severity scoring and classification for safety filter
 This service provides consistent severity determination across all safety checks.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 from enum import IntEnum
 import logging
 

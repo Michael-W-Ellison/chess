@@ -12,10 +12,8 @@ from models.user import User
 from database.database import Base
 from services.friendship_progression import (
     FriendshipProgressionManager,
-    friendship_manager,
     add_friendship_points,
     get_friendship_progress,
-    get_level_info,
 )
 
 

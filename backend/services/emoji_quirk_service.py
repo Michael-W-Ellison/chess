@@ -5,7 +5,7 @@ Handles the uses_emojis personality quirk
 
 import random
 import re
-from typing import List, Dict
+from typing import List
 
 
 class EmojiQuirkService:

@@ -13,7 +13,6 @@ from models.conversation import Conversation, Message
 from database.database import Base
 from services.conversation_tracker import (
     ConversationTracker,
-    conversation_tracker,
     on_conversation_start,
     on_message_sent,
     on_conversation_end,

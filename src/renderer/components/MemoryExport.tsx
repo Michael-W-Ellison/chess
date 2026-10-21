@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { useChat } from '../hooks/useChat';
+import { useChatContext } from '../contexts/ChatContext';
 import { useAchievements } from '../hooks/useAchievements';
 import { useLogin } from '../hooks/useLogin';
 import { ACHIEVEMENTS } from '../../shared/achievements';
@@ -23,7 +23,7 @@ import {
 type ExportType = 'conversations' | 'achievements' | 'stats' | 'complete';
 
 export const MemoryExport: React.FC = () => {
-  const { messages, personality } = useChat();
+  const { messages, personality } = useChatContext();
   const { unlockedAchievements } = useAchievements();
   const { stats } = useLogin();
 

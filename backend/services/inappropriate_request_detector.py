@@ -3,7 +3,7 @@ Inappropriate Request Detector Service
 Comprehensive detection of inappropriate requests for kid-friendly chatbot
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 import logging
 import re
 

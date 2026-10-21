@@ -4,7 +4,6 @@ Task 69: Implement uses_emojis quirk
 """
 
 import pytest
-import re
 from services.emoji_quirk_service import EmojiQuirkService, emoji_quirk_service
 
 

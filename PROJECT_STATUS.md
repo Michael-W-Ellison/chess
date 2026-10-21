@@ -104,7 +104,6 @@ The application is **functional and ready for deployment** with or without a loc
 - [x] Secure preload script (`src/main/preload.ts`)
 - [x] TypeScript types (`src/shared/types.ts`) - 390+ lines
 - [x] Constants (`src/shared/constants.ts`) - 330+ lines
-- [x] Utilities (`src/shared/utils.ts`) - 370+ lines
 
 #### API Integration
 - [x] **API Client** (`src/renderer/services/api.ts`)

@@ -13,7 +13,7 @@ This list is designed for children ages 8-14 and focuses on:
 All keywords trigger CRITICAL severity responses with crisis resources.
 """
 
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set
 import logging
 
 logger = logging.getLogger("chatbot.crisis_keyword_list")

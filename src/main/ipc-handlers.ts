@@ -1,6 +1,47 @@
-import { ipcMain, IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, IpcMainInvokeEvent } from 'electron';
+import { promises as fs } from 'fs';
+import * as path from 'path';
 import { backendManager } from './backend-manager';
-import { store, getAllStoreData, getStorePath, StoreSchema } from './store';
+import { store, defaults as storeDefaults, getAllStoreData, getStorePath, StoreSchema } from './store';
+
+const IPC_CHANNELS = [
+  'backend-status',
+  'backend-health',
+  'start-conversation',
+  'send-message',
+  'end-conversation',
+  'get-personality',
+  'get-profile',
+  'get-parent-dashboard',
+  'update-settings',
+  'export-memory-book',
+  'store-get',
+  'store-set',
+  'store-delete',
+  'store-clear',
+  'store-has',
+  'store-get-all',
+  'store-get-path',
+];
+
+/**
+ * The message from a failed backendManager.request(), whose error reads
+ * "Backend request failed: <status> <body>"; FastAPI bodies are {"detail": ...}
+ */
+function backendErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : 'Unknown error';
+  const match = message.match(/^Backend request failed: \d+ (.*)$/s);
+  if (match) {
+    try {
+      const detail = JSON.parse(match[1]).detail;
+      if (typeof detail === 'string') return detail;
+      if (detail?.message) return detail.message;
+    } catch {
+      // Not JSON: use the whole message
+    }
+  }
+  return message;
+}
 
 /**
  * IPC Handlers - Handle all communication from renderer to main process
@@ -142,7 +183,7 @@ async function handleSendMessage(
     }
 
     const response = await backendManager.request('POST', '/api/message', {
-      user_message: message,
+      content: message,
       conversation_id: conversationId,
       user_id: 1,
     });
@@ -246,58 +287,98 @@ async function handleGetProfile(
 
 /**
  * Get parent dashboard data (password protected)
+ *
+ * Logs in to the backend with the parent password (POST /api/parent/auth/login) and
+ * returns GET /api/parent/dashboard for the child. When password protection is off,
+ * the backend accepts any password.
  */
 async function handleGetParentDashboard(
   _event: IpcMainInvokeEvent,
-  _password: string
+  password: string,
+  userId: number = 1
 ): Promise<any> {
   try {
     console.log('IPC: Getting parent dashboard...');
 
-    // TODO: Call Python backend API with authentication
-    // const response = await backendManager.request('GET', '/api/parent/dashboard', {
-    //   headers: { 'X-Parent-Password': password }
-    // });
+    if (!backendManager.isBackendRunning()) {
+      throw new Error('Backend is not running');
+    }
+    if (typeof password !== 'string') {
+      throw new Error('Password is required');
+    }
 
-    // Mock response for now
-    const mockResponse = {
-      conversationSummaries: [],
-      safetyFlags: [],
-      stats: {
-        totalConversations: 0,
-        currentStreak: 0,
-        averageSessionLength: '0 minutes',
-      },
-    };
+    const login = await backendManager.request<{ access_token: string }>(
+      'POST',
+      '/api/parent/auth/login',
+      { password }
+    );
+    const response = await backendManager.request(
+      'GET',
+      `/api/parent/dashboard?user_id=${encodeURIComponent(String(userId))}`,
+      undefined,
+      { Authorization: `Bearer ${login.access_token}` }
+    );
 
     return {
       success: true,
-      data: mockResponse,
+      data: response,
     };
   } catch (error) {
     console.error('Error getting parent dashboard:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unauthorized',
+      error: backendErrorMessage(error),
     };
   }
 }
 
 /**
+ * Check settings updates against the stored settings' types; returns the problems found
+ */
+function validateSettingsUpdate(updates: Record<string, unknown>): string[] {
+  const errors: string[] = [];
+  const known = storeDefaults.settings as Record<string, unknown>;
+  for (const [key, value] of Object.entries(updates)) {
+    if (!(key in known)) {
+      errors.push(`Unknown setting: ${key}`);
+    } else if (typeof value !== typeof known[key]) {
+      errors.push(`${key} must be a ${typeof known[key]}`);
+    } else if (key === 'theme' && value !== 'light' && value !== 'dark') {
+      errors.push('theme must be "light" or "dark"');
+    } else if (key === 'maxMessageHistory' && !(Number.isInteger(value) && (value as number) > 0)) {
+      errors.push('maxMessageHistory must be a positive integer');
+    }
+  }
+  return errors;
+}
+
+/**
  * Update application settings
+ *
+ * Merges the given settings into the stored settings (electron-store key "settings")
+ * and returns the saved settings. Nothing is saved if any value is invalid.
  */
 async function handleUpdateSettings(
   _event: IpcMainInvokeEvent,
-  _settings: any
+  updates: Partial<StoreSchema['settings']>
 ): Promise<any> {
   try {
     console.log('IPC: Updating settings...');
 
-    // TODO: Save to electron-store
-    // Store.set('settings', settings);
+    if (!updates || typeof updates !== 'object' || Array.isArray(updates)) {
+      throw new Error('Settings must be an object');
+    }
+    const errors = validateSettingsUpdate(updates as Record<string, unknown>);
+    if (errors.length > 0) {
+      throw new Error(errors.join('; '));
+    }
+
+    const settings = { ...store.get('settings'), ...updates };
+    store.set('settings', settings);
 
     return {
       success: true,
+      data: settings,
     };
   } catch (error) {
     console.error('Error updating settings:', error);
@@ -309,21 +390,49 @@ async function handleUpdateSettings(
 }
 
 /**
- * Export memory book as PDF/text
+ * Save an exported memory book to a file the user chooses
+ *
+ * The renderer generates the content (see src/shared/exportUtils.ts); this shows a save
+ * dialog and writes it. Returns { canceled: true } if the dialog was closed.
  */
 async function handleExportMemoryBook(
-  _event: IpcMainInvokeEvent
+  event: IpcMainInvokeEvent,
+  content: string,
+  defaultFileName: string = 'memory-book.txt'
 ): Promise<any> {
   try {
     console.log('IPC: Exporting memory book...');
 
-    // TODO: Generate memory book and show save dialog
-    // const { dialog } = require('electron');
-    // const result = await dialog.showSaveDialog({...});
+    if (typeof content !== 'string') {
+      throw new Error('Export content must be text');
+    }
+
+    const extension = path.extname(defaultFileName).slice(1).toLowerCase();
+    const filters = extension
+      ? [{ name: `${extension.toUpperCase()} files`, extensions: [extension] }, { name: 'All files', extensions: ['*'] }]
+      : [{ name: 'All files', extensions: ['*'] }];
+    const options = {
+      title: 'Save Memory Book',
+      defaultPath: path.join(app.getPath('documents'), path.basename(defaultFileName)),
+      filters,
+    };
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const result = window
+      ? await dialog.showSaveDialog(window, options)
+      : await dialog.showSaveDialog(options);
+
+    if (result.canceled || !result.filePath) {
+      return {
+        success: true,
+        canceled: true,
+      };
+    }
+
+    await fs.writeFile(result.filePath, content, 'utf-8');
 
     return {
       success: true,
-      filePath: '/path/to/memory-book.pdf',
+      filePath: result.filePath,
     };
   } catch (error) {
     console.error('Error exporting memory book:', error);
@@ -490,21 +599,8 @@ async function handleStoreGetPath(
  */
 export function cleanupIpcHandlers(): void {
   console.log('Cleaning up IPC handlers...');
-  ipcMain.removeAllListeners('backend-status');
-  ipcMain.removeAllListeners('backend-health');
-  ipcMain.removeAllListeners('start-conversation');
-  ipcMain.removeAllListeners('send-message');
-  ipcMain.removeAllListeners('end-conversation');
-  ipcMain.removeAllListeners('get-personality');
-  ipcMain.removeAllListeners('get-profile');
-  ipcMain.removeAllListeners('get-parent-dashboard');
-  ipcMain.removeAllListeners('update-settings');
-  ipcMain.removeAllListeners('export-memory-book');
-  ipcMain.removeAllListeners('store-get');
-  ipcMain.removeAllListeners('store-set');
-  ipcMain.removeAllListeners('store-delete');
-  ipcMain.removeAllListeners('store-clear');
-  ipcMain.removeAllListeners('store-has');
-  ipcMain.removeAllListeners('store-get-all');
-  ipcMain.removeAllListeners('store-get-path');
+  // Handlers registered with ipcMain.handle() are removed with removeHandler()
+  for (const channel of IPC_CHANNELS) {
+    ipcMain.removeHandler(channel);
+  }
 }

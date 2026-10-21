@@ -1,5 +1,5 @@
 {
-  "_comment": "Knowledge base for the rule-based response engine (services/response_engine.py). Patterns use spaCy DependencyMatcher syntax; a string value starting with '@' inside an IN list refers to a lexicon below. A rule's suppressed_by lists rules whose match cancels it. Response text placeholders: {slot} is the slot from the bot's perspective (my -> your), {slot_raw} is the child's original wording, {slot_slug} is a key-safe form. Always available: {user_name}, {bot_name}, {bot_mood}.",
+  "_comment": "Knowledge base for the rule-based response engine (services/response_engine.py). Patterns use spaCy DependencyMatcher syntax; a string value starting with '@' inside an IN list refers to a lexicon below. A rule's suppressed_by lists rules whose match cancels it. Response text placeholders: {slot} is the slot from the bot's perspective (my -> your), {slot_raw} is the child's original wording, {slot_slug} is a key-safe form. Always available: {user_name}, {bot_name}, {bot_mood}. A rule's answer (optional) names what its reply says, from the child's point of view (\"your name\"), so the child can refer to it with \"it\" or \"that\".",
 
   "lexicons": {
     "like_verbs": ["love", "like", "enjoy", "adore"],
@@ -151,7 +151,9 @@
   "rules": [
     {
       "id": "bot_name_question",
+      "answer": "your name",
       "priority": 90,
+      "conditions": {"question": true},
       "patterns": [[
         {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"LOWER": "name"}},
@@ -161,6 +163,7 @@
     },
     {
       "id": "bot_how_are_you",
+      "answer": "being {bot_mood}",
       "priority": 90,
       "patterns": [[
         {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
@@ -480,6 +483,7 @@
     },
     {
       "id": "bot_identity_question",
+      "answer": "being an AI",
       "priority": 92,
       "patterns": [[
         {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
@@ -491,6 +495,7 @@
     },
     {
       "id": "bot_day_question",
+      "answer": "talking with me",
       "priority": 90,
       "patterns": [[
         {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "do"}},
@@ -631,6 +636,82 @@
       "follow_ups": ["What are you most excited about?", "Who's going with you?"]
     },
     {
+      "id": "bot_thing_evaluation",
+      "priority": 60,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": {"IN": ["be", "sound", "seem", "look"]}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj"}},
+        {"LEFT_ID": "subj", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"DEP": "poss", "LOWER": "your"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "acomp"}}
+      ]],
+      "conditions": {"evaluation": "adj", "question": false},
+      "slots": {
+        "subject": {"node": "subj", "span": "subtree", "lowercase": true},
+        "be": {"node": "be", "span": "verb_group"},
+        "evaluation": {"node": "adj", "span": "text"}
+      },
+      "responses_by": {
+        "slot": "evaluation_valence",
+        "variants": {
+          "positive": [
+            "Aw, thanks! I'm glad you think {subject} {be} {negation}{evaluation}!",
+            "Thanks, {user_name}! I like {subject} too."
+          ],
+          "negative": [
+            "Oh, you think {subject} {be} {negation}{evaluation}? That's okay, we don't have to like the same things!"
+          ],
+          "neutral": [
+            "You think {subject} {be} {negation}{evaluation}? Thanks for telling me!"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sounds_evaluation",
+      "priority": 58,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": {"IN": ["sound", "seem", "look"]}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": {"IN": ["nsubj", "csubj"]}, "LOWER": {"NOT_IN": ["i", "you", "we", "he", "she", "they"]}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "acomp"}}
+      ]],
+      "suppressed_by": ["bot_thing_evaluation"],
+      "conditions": {"evaluation": "adj", "question": false},
+      "slots": {
+        "subject": {"node": "subj", "span": "subtree", "lowercase": true},
+        "be": {"node": "be", "span": "verb_group"},
+        "evaluation": {"node": "adj", "span": "text"}
+      },
+      "responses_by": {
+        "slot": "evaluation_valence",
+        "variants": {
+          "positive": [
+            "Yay! I think {subject} {be} {negation}{evaluation} too!",
+            "Me too! {subject} really {be} {negation}{evaluation}!"
+          ],
+          "negative": [
+            "Hmm, {subject} {be} {negation}{evaluation} to you? Why do you think so?"
+          ],
+          "neutral": [
+            "{subject} {be} {negation}{evaluation}? Okay! Tell me more."
+          ]
+        }
+      }
+    },
+    {
+      "id": "hard_question",
+      "priority": 60,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["that", "this", "it"]}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "question", "RIGHT_ATTRS": {"DEP": "attr", "LEMMA": "question"}}
+      ]],
+      "conditions": {"question": false},
+      "responses": [
+        "Ha, take your time! There's no wrong answer.",
+        "Hmm, you can think about it! There's no wrong answer."
+      ]
+    },
+    {
       "id": "evaluation",
       "priority": 58,
       "patterns": [[
@@ -638,7 +719,7 @@
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": {"IN": ["nsubj", "csubj"]}, "LOWER": {"NOT_IN": ["i", "you", "we", "he", "she", "they"]}}},
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "acomp"}}
       ]],
-      "suppressed_by": ["person_evaluation", "other_feeling", "comparison_better", "comparison_question"],
+      "suppressed_by": ["bot_thing_evaluation", "person_evaluation", "other_feeling", "comparison_better", "comparison_question"],
       "conditions": {"evaluation": "adj"},
       "slots": {
         "subject": {"node": "subj", "span": "subtree", "lowercase": true},
@@ -795,6 +876,7 @@
     },
     {
       "id": "play_request",
+      "answer": "playing a game",
       "priority": 86,
       "patterns": [[
         {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "play", "TAG": "VB"}},
@@ -945,6 +1027,7 @@
     },
     {
       "id": "ability_question",
+      "answer": "being a computer program",
       "priority": 34,
       "patterns": [[
         {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"TAG": "VB", "LEMMA": {"NOT_IN": "@ability_exclusions"}}},

@@ -4,7 +4,7 @@ Tests integration of all specialized services
 """
 
 import pytest
-from services.safety_filter import SafetyFilter, safety_filter
+from services.safety_filter import SafetyFilter
 
 
 class TestSafetyFilterIntegration:

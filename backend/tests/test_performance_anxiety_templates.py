@@ -3,7 +3,6 @@ Tests for Performance Anxiety Advice Templates
 Verifies that performance anxiety templates are properly structured and functional
 """
 
-import pytest
 from unittest.mock import Mock
 import json
 

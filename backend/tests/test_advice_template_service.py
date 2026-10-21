@@ -3,9 +3,7 @@ Tests for Advice Template Service
 Comprehensive test coverage for template retrieval and selection
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock, patch
-import json
+from unittest.mock import Mock, patch
 
 from services.advice_template_service import (
     AdviceTemplateService,

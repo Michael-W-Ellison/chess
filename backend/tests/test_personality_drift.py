@@ -4,7 +4,7 @@ Tests drift calculation based on conversation metrics
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -15,7 +15,6 @@ from models.conversation import Conversation, Message
 from models.personality_drift import PersonalityDrift
 from services.personality_drift_calculator import (
     PersonalityDriftCalculator,
-    personality_drift_calculator,
 )
 
 

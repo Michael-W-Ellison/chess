@@ -17,8 +17,6 @@ from services.memory_manager import MemoryManager
 from database.database import SessionLocal, init_db
 from models.user import User
 from models.memory import UserProfile
-from datetime import datetime
-import json
 from typing import List, Dict, Tuple
 
 # Test cases with expected extractions

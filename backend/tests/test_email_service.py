@@ -3,8 +3,7 @@ Tests for Email Service
 Comprehensive test coverage for email notification functionality
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 from datetime import datetime
 import smtplib
 

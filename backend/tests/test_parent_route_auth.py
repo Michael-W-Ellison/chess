@@ -72,3 +72,31 @@ def test_valid_token_is_accepted(unauthenticated_client):
         )
 
     assert response.status_code != 401
+
+
+@pytest.fixture
+def unconfigured_client():
+    """Test client with password protection required but no password set up"""
+    app.dependency_overrides.clear()
+    with patch("utils.auth_dependencies.settings") as mock_settings, \
+            patch("utils.auth_dependencies.auth_service") as mock_auth:
+        mock_settings.PARENT_DASHBOARD_REQUIRE_PASSWORD = True
+        mock_auth.is_configured = False
+        yield TestClient(app)
+
+
+@pytest.mark.parametrize("method,url", PROTECTED_REQUESTS)
+def test_unconfigured_password_returns_503(unconfigured_client, method, url):
+    response = getattr(unconfigured_client, method)(url, headers={"Authorization": "Bearer any-token"})
+    assert response.status_code == 503
+    assert "PARENT_DASHBOARD_PASSWORD" in response.json()["detail"]
+
+
+def test_unconfigured_dashboard_returns_503(unconfigured_client):
+    # /dashboard also declares RequireAuth as a parameter
+    assert unconfigured_client.get("/api/parent/dashboard?user_id=1").status_code == 503
+
+
+def test_auth_status_reports_unconfigured(unconfigured_client):
+    response = unconfigured_client.get("/api/parent/auth/status")
+    assert response.status_code == 200
