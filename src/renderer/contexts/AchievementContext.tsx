@@ -81,35 +81,32 @@ interface AchievementProviderProps {
   children: ReactNode;
 }
 
+/**
+ * A value from localStorage, read when the provider is created so it is there on the first
+ * render (App records the session start on mount; loading it in an effect afterwards let
+ * that write overwrite the stored stats and achievements with the defaults)
+ */
+function loadStored<T>(key: string): T | null {
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? (JSON.parse(stored) as T) : null;
+  } catch (error) {
+    console.error('Failed to load achievement data:', error);
+    return null;
+  }
+}
+
 export const AchievementProvider: React.FC<AchievementProviderProps> = ({ children }) => {
-  const [unlockedAchievements, setUnlockedAchievements] = useState<string[]>([]);
+  const [unlockedAchievements, setUnlockedAchievements] = useState<string[]>(
+    () => loadStored<string[]>(ACHIEVEMENT_STORAGE_KEY) ?? []
+  );
   const [recentAchievements, setRecentAchievements] = useState<RecentAchievement[]>([]);
-  const [stats, setStats] = useState<UserStats>(DEFAULT_STATS);
+  const [stats, setStats] = useState<UserStats>(
+    () => loadStored<UserStats>(STATS_STORAGE_KEY) ?? DEFAULT_STATS
+  );
   const [notificationQueue, setNotificationQueue] = useState<Achievement[]>([]);
   const loginContext = useLogin();
 
-  /**
-   * Load achievements and stats from localStorage
-   */
-  useEffect(() => {
-    try {
-      const storedAchievements = localStorage.getItem(ACHIEVEMENT_STORAGE_KEY);
-      const storedStats = localStorage.getItem(STATS_STORAGE_KEY);
-
-      if (storedAchievements) {
-        setUnlockedAchievements(JSON.parse(storedAchievements));
-      }
-
-      if (storedStats) {
-        setStats(JSON.parse(storedStats));
-      } else {
-        // Initialize stats
-        setStats(DEFAULT_STATS);
-      }
-    } catch (error) {
-      console.error('Failed to load achievement data:', error);
-    }
-  }, []);
 
   /**
    * Save achievements to localStorage
