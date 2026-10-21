@@ -315,7 +315,6 @@ The application is **functional and ready for deployment** with or without a loc
 
 ### Low Priority
 - [ ] **Memory Book Export**: PDF generation
-- [ ] **Advanced Memory**: ChromaDB vector storage (optional)
 - [ ] **Email Notifications**: Parent alerts for safety events
 - [ ] **Weekly Reports**: Summary emails for parents
 - [ ] **Customization**: Theme colors, bot avatar
@@ -466,7 +465,6 @@ All dependencies configured and working.
 ### What Could Be Improved
 - Earlier user testing would have guided features better
 - More automated testing would increase confidence
-- Vector memory (ChromaDB) could enhance memory system
 - LLM prompt engineering needs more iteration
 
 ---
