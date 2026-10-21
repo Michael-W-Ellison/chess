@@ -61,15 +61,6 @@ def main():
         status, info = check_package_installed(import_name)
         checks.append((display_name, status, info))
 
-    # Optional dependencies
-    optional_packages = [
-        ("chromadb", "ChromaDB (optional)"),
-    ]
-
-    for import_name, display_name in optional_packages:
-        status, info = check_package_installed(import_name)
-        checks.append((display_name, status, info))
-
     # Configuration files
     config_files = [
         ".env",
