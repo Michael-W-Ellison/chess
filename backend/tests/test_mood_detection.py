@@ -411,14 +411,18 @@ class TestEdgeCases:
         assert manager._detect_user_mood("sad sad sad") == "sad"
         assert manager._detect_user_mood("happy happy happy") == "happy"
 
-    def test_negation_not_detected(self):
-        """Test that negation doesn't prevent detection (current simple implementation)"""
+    def test_negated_keyword_is_not_the_mood(self):
+        """A negated keyword is not the mood ("I'm not sad")"""
         manager = ConversationManager()
 
-        # Current implementation still detects keyword even with negation
-        # This is a known limitation of simple keyword matching
-        assert manager._detect_user_mood("I'm not sad") == "sad"
-        assert manager._detect_user_mood("I'm not happy") == "happy"
+        assert manager._detect_user_mood("I'm not sad") != "sad"
+        assert manager._detect_user_mood("I wasn't scared") != "anxious"
+
+    def test_keyword_inside_another_word_is_not_detected(self):
+        """"mad" is not in "made" """
+        manager = ConversationManager()
+
+        assert manager._detect_user_mood("I made a painting") == "neutral"
 
 
 class TestConsistency:

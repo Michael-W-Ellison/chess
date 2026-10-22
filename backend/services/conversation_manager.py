@@ -57,10 +57,21 @@ GENERIC_ADVICE = [
     "would make things a little better. You could also ask a grown-up you trust. What have you tried so far?",
 ]
 
+# Keyword mood detection, used when the sentence matches no rule (checked in this order)
+_MOOD_KEYWORDS = [
+    ("sad", re.compile(r"\b(sad(ness|ly)?|upset(ting)?|crying|depressed)\b")),
+    ("anxious", re.compile(r"\b(worried|nervous|scared|anxious)\b")),
+    ("happy", re.compile(r"\b(happy|excited|great|awesome)\b")),
+    ("angry", re.compile(r"\b(angry|mad|madder|maddening|furious)\b")),
+]
+
+# Words that end the gentle replies after sad news
+_CHEERFUL_RE = re.compile(r"\b(laugh\w*|fun|happy|better|great|awesome|excited|yay|haha\w*|lol)\b", re.IGNORECASE)
+
 # "What should I do?", "can you help me", not "What ride should I go on?"
 _ASKS_WHAT_TO_DO_RE = re.compile(
     r"\bwhat (should|can|could|do) I do\b|\bwhat\b[^?.!]*\bI (should|can|could) do\b|\bhelp me\b|\badvice\b"
-    r"|\bhow (do|can|should) I\b",
+    r"|\bhow (do|can|should) I (deal|handle|stop|fix|tell)\b",
     re.IGNORECASE,
 )
 
@@ -341,6 +352,8 @@ class ConversationManager:
                  or emoji_quirk_service.is_negative(user_message))
         if upset:
             self._sensitive_replies[user_id] = SENSITIVE_REPLIES
+        elif context.get("detected_mood") == "happy" or _CHEERFUL_RE.search(user_message):
+            self._sensitive_replies.pop(user_id, None)  # "but then we laughed"
         sensitive = self._sensitive_replies.get(user_id, 0) > 0
         if sensitive:
             self._sensitive_replies[user_id] -= 1
@@ -1110,18 +1123,17 @@ INSTRUCTIONS:
             except Exception as e:
                 logger.error(f"Error detecting mood from parse: {e}")
 
-        message_lower = message.lower()
+        # Words that are not negated ("I wasn't scared"), with their forms ("upsetting",
+        # "maddening") but not other words that start the same ("made")
+        tokens = re.findall(r"[a-z']+", message.lower())
+        words = " ".join(word for i, word in enumerate(tokens)
+                         if not (i > 0 and (tokens[i - 1] in ("not", "no", "never")
+                                            or tokens[i - 1].endswith(("n't", "nt")))))
 
-        if any(word in message_lower for word in ["sad", "upset", "crying", "depressed"]):
-            return "sad"
-        elif any(word in message_lower for word in ["worried", "nervous", "scared", "anxious"]):
-            return "anxious"
-        elif any(word in message_lower for word in ["happy", "excited", "great", "awesome"]):
-            return "happy"
-        elif any(word in message_lower for word in ["angry", "mad", "furious"]):
-            return "angry"
-        else:
-            return "neutral"
+        for mood, pattern in _MOOD_KEYWORDS:
+            if pattern.search(words):
+                return mood
+        return "neutral"
 
     def _calculate_conversation_metrics(self, conversation_id: int, db: Session) -> Dict:
         """Calculate metrics about the conversation"""

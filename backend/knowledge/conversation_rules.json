@@ -230,9 +230,38 @@
       ]
     },
     {
+      "id": "bot_like_which",
+      "priority": 86,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@like_verbs"}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "cat", "RIGHT_ATTRS": {"DEP": "dobj"}},
+        {"LEFT_ID": "cat", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": "det", "LOWER": {"IN": ["what", "which"]}}}
+      ]],
+      "conditions": {"question": true},
+      "slots": {"category": {"node": "cat", "span": "lemma"}},
+      "compute": ["bot_favorite"],
+      "responses": [
+        {"text": "I love {bot_favorite}! What {category} do you like?", "requires": ["bot_favorite"]},
+        {"text": "Ooh, I like lots of them! What {category} do you like?"}
+      ]
+    },
+    {
+      "id": "bot_hobby_question",
+      "priority": 87,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@like_verbs"}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "do", "RIGHT_ATTRS": {"DEP": "xcomp", "LEMMA": "do"}},
+        {"LEFT_ID": "do", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "what"}}
+      ]],
+      "conditions": {"question": true},
+      "responses": ["I love chatting with you, telling jokes, and learning fun facts! What do you like to do?"]
+    },
+    {
       "id": "bot_like_question",
       "priority": 85,
-      "suppressed_by": ["comparison_question"],
+      "suppressed_by": ["comparison_question", "bot_like_which", "bot_hobby_question"],
       "patterns": [
         [
           {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@like_verbs"}}},
@@ -262,7 +291,8 @@
       "slots": {"name": {"node": "name", "span": "text", "capitalize": true}},
       "memories": [{"category": "basic", "key": "name", "value": "{name_raw}"}],
       "responses": ["Nice to meet you, {name}! I'm {bot_name}.", "{name} is a great name! I'll remember that."],
-      "follow_ups": ["What do you like to do for fun, {name}?"]
+      "follow_ups": ["What do you like to do for fun, {name}?"],
+      "conditions": {"no_det": "name"}
     },
     {
       "id": "age_is",
@@ -276,6 +306,18 @@
       "slots": {"age": {"node": "num", "span": "text"}},
       "memories": [{"category": "basic", "key": "age", "value": "{age_raw}"}],
       "responses": ["{age} is a great age! Thanks for telling me."]
+    },
+    {
+      "id": "new_baby",
+      "priority": 76,
+      "patterns": [[
+        {"RIGHT_ID": "have", "RIGHT_ATTRS": {"LEMMA": "have"}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "baby", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": "baby"}}
+      ]],
+      "conditions": {"not_negated": "have", "question": false},
+      "valence": "positive",
+      "mood": "happy",
+      "responses": ["A new baby? That's so exciting! Are you hoping for a brother or a sister?"]
     },
     {
       "id": "person_event",
@@ -514,6 +556,25 @@
       ]
     },
     {
+      "id": "everyone_mad",
+      "priority": 67,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["everyone", "everybody", "they", "nobody"]}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "mad", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["mad", "angry", "upset", "annoyed"]}}},
+        {"LEFT_ID": "mad", "REL_OP": ">", "RIGHT_ID": "at", "RIGHT_ATTRS": {"LOWER": "at"}},
+        {"LEFT_ID": "at", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"LOWER": "me"}}
+      ]],
+      "mood": "sad",
+      "valence": "negative",
+      "no_jokes": true,
+      "responses": [
+        "Oh no, that sounds really hard. I'm sorry. Everyone makes mistakes sometimes.",
+        "That must have felt awful. I'm sorry. One mistake doesn't change how great you are."
+      ],
+      "follow_ups": ["Are you feeling okay now?"]
+    },
+    {
       "id": "setback",
       "priority": 65,
       "patterns": [[
@@ -528,6 +589,22 @@
       "responses": ["{clause}? That's really frustrating.", "{clause}? I'm sorry, that's no fun."],
       "follow_ups": ["What do you think you'll try next time?", "Is there anyone who can help you with it?"],
       "suppressed_by": ["miss_person"]
+    },
+    {
+      "id": "reassured",
+      "priority": 64,
+      "patterns": [[
+        {"RIGHT_ID": "say", "RIGHT_ATTRS": {"LEMMA": {"IN": ["say", "tell"]}}},
+        {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "we", "you"]}}},
+        {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "clause", "RIGHT_ATTRS": {"DEP": "ccomp", "LEMMA": "be"}},
+        {"LEFT_ID": "clause", "REL_OP": ">", "RIGHT_ID": "ok", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["ok", "okay", "alright", "fine"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "clause"},
+      "slots": {"subject": {"node": "subj", "span": "subtree"}},
+      "responses": [
+        "That was nice of {subject} to say. Everyone makes mistakes sometimes!",
+        "{subject} is right! One mistake doesn't change how great you are."
+      ]
     },
     {
       "id": "praise_reported",
@@ -902,7 +979,7 @@
       "slots": {"clause": {"node": "verb", "span": "clause"}},
       "mood": "happy",
       "valence": "positive",
-      "responses": ["{clause}? That's so nice!", "Aw, {clause}? That sounds really fun!"],
+      "responses": ["{clause}? That's so nice!", "Aw, {clause}? That's so sweet!"],
       "follow_ups": ["What was your favorite part?", "That's really thoughtful. How did you feel?"]
     },
     {
@@ -987,6 +1064,41 @@
         "That would be awesome! Making a new friend is the best.",
         "I hope so! It sounds like you two have a lot in common."
       ]
+    },
+    {
+      "id": "get_better",
+      "priority": 55,
+      "patterns": [[
+        {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": {"IN": ["get", "become"]}}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "better", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": "better"}}
+      ]],
+      "conditions": {"question": true},
+      "responses": [
+        "Practice makes progress! Try practicing a little bit every day, and ask your coach or teacher for tips. What part do you want to get better at?"
+      ]
+    },
+    {
+      "id": "hope",
+      "priority": 50,
+      "patterns": [[
+        {"RIGHT_ID": "hope", "RIGHT_ATTRS": {"LEMMA": "hope"}},
+        {"LEFT_ID": "hope", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+        {"LEFT_ID": "hope", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": "ccomp"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "hope"},
+      "responses": ["I hope so too!", "Me too! I have a good feeling about it."]
+    },
+    {
+      "id": "naming_question",
+      "priority": 56,
+      "patterns": [[
+        {"RIGHT_ID": "name", "RIGHT_ATTRS": {"LEMMA": {"IN": ["name", "call"]}}},
+        {"LEFT_ID": "name", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+        {"LEFT_ID": "name", "REL_OP": ">", "RIGHT_ID": "should", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": "should"}}
+      ]],
+      "conditions": {"question": true},
+      "responses": ["Ooh, how fun! What names do you like so far?"]
     },
     {
       "id": "plan",
@@ -1298,6 +1410,18 @@
       "responses": ["Hmm, I try to like everything! What {category} don't you like?"]
     },
     {
+      "id": "bot_feeling_question",
+      "priority": 88,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["get", "feel", "be"]}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "feeling", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["bored", "lonely", "sad", "tired", "scared", "mad", "angry", "sleepy", "hungry"]}}}
+      ]],
+      "conditions": {"question": true},
+      "slots": {"feeling": {"node": "feeling", "span": "text"}},
+      "responses": ["Nope! Talking with you is my favorite thing, so I'm happy whenever you're here. Do you ever get {feeling}?"]
+    },
+    {
       "id": "bot_do_question",
       "priority": 88,
       "patterns": [
@@ -1524,7 +1648,7 @@
         {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "owner", "RIGHT_ATTRS": {"LOWER": {"IN": ["my", "our", "the"]}}},
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": {"IN": ["attr", "acomp", "npadvmod"]}}}
       ]],
-      "conditions": {"not_negated": "be"},
+      "conditions": {"not_negated": "be", "no_det": "name"},
       "slots": {"name": {"node": "name", "span": "text", "capitalize": true}, "relation": {"node": "rel", "span": "lemma"}},
       "memories": [{"category": "person", "key": "{relation_slug}_{name_slug}", "value": "{name_raw}"}],
       "valence": "positive",
@@ -1681,6 +1805,18 @@
       ]],
       "conditions": {"first_token": "just"},
       "responses": ["Haha, you got me!", "Hehe, you're so funny!"]
+    },
+    {
+      "id": "baby_gender",
+      "priority": 47,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "it", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "it"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "gender", "RIGHT_ATTRS": {"DEP": "attr", "LOWER": {"IN": ["boy", "girl"]}}}
+      ]],
+      "conditions": {"max_tokens": 6, "question": false},
+      "slots": {"gender": {"node": "gender", "span": "text"}},
+      "responses": ["A baby {gender}? How exciting! Do you have any name ideas?"]
     },
     {
       "id": "short_answer",
@@ -1957,6 +2093,17 @@
       "conditions": {"max_tokens": 6, "question": false},
       "responses": ["Bye, {user_name}! Talk to you soon!", "See you later, {user_name}! I had fun talking with you."],
       "no_jokes": true
+    },
+    {
+      "id": "farewell_last",
+      "priority": 45,
+      "patterns": [[
+        {"RIGHT_ID": "f", "RIGHT_ATTRS": {"LOWER": {"IN": "@farewells"}}}
+      ]],
+      "conditions": {"last_token": "f", "max_tokens": 4},
+      "no_jokes": true,
+      "responses": ["Bye, {user_name}! Talk to you soon!", "See you later, {user_name}! I had fun talking with you."],
+      "suppressed_by": ["farewell", "gotta_go"]
     },
     {
       "id": "farewell",

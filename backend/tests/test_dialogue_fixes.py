@@ -91,6 +91,17 @@ class TestNewRules:
         ("maybe we can be friends", "could_be_friends"),
         ("got to go bye", "gotta_go"),
         ("just kidding", "just_kidding"),
+        ("ok bye", "farewell_last"),
+        ("bye", "farewell"),
+        ("everyone was mad at me", "everyone_mad"),
+        ("how do I get better at soccer", "get_better"),
+        ("I hope he likes me", "hope"),
+        ("what should we name him", "naming_question"),
+        ("my mom is having a baby", "new_baby"),
+        ("it's a boy", "baby_gender"),
+        ("what color do you like", "bot_like_which"),
+        ("what do you like to do", "bot_hobby_question"),
+        ("do you get bored", "bot_feeling_question"),
     ])
     def test_rule(self, engine, message, rule):
         assert rule_of(engine, message)[0] == rule
@@ -166,6 +177,34 @@ class TestReferences:
         assert engine.resolve_references("mine is a wolf", 1) == "My favorite animal is a wolf"
         engine.record_bot_reply(1, "My favorite food is pancakes! What's yours?")
         assert engine.resolve_references("sushi", 1) == "My favorite food is sushi"
+
+    def test_answer_after_a_word_like_cool(self, engine):
+        engine.record_bot_reply(1, "I love green! What color do you like?")
+        assert engine.resolve_references("cool mine is green", 1) == "My favorite color is green"
+
+    def test_bot_question_words_are_not_things(self, engine):
+        engine.record_bot_reply(1, "Nice to meet you, Grace! What do you like to do for fun?")
+        assert engine.resolve_references("it's a boy", 1) == "it's a boy"
+        engine.reset_references(1)
+        engine.record_bot_reply(1, "You lost? I'm sorry, that's no fun.")
+        assert engine.resolve_references("it was 3 to 1", 1) == "it was 3 to 1"
+
+    def test_a_boy_is_not_a_name(self, engine):
+        assert ("basic", "name", "Boy") not in engine.extract_memories("My name is a boy")
+
+    def test_added_fact_is_not_it_after_the_child_named_a_thing(self, engine):
+        rule_of(engine, "I made a painting")
+        engine.references.record_bot_reply(1, "You made a painting?", told="fun fact", told_was_added=True)
+        assert engine.resolve_references("my teacher put it on the wall", 1) == "my teacher put the painting on the wall"
+
+    def test_bot_filler_words_are_not_things(self, engine):
+        rule_of(engine, "I hate math")
+        engine.record_bot_reply(1, "Not a fan of math, huh? That's okay, everybody likes different stuff.")
+        assert engine.resolve_references("its so boring", 1) == "Math is so boring"
+
+    def test_plural_thing_takes_are(self, engine):
+        engine.record_bot_reply(1, "I love telling jokes and learning fun facts! What do you like to do?")
+        assert engine.resolve_references("thats cool", 1) == "Fun facts are cool"
 
     def test_fair_is_not_a_reference(self, engine):
         rule_of(engine, "my sister always takes my stuff")
@@ -302,4 +341,4 @@ class TestConversation:
     def test_generic_advice_when_no_template_matches(self, api):
         user_id, conversation_id, _ = start(api)
         reply = send(api, user_id, conversation_id, "what do you think I should do?")
-        assert "What do you think" not in reply
+        assert "trust" in reply  # both generic advice replies mention someone you trust

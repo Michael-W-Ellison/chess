@@ -69,18 +69,21 @@ _GENDERED_RELATIONS = {
 }
 _TIME_WORDS = {"today", "tomorrow", "yesterday", "tonight", "morning", "afternoon", "evening",
                "night", "week", "weekend", "month", "year", "time", "day", "lot", "thing", "something",
-               "one", "anything", "everything", "nothing", "part", "stuff", "kind", "app"}
+               "one", "anything", "everything", "nothing", "part", "stuff", "kind", "app", "fun",
+               "question", "huh", "fan"}
 _TITLES = {"mr", "mrs", "ms", "dr"}
 # Short answers that are not a favorite thing ("no", "idk")
 _NOT_ANSWERS = {"no", "nope", "nah", "yes", "yeah", "ok", "okay", "idk", "nothing", "dunno", "why", "what", "lol",
                 "haha", "same", "cool", "nice", "wow", "maybe", "um", "hmm"}
+# Words before an answer: "cool mine is green"
+_ANSWER_OPENERS = {"cool", "ok", "okay", "oh", "well", "um", "umm", "hmm", "yeah"}
 # Verbs whose object is usually a person, for names spaCy does not tag ("I saw Maya at school")
 _SOCIAL_VERBS = {"see", "meet", "visit", "call", "text", "hug", "help", "invite", "ask", "tell", "miss", "beat", "follow"}
 # "it" that refers to nothing: weather ("it is raining"), time ("it's time", "it's late"), turns
 _WEATHER_VERBS = {"rain", "snow", "hail", "thunder", "storm", "drizzle", "pour", "sleet"}
 _NON_REFERENTIAL_COMPLEMENTS = {"time", "turn", "cold", "hot", "warm", "sunny", "cloudy", "rainy", "windy",
                                 "dark", "late", "early", "night", "morning", "raining", "snowing", "freezing",
-                                "fair", "unfair", "true"}
+                                "fair", "unfair", "true", "ok", "okay", "alright", "boy", "girl"}
 _NON_REFERENTIAL_SUBJECT_VERBS = {"seem", "happen", "matter", "depend"}
 # "That sounds fun" is a reaction whose reply does not need the referent, and a gerund
 # subject is misparsed ("Playing a game sounds fun" makes "fun" an object)
@@ -143,6 +146,7 @@ class Thing:
     turn: int = 0
     plural: bool = False
     order: int = 0  # increases with every recorded mention, so later mentions rank first
+    added: bool = False  # a joke or fact the bot added unasked: only "it" in a reaction ("That was funny")
 
 
 @dataclass
@@ -169,6 +173,7 @@ class DiscourseState:
     events: List[Event] = field(default_factory=list)  # most recent first
     ambiguity: Optional[Ambiguity] = None
     last_child_words: set = field(default_factory=set)
+    last_plural: bool = False  # whether the last thing put in place of "it"/"that" was plural
     asked_favorite: Optional[str] = None  # "animal" after the bot asked "What's your favorite animal?"
 
     def tick(self) -> int:
@@ -245,7 +250,7 @@ class ReferenceTracker:
             if replacement is None and replaced_previous and token.lower_ == "'s" and token.lemma_ == "be":
                 # "That's cool" -> "Your fun fact is cool", not the possessive "fact's"
                 parts[-1] = parts[-1].rstrip() + " "
-                replacement = "is"
+                replacement = "are" if state.last_plural else "is"
             parts.append((replacement if replacement is not None else token.text) + token.whitespace_)
             replaced_previous = replacement is not None
         resolved = "".join(parts)
@@ -269,14 +274,16 @@ class ReferenceTracker:
     def _favorite_answer(doc, category: str) -> Optional[str]:
         """The child's answer to "What's your favorite <category>?" as a full sentence"""
         words = [t for t in doc if not t.is_punct]
+        # "cool mine is green", "ok blue"
+        while len(words) > 1 and words[0].lower_ in _ANSWER_OPENERS:
+            words = words[1:]
         if not words or len(words) > 4:
             return None
         if words[0].lower_ == "mine" and len(words) > 2 and words[1].lemma_ == "be":
-            rest = doc[words[2].i:].text
-            return f"My favorite {category} is {rest}"
+            return f"My favorite {category} is {doc[words[2].i:].text}"
         if any(t.pos_ in ("VERB", "AUX", "PRON", "INTJ") or t.lower_ in _NOT_ANSWERS for t in words):
             return None
-        return f"My favorite {category} is {doc.text}"
+        return f"My favorite {category} is {doc[words[0].i:].text}"
 
     def record_bot_reply(self, user_id: int, reply: str, told: Optional[str] = None,
                          mentions: Iterable[str] = (), told_was_added: bool = False) -> None:
@@ -290,12 +297,14 @@ class ReferenceTracker:
             mentions: Things the bot offered as its own answer (e.g. its favorite color)
             told_was_added: The joke or fact was added to the reply, not asked for; the bot's
                 own answers stay the most recent things ("Mine is red pandas" + a joke, then
-                "why do you like it")
+                "why do you like it"), and it is only meant by a reaction ("That was funny"),
+                not by "my teacher put it on the wall"
         """
         doc = self.parser.parse(reply)
         state = self.state(user_id)
         # "What's your favorite animal?", or "My favorite game is chess! What's yours?"
-        asked = re.search(r"\byour favorite (\w+)\?", reply, re.IGNORECASE)
+        asked = re.search(r"\byour favorite (\w+)\?", reply, re.IGNORECASE) or \
+            re.search(r"\bWhat (\w+) do you like\?", reply)
         if asked is None and re.search(r"\bWhat's yours\?", reply):
             asked = re.search(r"\bfavorite (\w+)\b", reply, re.IGNORECASE)
         state.asked_favorite = asked.group(1).lower() if asked else None
@@ -308,6 +317,7 @@ class ReferenceTracker:
                 exclamation = len(chunk) == 1 and root.i == root.sent.start and root.i + 1 < len(doc) \
                     and doc[root.i + 1].text in ("!", ",")
                 if (root.pos_ in ("NOUN", "PROPN") and root.ent_type_ != "PERSON" and not exclamation
+                        and not any(t.dep_ == "det" and t.lower_ == "no" for t in chunk)
                         and not any(t.pos_ == "PRON" or t.tag_ in ("WDT", "WP") for t in chunk)
                         and root.lemma_.lower() not in self.relations
                         and root.lemma_.lower() not in _TIME_WORDS
@@ -315,8 +325,8 @@ class ReferenceTracker:
                         and not self._describes_bot(root)):
                     self._remember_thing(self._thing_text(chunk), state, plural=root.tag_ in ("NNS", "NNPS"))
         mentions = list(mentions)
-        if told and told_was_added and mentions:
-            self._remember_thing(f"your {told}", state)
+        if told and told_was_added:
+            self._remember_thing(f"your {told}", state, added=True)
             told = None
         for mention in mentions:
             mention_doc = self.parser.parse(mention)
@@ -389,6 +399,10 @@ class ReferenceTracker:
                     drop.update(c.i for c in attr.children if c.dep_ == "det")
                 return self._match_case(match.text, token)
             things = self._recent(state.things, state)
+            # An added joke or fact: "That was funny", not "my teacher put it on the wall"
+            reaction = token.dep_ == "nsubj" and any(c.dep_ in ("acomp", "attr") for c in token.head.children)
+            if not reaction:
+                things = [t for t in things if not t.added]
             if lower == "it":
                 # "it" is singular: prefer a singular thing ("that" can point at "cats")
                 things = [t for t in things if not t.plural] or things
@@ -404,6 +418,7 @@ class ReferenceTracker:
                 choice = thing or event
             if choice is not None:
                 choice.turn = state.turn
+                state.last_plural = getattr(choice, "plural", False)
                 return self._match_case(choice.text, token)
 
         return None
@@ -630,9 +645,9 @@ class ReferenceTracker:
             words[0] = words[0][:1].lower() + words[0][1:]
         return " ".join(words)
 
-    def _remember_thing(self, text: str, state: DiscourseState, plural: bool = False) -> None:
+    def _remember_thing(self, text: str, state: DiscourseState, plural: bool = False, added: bool = False) -> None:
         state.things = [t for t in state.things if t.text.lower() != text.lower()]
-        state.things.insert(0, Thing(text=text, turn=state.turn, plural=plural, order=state.tick()))
+        state.things.insert(0, Thing(text=text, turn=state.turn, plural=plural, order=state.tick(), added=added))
         del state.things[6:]
 
     @staticmethod

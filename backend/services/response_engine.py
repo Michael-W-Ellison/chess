@@ -259,6 +259,11 @@ class ResponseEngine:
             return None
         if "first_token" in conditions and nodes[conditions["first_token"]].i != 0:
             return None
+        if "last_token" in conditions and \
+                nodes[conditions["last_token"]].i != max(t.i for t in doc if not t.is_punct):
+            return None
+        if "no_det" in conditions and any(c.dep_ == "det" for c in nodes[conditions["no_det"]].children):
+            return None
         if "subject_is_user" in conditions and not self._has_user_subject(nodes[conditions["subject_is_user"]]):
             return None
         if "addressed_to_bot" in conditions and not self._addressed_to_bot(nodes[conditions["addressed_to_bot"]]):
