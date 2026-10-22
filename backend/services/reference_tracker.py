@@ -645,6 +645,14 @@ class ReferenceTracker:
                   and c.root.lemma_.lower() not in _TIME_WORDS
                   and c.root.lemma_.lower() != "name"  # "My name is Liam": not what "it" means later
                   and c.root.lemma_.lower() not in _GROUPS]  # "kids" are people, not "it"
+        # "I built another one" after "I built a sandcastle": the new sandcastle
+        previous = next((t for t in state.things if not t.short and not t.added), None)
+        for token in doc:
+            if (previous is not None and token.lower_ == "one" and token.dep_ in ("dobj", "attr", "pobj")
+                    and any(c.lower_ in ("another", "new") for c in token.children)):
+                noun = previous.text.split()[-1]
+                self._remember_thing(f"the new {noun}", state, plural=previous.plural)
+
         for chunk in sorted(chunks, key=lambda c: (c.sent.start, salience[c.root.dep_], c.start)):
             self._remember_thing(self._thing_text(chunk), state, plural=chunk.root.tag_ == "NNS")
 

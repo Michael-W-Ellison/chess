@@ -334,9 +334,22 @@
       ]
     },
     {
+      "id": "bot_why_like",
+      "priority": 87,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@like_verbs"}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"LOWER": "you", "DEP": "nsubj"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "why", "RIGHT_ATTRS": {"LOWER": "why"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "thing", "RIGHT_ATTRS": {"DEP": {"IN": ["dobj", "pobj", "xcomp"]}}}
+      ]],
+      "conditions": {"question": true},
+      "slots": {"thing": {"node": "thing", "span": "subtree"}},
+      "responses": ["I just think {thing} is really fun to talk about! Why do you like it?"]
+    },
+    {
       "id": "bot_like_question",
       "priority": 85,
-      "suppressed_by": ["comparison_question", "bot_like_which", "bot_hobby_question", "bot_like_food"],
+      "suppressed_by": ["comparison_question", "bot_like_which", "bot_hobby_question", "bot_like_food", "bot_why_like"],
       "patterns": [
         [
           {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@like_verbs"}}},
@@ -2796,105 +2809,6 @@
       "patterns": [[{"RIGHT_ID": "g", "RIGHT_ATTRS": {"LOWER": {"IN": "@greetings"}}}]],
       "conditions": {"first_token": "g"},
       "responses": ["Hi {user_name}! What's up?", "Hey {user_name}! How's your day going?", "Hello {user_name}! It's good to see you!"]
-    }
-  ],
-
-  "answers": [
-    {
-      "pattern": "\\bsky\\b.*\\bblue\\b|\\bblue\\b.*\\bsky\\b",
-      "answer": "The sky looks blue because sunlight bounces off the air, and blue light bounces around the most!"
-    },
-    {
-      "pattern": "\\bhow (do|can) birds fly\\b|\\bwhy (do|can) birds fly\\b",
-      "answer": "Birds flap their wings to push air down, and that lifts them up. Their bones are hollow, so they're really light!"
-    },
-    {
-      "pattern": "\\bhow far\\b.*\\bmoon\\b",
-      "answer": "The Moon is about 239,000 miles (384,000 km) away. It took astronauts about 3 days to get there!"
-    },
-    {
-      "pattern": "\\bhow far\\b.*\\bsun\\b",
-      "answer": "The Sun is about 93 million miles (150 million km) away. Its light takes about 8 minutes to reach us!"
-    },
-    {
-      "pattern": "\\bhow hot\\b.*\\bsun\\b",
-      "answer": "The surface of the Sun is about 10,000°F (5,500°C), and the middle is millions of degrees!"
-    },
-    {
-      "pattern": "\\bhow many planets\\b",
-      "answer": "There are 8 planets in our solar system: Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, and Neptune!"
-    },
-    {
-      "pattern": "\\brainbows?\\b",
-      "answer": "Rainbows happen when sunlight shines through raindrops. The drops split the light into all its colors!"
-    },
-    {
-      "pattern": "\\bwhy (does it|do we get) rain\\b|\\bwhere does rain come from\\b|\\bhow does rain\\b",
-      "answer": "Clouds are made of tiny drops of water. When the drops bunch together and get heavy, they fall as rain!"
-    },
-    {
-      "pattern": "\\bdinosaurs?\\b.*\\b(die|extinct|disappear)",
-      "answer": "Most scientists think a giant asteroid hit Earth about 66 million years ago and changed the weather so much that the dinosaurs died out."
-    },
-    {
-      "pattern": "\\bwhy do (we|people|i) (need to )?sleep\\b",
-      "answer": "Sleep helps your body grow and rest, and it helps your brain remember what you learned!"
-    },
-    {
-      "pattern": "\\b(biggest|largest) animal\\b",
-      "answer": "The blue whale is the biggest animal ever, even bigger than the biggest dinosaurs!"
-    },
-    {
-      "pattern": "\\bfastest animal\\b",
-      "answer": "The cheetah is the fastest land animal. It can run about 70 miles per hour! The peregrine falcon is even faster when it dives."
-    },
-    {
-      "pattern": "\\bwhat (are|is a) stars?\\b|\\bwhy do stars\\b",
-      "answer": "Stars are giant balls of hot, glowing gas, like our Sun, just very, very far away!"
-    },
-    {
-      "pattern": "\\bleaves\\b.*\\b(change|turn)\\b.*\\bcolou?rs?\\b|\\bwhy do leaves\\b",
-      "answer": "In the fall, trees stop making the green stuff in their leaves, so the yellow, orange, and red colors show through!"
-    },
-    {
-      "pattern": "\\b(what|why) (is|does) thunder\\b|\\bwhat makes thunder\\b",
-      "answer": "Thunder is the sound lightning makes. Lightning heats the air so fast that it goes BOOM!"
-    },
-    {
-      "pattern": "\\bocean\\b.*\\bsalty\\b|\\bsalty\\b.*\\bocean\\b",
-      "answer": "Rivers carry tiny bits of salt from rocks into the ocean, and over millions of years it added up!"
-    },
-    {
-      "pattern": "\\bwhy is the grass green\\b|\\bwhy are (plants|leaves) green\\b",
-      "answer": "Plants are green because of chlorophyll, a green helper that uses sunlight to make food for the plant!"
-    },
-    {
-      "pattern": "\\bhow (old|big) is the (earth|world)\\b",
-      "answer": "The Earth is about 4.5 billion years old! That's really, really old."
-    },
-    {
-      "pattern": "\\bpenguins?\\b.*\\bfly\\b",
-      "answer": "Penguins can't fly because their wings are made for swimming instead! They 'fly' through the water super fast."
-    },
-    {
-      "pattern": "\\bwhy (do|does) (cats|a cat) purr\\b",
-      "answer": "Cats often purr when they're happy and relaxed, and sometimes to calm themselves down!"
-    },
-    {
-      "pattern": "\\bwhy (do|does) (dogs|a dog) (wag|bark)\\b",
-      "answer": "Dogs wag their tails and bark to talk! A wagging tail often means they're excited or happy."
-    },
-    {
-      "pattern": "\\bhow (do|does) (fish|a fish) breathe\\b",
-      "answer": "Fish breathe with gills, which take oxygen out of the water as it flows through them!"
-    },
-    {
-      "pattern": "\\bwhy (do|does) (the )?moon change\\b|\\bwhy (is|does) the moon\\b.*\\bshape\\b",
-      "answer": "The Moon doesn't really change shape. We just see different amounts of its sunny side as it goes around Earth!"
-    },
-    {
-      "pattern": "\\bwhy (do|does) (we|people|i) yawn\\b",
-      "answer": "Nobody knows for sure! Scientists think yawning might help cool down your brain or wake you up a little."
     }
   ]
 }

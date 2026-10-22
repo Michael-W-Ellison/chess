@@ -31,6 +31,8 @@ from services.utterance_parser import utterance_parser
 logger = logging.getLogger("chatbot.response_engine")
 
 RULES_PATH = Path(__file__).resolve().parent.parent / "knowledge" / "conversation_rules.json"
+# Short answers to common questions about the world ("Why is the sky blue?")
+ANSWERS_PATH = RULES_PATH.parent / "answers.json"
 
 # First person (child) <-> second person (bot) when echoing the child's words
 _REFLECT_WORDS = {
@@ -138,6 +140,12 @@ class ResponseEngine:
     def _load_knowledge_base(self) -> None:
         with open(self.rules_path, encoding="utf-8") as f:
             self.kb = json.load(f)
+        answers_path = self.rules_path.parent / ANSWERS_PATH.name
+        if answers_path.exists():
+            with open(answers_path, encoding="utf-8") as f:
+                self.answers = [(re.compile(a["pattern"], re.IGNORECASE), a["answer"]) for a in json.load(f)["answers"]]
+        else:
+            self.answers = []
         lexicons = self.kb.get("lexicons", {})
 
         def resolve(value):
@@ -1009,7 +1017,8 @@ class ResponseEngine:
                         kind = "reflection" if tense == "past" else f"reflection_{tense}"
                         # "He is a golden retriever": not "What's that like?"
                         # "He is a golden retriever", "It was so tall": not "What's that like?"
-                        if root.lemma_ == "be" and kind in ("reflection_present", "reflection"):
+                        if (root.lemma_ == "be" or (root.lemma_ == "have" and not self._first_person_subject(root))) \
+                                and kind in ("reflection_present", "reflection"):
                             kind = "reflection_be"
                         # "We can't go to the park"
                         elif self._is_negated(root) and any(c.lower_ in ("ca", "can", "could") for c in root.children):
@@ -1044,9 +1053,9 @@ class ResponseEngine:
 
     def _world_answer(self, text: str) -> Optional[str]:
         """The answer to a common question about the world ("Why is the sky blue?"), if known"""
-        for entry in self.kb.get("answers", []):
-            if re.search(entry["pattern"], text, re.IGNORECASE):
-                return entry["answer"]
+        for pattern, answer in self.answers:
+            if pattern.search(text):
+                return answer
         return None
 
     def _last_clause_about_child(self, doc) -> Optional[str]:

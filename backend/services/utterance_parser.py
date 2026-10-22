@@ -91,6 +91,37 @@ _TITLE_RE = re.compile(r"\b(mr|mrs|ms|dr)\.? ([a-z])", re.IGNORECASE)
 _WORD_RE = re.compile(r"[A-Za-z]+")
 
 
+def repair_parse(doc):
+    """
+    Fix a parse error the small English model makes with "had"/"has" as the main verb:
+    in "The cupcakes had sprinkles" and "The pizza had pepperoni" it reads "had" as a helper
+    verb and the object as the root. The helper becomes the root and the object its object.
+    """
+    for sentence in list(doc.sents):
+        root = sentence.root
+        helper = next((c for c in root.children if c.dep_ == "aux" and c.lemma_ == "have"), None)
+        subject = next((c for c in root.children if c.dep_ == "nsubj"), None)
+        # "I had eaten" (a real helper) has a past participle; "had sprinkles" does not
+        if helper is None or subject is None or root.tag_ in ("VBN", "VBG") or helper.i > root.i:
+            continue
+        if any(c.dep_ in ("dobj", "aux") and c.i != helper.i for c in root.children):
+            continue
+        movers = [c for c in root.children
+                  if c.i < root.i and c.i != helper.i and c.dep_ in ("nsubj", "neg", "advmod", "aux", "cc")]
+        movers += [c for c in root.children if c.dep_ == "punct" and c.i > root.i]
+        helper.head = helper
+        helper.dep_ = "ROOT"
+        helper.pos_ = "VERB"
+        for token in movers:
+            token.head = helper
+        root.head = helper
+        root.dep_ = "dobj"
+        if root.pos_ == "VERB":
+            root.pos_ = "NOUN"
+            root.tag_ = "NNS" if root.text.lower().endswith("s") else "NN"
+    return doc
+
+
 class UtteranceParser:
     """Lazily loads spaCy and parses normalized user messages"""
 
@@ -145,7 +176,7 @@ class UtteranceParser:
 
     @lru_cache(maxsize=256)
     def _parse_cached(self, normalized_text: str):
-        return self._nlp(normalized_text)
+        return repair_parse(self._nlp(normalized_text))
 
     @property
     def vocab(self):

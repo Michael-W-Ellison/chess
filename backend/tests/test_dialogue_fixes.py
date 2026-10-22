@@ -302,6 +302,24 @@ class TestReferences:
                                            told_was_added=True)
         assert "joke" not in engine.resolve_references("it was even bigger", 1)
 
+    @pytest.mark.parametrize("message,echo", [
+        ("The cupcakes had sprinkles", "the cupcakes had sprinkles?"),
+        ("the pizza had pepperoni", "the pizza had pepperoni?"),
+    ])
+    def test_had_as_main_verb_is_reflected(self, engine, message, echo):
+        rule, reply = rule_of(engine, message)
+        assert rule == "fallback_reflection_be"
+        assert echo in reply.lower()
+
+    def test_had_as_helper_verb_is_unchanged(self):
+        doc = UtteranceParser().parse("I had eaten lunch")
+        assert doc[2].dep_ == "ROOT" and doc[1].dep_ == "aux"
+
+    def test_another_one_is_the_new_thing(self, engine):
+        rule_of(engine, "I built a sandcastle")
+        rule_of(engine, "I built another one")
+        assert engine.resolve_references("it was even bigger", 1) == "The new sandcastle was even bigger"
+
     def test_mine_is_not_a_thing(self, engine):
         rule_of(engine, "my favorite food is sushi")
         assert "mine" not in engine.resolve_references("my mom doesnt like it", 1)
