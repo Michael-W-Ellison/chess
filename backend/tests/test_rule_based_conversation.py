@@ -184,3 +184,32 @@ def test_advice_request_gets_matching_template_advice(api):
     reply = response.json()["content"]
     assert "Stage fright" in reply
     assert "Did you know" not in reply and "Fun fact" not in reply  # no jokes added to advice
+
+
+def test_gibberish_gets_a_clarifying_question(api):
+    user_id = 9
+    conversation_id = api.post(f"/api/conversation/start?user_id={user_id}").json()["conversation_id"]
+    api.post("/api/message", json={"content": "I won my soccer game today",
+                                   "conversation_id": conversation_id, "user_id": user_id})
+    before = engagement_rows(user_id)
+
+    response = api.post("/api/message", json={"content": "sdkjfh skdjfh",
+                                              "conversation_id": conversation_id, "user_id": user_id})
+    data = response.json()
+    assert data["metadata"]["gibberish"] is True
+    assert "sdkjfh" not in data["content"]
+    assert "?" in data["content"]
+    # Not scored as engagement with the previous reply, and nothing remembered
+    assert engagement_rows(user_id) == before
+    api.post("/api/message", json={"content": "I like asdfgh qwerty",
+                                   "conversation_id": conversation_id, "user_id": user_id})
+    memories = api.get(f"/api/profile/memories?user_id={user_id}").json()["memories"]
+    assert not any("asdf" in m["value"] or "qwerty" in m["value"] for m in memories)
+
+
+def test_gibberish_is_stored_in_the_conversation(api):
+    user_id = 9
+    conversation_id = api.post(f"/api/conversation/start?user_id={user_id}").json()["conversation_id"]
+    api.post("/api/message", json={"content": "asdfghjkl", "conversation_id": conversation_id, "user_id": user_id})
+    messages = api.get(f"/api/conversation/{conversation_id}").json()["messages"]
+    assert [m["content"] for m in messages if m["role"] == "user"] == ["asdfghjkl"]

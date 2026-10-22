@@ -112,6 +112,25 @@ class UtteranceParser:
         nlp = self._get_nlp()
         return nlp.vocab if nlp is not None else None
 
+    def known_words(self) -> set:
+        """
+        Lowercase English words the model knows: the lemmatizer's word lists (base forms
+        and irregular forms, from WordNet), its stop words and the child spellings in
+        NORMALIZATIONS. Empty if the model is unavailable.
+        """
+        nlp = self._get_nlp()
+        if nlp is None:
+            return set()
+        words = {w.lower() for w in nlp.Defaults.stop_words} | set(NORMALIZATIONS)
+        if "lemmatizer" in nlp.pipe_names:
+            lookups = nlp.get_pipe("lemmatizer").lookups
+            for table_name in ("lemma_index", "lemma_exc"):
+                if lookups.has_table(table_name):
+                    table = lookups.get_table(table_name)
+                    for pos in table.keys():
+                        words.update(w.lower() for w in table[pos])
+        return words
+
 
 # Global instance
 utterance_parser = UtteranceParser()

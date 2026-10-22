@@ -29,10 +29,18 @@ from services.advice_template_service import advice_template_service
 from services.conversation_summary_service import conversation_summary_service
 from services.response_engine import response_engine
 from services.engagement_tracker import engagement_tracker
+from services.gibberish_detector import gibberish_detector
 from utils.config import settings
 
 # Most replies should not carry a joke, however high the bot's humor
 MAX_JOKE_PROBABILITY = 0.5
+
+# Replies to keyboard mashing and random letters (see services/gibberish_detector.py)
+GIBBERISH_REPLIES = [
+    "Hmm, I didn't quite catch that. What did you mean?",
+    "Oops, I think that got a little jumbled! Can you say it another way?",
+    "I'm not sure what that means. Can you tell me again?",
+]
 
 logger = logging.getLogger("chatbot.conversation_manager")
 
@@ -223,6 +231,20 @@ class ConversationManager:
                     "flags": safety_result["flags"],
                     "notify_parent": safety_result.get("notify_parent", False),
                 },
+            }
+
+        # Keyboard mashing or random letters ("asdfghjkl"): ask what they meant. The message
+        # is stored, but not scored for engagement, mined for memories or pronoun references,
+        # or counted for friendship points, and it gets no LLM reply or quirks.
+        if safety_result["severity"] == "none" and gibberish_detector.is_gibberish(user_message):
+            engagement_tracker.discard_pending(user_id)
+            response = random.choice(GIBBERISH_REPLIES)
+            self._store_message(conversation_id, "user", user_message, db)
+            self._store_message(conversation_id, "assistant", response, db)
+            self.message_count += 1
+            return {
+                "content": response,
+                "metadata": {"safety_flag": False, "gibberish": True},
             }
 
         # 2. Store user message

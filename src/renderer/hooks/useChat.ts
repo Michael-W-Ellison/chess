@@ -140,8 +140,11 @@ export function useChat(): UseChatState {
         // Send to backend
         const response = await api.conversation.sendMessage(conversationId, content.trim());
 
-        // Count the message for achievements (messages, words, questions, emojis)
-        trackMessage(content.trim());
+        // Count the message for achievements (messages, words, questions, emojis),
+        // unless it was keyboard mashing
+        if (!response.metadata?.gibberish) {
+          trackMessage(content.trim());
+        }
 
         // Add assistant response
         const assistantMessage: ChatMessage = {
