@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from services.emoji_quirk_service import emoji_quirk_service
 from services.reference_tracker import ReferenceTracker, gerund
 from services.utterance_parser import utterance_parser
 
@@ -78,6 +79,15 @@ class Analysis:
     doc: Any = field(default=None, repr=False)
 
 
+# Stands in for the child's name until they tell it; removed with the space or comma before it
+_NO_NAME = "\x00"
+
+
+_ARITHMETIC_RE = re.compile(
+    r"\b(\d{1,4}) ?(plus|\+|minus|-|times|x|\*|divided by|/) ?(\d{1,4})\b", re.IGNORECASE
+)
+
+
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")[:50]
 
@@ -112,6 +122,7 @@ class ResponseEngine:
         self._last_request: Dict[int, str] = {}
         self._last_told: Dict[int, str] = {}  # "joke"/"fun fact" if the last reply told one
         self._last_mentions: Dict[int, List[str]] = {}  # the bot's own answers in the last reply
+        self._last_category: Dict[int, str] = {}  # the favorite category last talked about
         self._load_knowledge_base()
         self.references = ReferenceTracker(
             parser, self.kb["lexicons"]["relations"], self.kb["lexicons"]["common_capitalized"]
@@ -166,9 +177,10 @@ class ResponseEngine:
         """
         if not self.is_available():
             return
-        told = self._last_told.pop(user_id, None) or {"pun": "joke", "fact": "fun fact"}.get(humor or "")
+        told = self._last_told.pop(user_id, None)
+        added = {"pun": "joke", "fact": "fun fact"}.get(humor or "") if told is None else None
         mentions = self._last_mentions.pop(user_id, [])
-        self.references.record_bot_reply(user_id, reply, told, mentions)
+        self.references.record_bot_reply(user_id, reply, told or added, mentions, told_was_added=added is not None)
 
     def _get_matcher(self):
         if self._matcher is None:
@@ -231,6 +243,8 @@ class ResponseEngine:
         # Lets templates distinguish "it will be hard" from "it was hard"
         if any(t.dep_ == "aux" and t.lower_ in ("will", "'ll", "gonna") for t in sentence):
             slots["future"] = "yes"
+        elif self._is_past(sentence.root):
+            slots["past"] = "yes"
 
         if "question" in conditions and conditions["question"] != self._is_question(sentence):
             return None
@@ -238,6 +252,10 @@ class ResponseEngine:
                 sum(1 for t in doc if not t.is_punct) > conditions["max_tokens"]:
             return None
         if "not_negated" in conditions and self._is_negated(nodes[conditions["not_negated"]]):
+            return None
+        if "not_past" in conditions and self._is_past(nodes[conditions["not_past"]]):
+            return None
+        if "past" in conditions and not self._is_past(nodes[conditions["past"]]):
             return None
         if "first_token" in conditions and nodes[conditions["first_token"]].i != 0:
             return None
@@ -351,6 +369,35 @@ class ResponseEngine:
             return  # "bigger", "faster": a comparison, not a preference
         slots["preferred"], slots["other"] = slots[preferred], slots[other]
         slots["preferred_slug"], slots["other_slug"] = slots[f"{preferred}_slug"], slots[f"{other}_slug"]
+
+    @staticmethod
+    def _is_past(token) -> bool:
+        """True for "I had a test" and "I did have a test", not "I have a test" or "he is named Max" """
+        auxes = [c.lower_ for c in token.children if c.dep_ in ("aux", "auxpass")]
+        if token.tag_ == "VBD" or (token.tag_ == "VBN" and not any(
+                a in ("will", "'ll", "have", "has", "'ve", "is", "are", "am", "'s", "'re", "'m", "be", "get", "gets")
+                for a in auxes)):
+            return True
+        return any(c.dep_ in ("aux", "auxpass") and c.lower_ in ("did", "was", "were", "had")
+                   for c in token.children)
+
+    @staticmethod
+    def _tense(token) -> str:
+        """ "future", "past" or "present" for a clause's verb"""
+        # "She said she will talk to him": the tense of what was said
+        if token.lemma_ in ("say", "tell"):
+            said = next((c for c in token.children if c.dep_ == "ccomp"), None)
+            if said is not None:
+                token = said
+        if any(c.dep_ == "aux" and c.lower_ in ("will", "'ll", "gonna") for c in token.children) \
+                or any(t.lower_ in ("tomorrow", "tonight") for t in token.sent):
+            return "future"
+        # "I'm going to have a party"
+        if token.lemma_ == "go" and token.tag_ == "VBG" and any(c.dep_ == "xcomp" for c in token.children):
+            return "future"
+        if ResponseEngine._is_past(token):
+            return "past"
+        return "present"
 
     @staticmethod
     def _is_negated(token) -> bool:
@@ -555,15 +602,40 @@ class ResponseEngine:
                    and any(d.dep_ in ("det", "poss") and d.lower_ in ("the", "my", "our", "your") for d in c.children)
                    for c in token.children)
 
-    def _known_person_subject(self, token) -> bool:
-        """True if the clause's subject is "my <relation>" or a recognized name ("Maya said no")"""
+    @staticmethod
+    def _arithmetic(match) -> str:
+        """The answer to a small sum ("2 plus 2")"""
+        a, op, b = int(match.group(1)), match.group(2).lower(), int(match.group(3))
+        if op in ("plus", "+"):
+            result = a + b
+        elif op in ("minus", "-"):
+            result = a - b
+        elif op in ("times", "x", "*"):
+            result = a * b
+        elif b == 0:
+            return "Ooh, tricky! You can't divide by zero. Do you like math?"
+        elif a % b:
+            return f"{a} divided by {b} is {a // b} with {a % b} left over! Do you like math?"
+        else:
+            result = a // b
+        return f"{a} {op} {b} is {result}! Do you like math?"
+
+    def _known_person_subject(self, token, user_id: Optional[int] = None) -> bool:
+        """
+        True if the clause's subject is "my <relation>", a recognized name ("Maya said no"),
+        a name the child used before, or "a girl named Zoe"
+        """
         relations = set(self.kb["lexicons"]["relations"])
+        known = {p.name.lower() for p in self.references.state(user_id).people if p.name} \
+            if user_id is not None else set()
         for child in token.children:
             if child.dep_ != "nsubj":
                 continue
             if child.lemma_.lower() in relations and any(c.dep_ == "poss" and c.lower_ == "my" for c in child.children):
                 return True
-            if child.pos_ == "PROPN" and child.ent_type_ == "PERSON":
+            if child.pos_ == "PROPN" and (child.ent_type_ == "PERSON" or child.lower_ in known):
+                return True
+            if any(c.dep_ == "acl" and c.lemma_ == "name" for c in child.children):
                 return True
         return False
 
@@ -621,7 +693,8 @@ class ResponseEngine:
         Args:
             message: The child's message
             personality: BotPersonality (traits, mood, friendship level, name)
-            context: Conversation context; uses "relevant_memories" for callbacks
+            context: Conversation context; uses "relevant_memories" for callbacks and
+                "sensitive" (the child said something sad recently) for gentler reflections
             user_name: Child's name for greetings
             allow_reflection: Whether the child's words may be echoed back
             policy: Optional EngagementPolicy; once it has enough data for a choice
@@ -643,10 +716,18 @@ class ResponseEngine:
         self._last_mentions.pop(user_id, None)
         level = getattr(personality, "friendship_level", 1) or 1
         globals_ = {
-            "user_name": user_name or "friend",
+            # Without a name, "Hi {user_name}!" becomes "Hi!" (see _NO_NAME)
+            "user_name": user_name or _NO_NAME,
             "bot_name": getattr(personality, "name", None) or "Buddy",
             "bot_mood": getattr(personality, "mood", None) or "happy",
         }
+
+        # "What's 2 plus 2?"
+        sum_match = _ARITHMETIC_RE.search(message)
+        if sum_match and not analysis.frames:
+            if features is not None:
+                features["rule"] = "arithmetic"
+            return self._apply_style(self._arithmetic(sum_match), personality)
 
         responding = [f for f in analysis.frames
                       if f.rule.get("responses") or f.rule.get("responses_by")]
@@ -676,10 +757,15 @@ class ResponseEngine:
             valence = frame.valence
             use_opener = frame.rule.get("opener", False)
             follow_ups = frame.rule.get("follow_ups", [])
+            by = frame.rule.get("follow_ups_by")
+            if by:
+                variants = by["variants"]
+                follow_ups = variants.get(slots.get(by["slot"], ""), variants.get("default", follow_ups))
             stored_keys = {key for f in analysis.frames for (_, key, _) in f.memories}
         else:
             slots = _BlankDict(globals_)
-            core, valence, kind = self._fallback(analysis, slots, allow_reflection, user_id, policy, features)
+            core, valence, kind = self._fallback(analysis, slots, allow_reflection, user_id, policy, features,
+                                                 gentle=bool(context.get("sensitive")))
             features["rule"] = f"fallback_{kind}"
             use_opener = False
             follow_ups = []
@@ -689,6 +775,8 @@ class ResponseEngine:
         energy = getattr(personality, "energy", 0.5)
         if use_opener:
             openers = self.kb["openers"].get(valence, {}).get("high" if energy >= 0.5 else "low", [])
+            # Not "Awesome! ... That's awesome!"
+            openers = [o for o in openers if o.strip("!.").split(",")[0].lower() not in core.lower()]
             if openers:
                 parts.append(self.rng.choice(openers))
         parts.append(core)
@@ -713,6 +801,7 @@ class ResponseEngine:
                     features["callback"] = "no"
 
         text = " ".join(p.strip() for p in parts if p and p.strip())
+        text = re.sub(rf",? ?{_NO_NAME}", "", text)
         return self._apply_style(text, personality)
 
     def _compute_slots(self, frame: Frame, slots: Dict[str, str], personality) -> None:
@@ -725,10 +814,24 @@ class ResponseEngine:
                     # "the color orange" parses as a thing ("I like orange" does not)
                     mention = f"the {slots['category']} {favorite}" if slots["category"] in ("color", "number") else favorite
                     self._last_mentions[getattr(personality, "user_id", 0)] = [mention]
+                    self._last_category[getattr(personality, "user_id", 0)] = slots["category"]
                     if favorite.lower() == slots.get("value_raw", "").lower():
                         slots["same_favorite"] = "yes"
                     else:
                         slots["bot_favorite"] = favorite
+            elif name == "reciprocal":
+                # "What's yours?" after the child named a favorite: the bot's favorite in that category
+                category = self._last_category.pop(getattr(personality, "user_id", 0), None)
+                options = self.kb["bot_profile"]["favorites"].get(category or "")
+                if options:
+                    slots["category"] = category
+                    slots["bot_favorite"] = options[_stable_index(f"{seed_id}:{category}", len(options))]
+            elif name == "birthday_timing":
+                text = slots.get("message_text", "").lower()
+                if re.search(r"\btoday\b", text):
+                    slots["birthday_timing"] = "today"
+                elif re.search(r"\b(tomorrow|next|soon|coming up|in \w+ (days?|weeks?))\b", text):
+                    slots["birthday_timing"] = "upcoming"
             elif name == "requested_content":
                 self._requested_content(slots.get("kind", ""), slots, user_id=getattr(personality, "user_id", 0))
             elif name == "repeat_request":
@@ -840,8 +943,12 @@ class ResponseEngine:
         return choice
 
     def _fallback(self, analysis: Analysis, slots: Dict[str, str], allow_reflection: bool, user_id: int,
-                  policy=None, features: Optional[Dict[str, str]] = None) -> Tuple[str, str, str]:
-        """Reply when no rule matched. Returns (text, valence, fallback kind)."""
+                  policy=None, features: Optional[Dict[str, str]] = None,
+                  gentle: bool = False) -> Tuple[str, str, str]:
+        """
+        Reply when no rule matched. Returns (text, valence, fallback kind). gentle: the child
+        said something sad recently, so reflections do not ask "What happened next?"
+        """
         fallbacks = self.kb["fallbacks"]
         doc = analysis.doc
 
@@ -856,11 +963,22 @@ class ResponseEngine:
             for sentence in reversed(list(doc.sents)):
                 root = sentence.root
                 if (len(sentence) <= 15 and root.pos_ in ("VERB", "AUX")
-                        and (self._first_person_subject(root) or self._known_person_subject(root)
+                        and (self._first_person_subject(root) or self._known_person_subject(root, user_id)
                              or self._definite_thing_subject(root))):
                     _, clause = self._extract_slot(root, "clause")
                     slots["clause"] = clause
-                    return pick("reflection").format_map(slots), "neutral", "reflection"
+                    # A follow-up that fits: "How did that go?" only for what already happened
+                    if emoji_quirk_service.is_negative(sentence.text) and not self._is_negated(root):
+                        kind = "reflection_sad"
+                    elif gentle:
+                        kind = "reflection_gentle"
+                    else:
+                        tense = self._tense(root)
+                        kind = "reflection" if tense == "past" else f"reflection_{tense}"
+                        # "He is a golden retriever": not "What's that like?"
+                        if kind == "reflection_present" and root.lemma_ == "be":
+                            kind = "reflection_be"
+                    return pick(kind).format_map(slots), "neutral", kind
 
         # Long sentences: echo the last clause about the child ("...and then I fell down")
         if allow_reflection:

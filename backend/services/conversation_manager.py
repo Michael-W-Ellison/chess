@@ -16,6 +16,7 @@ from models.conversation import Conversation, Message
 
 from services.llm_service import llm_service
 from services.safety_filter import safety_filter
+from services.bullying_keyword_list import bullying_keyword_list
 from services.memory_manager import memory_manager
 from services.personality_manager import personality_manager
 from services.conversation_tracker import conversation_tracker
@@ -45,6 +46,38 @@ GIBBERISH_REPLIES = [
 logger = logging.getLogger("chatbot.conversation_manager")
 
 
+SENSITIVE_REPLIES = 4  # replies without jokes after a sad message, including its own
+
+ASK_NAME_AGAIN = ["Hi! What's your name?", "Hey there! What's your name?"]
+
+GENERIC_ADVICE = [
+    "That sounds tricky. One thing that can help is talking it over with someone you trust, "
+    "like a parent or teacher. What do you think might help?",
+    "Hmm, that's a tough one. Sometimes it helps to take a deep breath and think about what "
+    "would make things a little better. You could also ask a grown-up you trust. What have you tried so far?",
+]
+
+# "What should I do?", "can you help me", not "What ride should I go on?"
+_ASKS_WHAT_TO_DO_RE = re.compile(
+    r"\bwhat (should|can|could|do) I do\b|\bwhat\b[^?.!]*\bI (should|can|could) do\b|\bhelp me\b|\badvice\b"
+    r"|\bhow (do|can|should) I\b",
+    re.IGNORECASE,
+)
+
+# "I'm Lily", "im lily", "I am Lily", "call me Lily", "hi I'm Lily"
+_NAME_INTRO_RE = re.compile(
+    r"^\s*(?:(?:hi|hey|hello)[\s,!.]+)?(?:i'?m|i am|call me)\s+([A-Za-z][A-Za-z'-]{1,19})\s*[.!]*\s*$",
+    re.IGNORECASE,
+)
+
+_NOT_NAMES = {
+    "hi", "hey", "hello", "yo", "sup", "yes", "no", "yeah", "yep", "nope", "ok", "okay", "maybe",
+    "fine", "good", "great", "bad", "back", "here", "home", "done", "ready", "sorry", "bored",
+    "hungry", "tired", "sleepy", "sick", "busy", "nothing", "not", "so", "very", "really", "just",
+    "thanks", "bye", "lol", "idk", "what", "why", "who", "cool", "nice", "fun", "also", "too",
+}
+
+
 class ConversationManager:
     """
     Conversation Manager - orchestrates the complete conversation flow
@@ -65,6 +98,10 @@ class ConversationManager:
         self.conversation_start_time: Optional[datetime] = None
         # Whether the last reply to each user had a fun fact or pun (no two in a row)
         self._joked_last_reply: Dict[int, bool] = {}
+        # Users whose last reply asked "What's your name?", so a short answer is their name
+        self._awaiting_name: set = set()
+        # Replies left with no fun facts or puns, after the child said something sad
+        self._sensitive_replies: Dict[int, int] = {}
 
     def start_conversation(self, user_id: int, db: Session) -> Dict:
         """
@@ -120,6 +157,8 @@ class ConversationManager:
 
         # Generate greeting based on time since last conversation
         greeting = self._generate_greeting(user, personality, db, conversation.id)
+        self._set_awaiting_name(user_id, greeting)
+        self._sensitive_replies.pop(user_id, None)
 
         logger.info(f"Started conversation {conversation.id} for user {user_id}")
 
@@ -150,8 +189,17 @@ class ConversationManager:
         Returns:
             Dictionary with response and metadata
         """
-        # 1. Safety check
-        safety_result = safety_filter.check_message(user_message, user_id=user_id)
+        # 1. Safety check. Bullying words are checked against who the message is about
+        # ("she takes my stuff" right after "I have a little sister")
+        resolved_preview = None
+        if bullying_keyword_list.contains_bullying_keywords(user_message):
+            try:
+                resolved_preview = response_engine.references.preview(user_message, user_id)
+            except Exception as e:
+                logger.error(f"Error resolving references for the safety check: {e}", exc_info=True)
+        safety_result = safety_filter.check_message(
+            user_message, user_id=user_id, resolved_message=resolved_preview
+        )
 
         # Crisis, blocked and bullying messages are not engagement signals for the last reply
         if not safety_result["safe"] or safety_result["action"] in ("supportive_response", "crisis_response"):
@@ -172,6 +220,9 @@ class ConversationManager:
                     f"Bot mood changed from '{old_mood}' to 'concerned' due to crisis "
                     f"(user {user_id})"
                 )
+
+            # Keep track of who the child is talking about ("she is 14" after "my sister ...")
+            self._resolve_references(user_message, user_id)
 
             # Handle crisis with category-specific response
             response = self._handle_crisis(safety_result, user_id, conversation_id, db)
@@ -275,13 +326,25 @@ class ConversationManager:
 
         # Resolve pronouns to earlier people and things ("she" -> "my best friend Maya")
         # for the rule-based analysis; the stored message and the LLM prompt keep the original
-        analysis_message = self._resolve_references(user_message, user_id)
+        analysis_message = self._resolve_references(self._name_introduction(user_message, user_id), user_id)
 
         # 5. Extract and store memories
         memory_manager.extract_and_store_memories(analysis_message, user_id, db)
+        awaiting_name = user_id in self._awaiting_name
 
         # 6. Build context
         context = self._build_context(analysis_message, user_id, personality, db)
+
+        # Something sad ("my grandpa is in the hospital"): a caring emoji, and no jokes,
+        # cheerful emojis or "What happened next?" in this reply and the next few
+        upset = (context.get("detected_mood") in ("sad", "anxious", "angry")
+                 or emoji_quirk_service.is_negative(user_message))
+        if upset:
+            self._sensitive_replies[user_id] = SENSITIVE_REPLIES
+        sensitive = self._sensitive_replies.get(user_id, 0) > 0
+        if sensitive:
+            self._sensitive_replies[user_id] -= 1
+        context["sensitive"] = sensitive
         # Advice from a stored template matching what the child asked about, if any
         context["advice"] = self._template_advice(user_message, context, personality, db)
 
@@ -309,13 +372,21 @@ class ConversationManager:
                 analysis_message, context, personality, allow_reflection, db, reply_features
             )
 
+        # "Hi" after the bot asked the child's name: ask again
+        if awaiting_name and reply_features.get("rule") == "greeting":
+            raw_response = random.choice(ASK_NAME_AGAIN)
+            reply_features["rule"] = "ask_name"
+
         # 8. Apply personality to response
         final_response = self._apply_personality_filter(
             raw_response, personality, user_message, features=reply_features,
             # A requested joke or fact does not get another one added, and advice gets none
             allow_jokes=not response_engine.rule_flag(reply_features.get("rule"), "no_jokes")
-            and not context.get("advice"),
+            and not context.get("advice") and not sensitive,
+            emoji_mood="concerned" if upset else None,
+            allow_emojis=upset or not sensitive,
         )
+        self._set_awaiting_name(user_id, final_response)
 
         # 9. Safety check on response (optional)
         response_safety = safety_filter.check_message(final_response)
@@ -682,6 +753,8 @@ INSTRUCTIONS:
         context: str = "",
         features: Optional[Dict[str, str]] = None,
         allow_jokes: bool = True,
+        emoji_mood: Optional[str] = None,
+        allow_emojis: bool = True,
     ) -> str:
         """
         Apply personality quirks to response
@@ -693,6 +766,8 @@ INSTRUCTIONS:
 
         If features is given, records whether a fun fact or pun was added ("humor" =
         "fact", "pun" or "none") so the child's reaction can be credited to it.
+        emoji_mood overrides the bot's mood for choosing emojis ("concerned" for caring ones);
+        allow_emojis=False leaves them out.
         """
         quirks = personality.get_quirks()
         user_id = getattr(personality, "user_id", None)
@@ -710,7 +785,7 @@ INSTRUCTIONS:
             features["humor"] = joke or "none"
 
         # Apply uses_emojis quirk with enhanced emoji service
-        if "uses_emojis" in quirks:
+        if "uses_emojis" in quirks and allow_emojis:
             # Intensity varies by friendship level
             # Higher friendship = more emojis
             base_intensity = 0.4
@@ -718,7 +793,7 @@ INSTRUCTIONS:
             intensity = min(0.7, base_intensity + level_bonus)
 
             response = emoji_quirk_service.apply_emojis(
-                response, mood=personality.mood, intensity=intensity
+                response, mood=emoji_mood or personality.mood, intensity=intensity
             )
 
         # The fact or pun goes at the end, after the emojis
@@ -941,16 +1016,59 @@ INSTRUCTIONS:
                     user_message,
                     personality,
                     context,
-                    user_name=getattr(user, "name", None),
+                    # New accounts are named "User" until the child says their name
+                    user_name=user.name if user is not None and user.name != "User" else None,
                     allow_reflection=allow_reflection,
                     policy=engagement_tracker.policy(personality.user_id, db),
                     features=features,
                 )
+                # "What should I do?" with no advice template for it: not "What do you think?"
+                detection = context.get("advice_request") or {}
+                if (response and features is not None and features.get("rule") == "fallback_question"
+                        and detection.get("is_advice_request") and _ASKS_WHAT_TO_DO_RE.search(user_message)):
+                    features["rule"] = "advice_generic"
+                    return random.choice(GENERIC_ADVICE)
                 if response:
                     return response
         except Exception as e:
             logger.error(f"Error generating rule-based response: {e}", exc_info=True)
         return self._fallback_response(context)
+
+    def _set_awaiting_name(self, user_id: int, reply: str) -> None:
+        """Remember whether this reply asked the child's name"""
+        if "What's your name?" in reply:
+            self._awaiting_name.add(user_id)
+        else:
+            self._awaiting_name.discard(user_id)
+
+    def _name_introduction(self, message: str, user_id: int) -> str:
+        """
+        "im Lily" / "I'm Lily" -> "My name is Lily." (the parser takes "Lily" for an adverb
+        or adjective). Only a capitalized word counts, unless the bot just asked the child's
+        name; then a lowercase word, or the name on its own ("lily"), counts too.
+        """
+        awaiting = user_id in self._awaiting_name
+        match = _NAME_INTRO_RE.match(message)
+        if match:
+            name = match.group(1)
+            if not awaiting and not name[0].isupper():
+                return message
+        elif awaiting and re.fullmatch(r"\s*[A-Za-z][A-Za-z'-]{1,19}\s*[.!]*\s*", message):
+            name = message.strip(" .!")
+        else:
+            return message
+        if name.lower() in self._not_names():
+            return message
+        return f"My name is {name[:1].upper()}{name[1:]}."
+
+    @staticmethod
+    def _not_names() -> set:
+        """Words that follow "I'm" without being a name ("I'm sad", "I'm bored", "hi")"""
+        kb = response_engine.kb if response_engine.is_available() else {}
+        words = set(_NOT_NAMES)
+        words.update(kb.get("emotions", {}).keys())
+        words.update(kb.get("evaluations", {}).keys())
+        return words
 
     def _template_advice(
         self,

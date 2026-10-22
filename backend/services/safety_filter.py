@@ -13,6 +13,7 @@ Integrates multiple specialized services:
 
 from typing import Dict, Optional
 import logging
+import re
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -29,6 +30,16 @@ from services.severity_scorer import severity_scorer
 from services.crisis_response_templates import crisis_response_templates
 
 logger = logging.getLogger("chatbot.safety_filter")
+
+# Bullying phrases that are also ordinary sibling complaints ("my sister takes my stuff")
+_TAKING_STUFF = {
+    "steals my stuff", "takes my stuff", "take my stuff", "took my stuff", "stole my stuff",
+    "steal my stuff",
+}
+_FAMILY_WORDS = {
+    "sister", "brother", "sis", "bro", "sibling", "siblings", "cousin", "cousins", "mom", "dad",
+    "mother", "father", "mommy", "daddy", "grandma", "grandpa", "stepsister", "stepbrother",
+}
 
 
 class SafetyFilter:
@@ -76,7 +87,7 @@ class SafetyFilter:
         logger.info("SafetyFilter initialized with all specialized services")
 
     def check_message(
-        self, message: str, user_id: Optional[int] = None
+        self, message: str, user_id: Optional[int] = None, resolved_message: Optional[str] = None
     ) -> Dict:
         """
         Comprehensive safety check integrating all services
@@ -87,6 +98,8 @@ class SafetyFilter:
         Args:
             message: The message to check
             user_id: Optional user ID for violation tracking
+            resolved_message: The message with pronouns resolved ("she" -> "my little
+                sister Ava"), used to tell a sibling taking things from bullying
 
         Returns:
             Dictionary with comprehensive safety check results:
@@ -201,7 +214,8 @@ class SafetyFilter:
             # PRIORITY 4: Bullying Detection (MEDIUM)
             # ============================================================
             # Check for bullying if no other issues found
-            if not flags and self.bullying_detector.contains_bullying_keywords(message):
+            if (not flags and self.bullying_detector.contains_bullying_keywords(message)
+                    and not self._sibling_taking_things(message, resolved_message)):
                 bullying_keywords_found = self.bullying_detector.find_bullying_keywords(message)
                 bullying_category = self.bullying_detector.get_category(message)
                 all_bullying_categories = self.bullying_detector.get_all_categories(message)
@@ -273,6 +287,17 @@ If you're not sure who to talk to or if you're in immediate danger:
 - Childhelp National Child Abuse Hotline: 1-800-422-4453 (available 24/7)
 
 What you told me is important, and there are people who can help keep you safe. Please reach out to them. 💙"""
+
+    def _sibling_taking_things(self, message: str, resolved_message: Optional[str]) -> bool:
+        """
+        "My sister always takes my stuff": the only bullying words are about taking the
+        child's things, and the one doing it is family
+        """
+        found = self.bullying_detector.find_bullying_keywords(message)
+        if not found or not all(item["keyword"] in _TAKING_STUFF for item in found):
+            return False
+        words = set(re.findall(r"[a-z]+", f"{message} {resolved_message or ''}".lower()))
+        return bool(words & _FAMILY_WORDS)
 
     def get_bullying_response(self, user_name: str = "friend") -> str:
         """

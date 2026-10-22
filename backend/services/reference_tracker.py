@@ -44,6 +44,7 @@ The bot always refers to people by name or relation in its replies, so it never 
 guess anyone's pronouns itself.
 """
 
+import copy
 import re
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -68,13 +69,18 @@ _GENDERED_RELATIONS = {
 }
 _TIME_WORDS = {"today", "tomorrow", "yesterday", "tonight", "morning", "afternoon", "evening",
                "night", "week", "weekend", "month", "year", "time", "day", "lot", "thing", "something",
-               "one", "anything", "everything", "nothing"}
+               "one", "anything", "everything", "nothing", "part", "stuff", "kind", "app"}
+_TITLES = {"mr", "mrs", "ms", "dr"}
+# Short answers that are not a favorite thing ("no", "idk")
+_NOT_ANSWERS = {"no", "nope", "nah", "yes", "yeah", "ok", "okay", "idk", "nothing", "dunno", "why", "what", "lol",
+                "haha", "same", "cool", "nice", "wow", "maybe", "um", "hmm"}
 # Verbs whose object is usually a person, for names spaCy does not tag ("I saw Maya at school")
 _SOCIAL_VERBS = {"see", "meet", "visit", "call", "text", "hug", "help", "invite", "ask", "tell", "miss", "beat", "follow"}
 # "it" that refers to nothing: weather ("it is raining"), time ("it's time", "it's late"), turns
 _WEATHER_VERBS = {"rain", "snow", "hail", "thunder", "storm", "drizzle", "pour", "sleet"}
 _NON_REFERENTIAL_COMPLEMENTS = {"time", "turn", "cold", "hot", "warm", "sunny", "cloudy", "rainy", "windy",
-                                "dark", "late", "early", "night", "morning", "raining", "snowing", "freezing"}
+                                "dark", "late", "early", "night", "morning", "raining", "snowing", "freezing",
+                                "fair", "unfair", "true"}
 _NON_REFERENTIAL_SUBJECT_VERBS = {"seem", "happen", "matter", "depend"}
 # "That sounds fun" is a reaction whose reply does not need the referent, and a gerund
 # subject is misparsed ("Playing a game sounds fun" makes "fun" an object)
@@ -163,6 +169,7 @@ class DiscourseState:
     events: List[Event] = field(default_factory=list)  # most recent first
     ambiguity: Optional[Ambiguity] = None
     last_child_words: set = field(default_factory=set)
+    asked_favorite: Optional[str] = None  # "animal" after the bot asked "What's your favorite animal?"
 
     def tick(self) -> int:
         self.clock += 1
@@ -210,6 +217,13 @@ class ReferenceTracker:
         state = self.state(user_id)
         state.turn += 1
         pending, state.ambiguity = state.ambiguity, None
+        asked_favorite, state.asked_favorite = state.asked_favorite, None
+
+        # "What's your favorite animal?" - "a wolf" / "mine is a wolf"
+        if asked_favorite and not pending:
+            answer = self._favorite_answer(doc, asked_favorite)
+            if answer:
+                doc = self.parser.parse(answer)
 
         chosen = self._clarification_answer(doc, pending) if pending else None
         if chosen is not None:
@@ -240,8 +254,32 @@ class ReferenceTracker:
         self._record(resolved_doc, state)
         return resolved
 
+    def preview(self, message: str, user_id: int) -> str:
+        """The message with references resolved, without recording anything"""
+        saved = copy.deepcopy(self._states.get(user_id))
+        try:
+            return self.resolve(message, user_id)
+        finally:
+            if saved is None:
+                self._states.pop(user_id, None)
+            else:
+                self._states[user_id] = saved
+
+    @staticmethod
+    def _favorite_answer(doc, category: str) -> Optional[str]:
+        """The child's answer to "What's your favorite <category>?" as a full sentence"""
+        words = [t for t in doc if not t.is_punct]
+        if not words or len(words) > 4:
+            return None
+        if words[0].lower_ == "mine" and len(words) > 2 and words[1].lemma_ == "be":
+            rest = doc[words[2].i:].text
+            return f"My favorite {category} is {rest}"
+        if any(t.pos_ in ("VERB", "AUX", "PRON", "INTJ") or t.lower_ in _NOT_ANSWERS for t in words):
+            return None
+        return f"My favorite {category} is {doc.text}"
+
     def record_bot_reply(self, user_id: int, reply: str, told: Optional[str] = None,
-                         mentions: Iterable[str] = ()) -> None:
+                         mentions: Iterable[str] = (), told_was_added: bool = False) -> None:
         """
         Remember what the bot said so the child can refer to it ("That's so cool!").
 
@@ -250,21 +288,36 @@ class ReferenceTracker:
             reply: The bot's reply text (without quirk additions like puns)
             told: "joke" or "fun fact" if the bot told one; it becomes the most recent thing
             mentions: Things the bot offered as its own answer (e.g. its favorite color)
+            told_was_added: The joke or fact was added to the reply, not asked for; the bot's
+                own answers stay the most recent things ("Mine is red pandas" + a joke, then
+                "why do you like it")
         """
         doc = self.parser.parse(reply)
         state = self.state(user_id)
+        # "What's your favorite animal?", or "My favorite game is chess! What's yours?"
+        asked = re.search(r"\byour favorite (\w+)\?", reply, re.IGNORECASE)
+        if asked is None and re.search(r"\bWhat's yours\?", reply):
+            asked = re.search(r"\bfavorite (\w+)\b", reply, re.IGNORECASE)
+        state.asked_favorite = asked.group(1).lower() if asked else None
         if doc is not None:
             for chunk in doc.noun_chunks:
                 root = chunk.root
                 # Only new things the bot brought up, not echoes of the child's words or
                 # anything with "my"/"your" (whose it is depends on who is speaking)
-                if (root.pos_ in ("NOUN", "PROPN") and root.ent_type_ != "PERSON"
+                # Not an exclamation at the start of a sentence ("Awesome! You built a castle")
+                exclamation = len(chunk) == 1 and root.i == root.sent.start and root.i + 1 < len(doc) \
+                    and doc[root.i + 1].text in ("!", ",")
+                if (root.pos_ in ("NOUN", "PROPN") and root.ent_type_ != "PERSON" and not exclamation
                         and not any(t.pos_ == "PRON" or t.tag_ in ("WDT", "WP") for t in chunk)
                         and root.lemma_.lower() not in self.relations
                         and root.lemma_.lower() not in _TIME_WORDS
                         and root.lemma_.lower() not in state.last_child_words
                         and not self._describes_bot(root)):
                     self._remember_thing(self._thing_text(chunk), state, plural=root.tag_ in ("NNS", "NNPS"))
+        mentions = list(mentions)
+        if told and told_was_added and mentions:
+            self._remember_thing(f"your {told}", state)
+            told = None
         for mention in mentions:
             mention_doc = self.parser.parse(mention)
             plural = mention_doc is not None and mention_doc[:].root.tag_ in ("NNS", "NNPS")
@@ -446,11 +499,22 @@ class ReferenceTracker:
                 if name_token is None and token.dep_ == "attr" and token.head.lemma_ == "be":
                     name_token = next((c for c in token.head.children
                                        if c.dep_ == "nsubj" and c.pos_ == "PROPN"), None)
+                # "My teacher is Mrs Garcia"
+                if name_token is None and token.dep_ == "nsubj" and token.head.lemma_ == "be":
+                    name_token = next((c for c in token.head.children
+                                       if c.dep_ == "attr" and c.pos_ == "PROPN"), None)
                 if name_token is not None:
                     named_tokens.add(name_token.i)
                 mentioned.append(Person(
-                    name=name_token.text if name_token is not None else None,
+                    name=self._full_name(name_token) if name_token is not None else None,
                     relation=relation.lower(),
+                    plural=token.tag_ == "NNS",
+                    pronoun=_GENDERED_RELATIONS.get(token.lemma_.lower()),
+                ))
+            elif token.lemma_.lower() in self.relations and self._is_new_relation(token):
+                # "I got a new puppy", "We have two cats and a dog": the child's from now on
+                mentioned.append(Person(
+                    relation=token.lemma_.lower(),
                     plural=token.tag_ == "NNS",
                     pronoun=_GENDERED_RELATIONS.get(token.lemma_.lower()),
                 ))
@@ -472,12 +536,31 @@ class ReferenceTracker:
                     ))
 
         for token in doc:
+            # "My dog is named Buster" / "The dog is called Buster"
+            if (token.dep_ == "nsubjpass" and token.lemma_.lower() in self.relations
+                    and token.head.lemma_ in ("name", "call")
+                    and any(c.lower_ in ("my", "our", "the") for c in token.children)):
+                name_token = next((c for c in token.head.children
+                                   if c.dep_ in ("oprd", "attr", "dobj") and c.is_alpha), None)
+                if name_token is not None:
+                    named_tokens.add(name_token.i)
+                    mentioned.append(Person(
+                        name=name_token.text[:1].upper() + name_token.text[1:],
+                        relation=token.lemma_.lower(),
+                        pronoun=_GENDERED_RELATIONS.get(token.lemma_.lower()),
+                    ))
+
+        for token in doc:
             # Names on their own: "I played with Maya", "Maya and Jake came over"
             if token.i in named_tokens or token.pos_ != "PROPN" or self._is_childs_own_name(token):
                 continue
+            if token.lower_.rstrip(".") in _TITLES or any(c.i in named_tokens for c in token.ancestors):
+                continue  # "Mrs" in "Mrs Garcia", or part of a name already recorded
+            if self._names_a_favorite(token):
+                continue  # "My favorite game is Mario Kart"
             if not self._is_person_name(token):
                 continue
-            mentioned.append(Person(name=token.text))
+            mentioned.append(Person(name=self._full_name(token)))
             group = [c for c in token.conjuncts if c.pos_ == "PROPN"]
             if group and token.dep_ != "conj":
                 names = [token.text, *(c.text for c in group)]
@@ -502,6 +585,32 @@ class ReferenceTracker:
             state.events = [e for e in state.events if e.text != text]
             state.events.insert(0, Event(text=text, turn=state.turn, order=state.tick(), actor=actor))
             del state.events[3:]
+
+    @staticmethod
+    def _names_a_favorite(token) -> bool:
+        """The token is in the answer of "My favorite <thing> is ..." """
+        while token.dep_ in ("compound", "conj", "appos") and token.head != token:
+            token = token.head
+        if token.dep_ not in ("attr", "acomp") or token.head.lemma_ != "be":
+            return False
+        return any(c.dep_ == "nsubj" and any(g.lower_ in ("favorite", "favourite") for g in c.children)
+                   for c in token.head.children)
+
+    @staticmethod
+    def _full_name(token) -> str:
+        """The name with its title: "Mr Kim", not "Kim" """
+        title = next((c.text for c in token.children
+                      if c.dep_ == "compound" and c.lower_.rstrip(".") in _TITLES), None)
+        return f"{title} {token.text}" if title else token.text
+
+    @staticmethod
+    def _is_new_relation(token) -> bool:
+        """The object (or a listed object) of "I have/got/adopted ..." """
+        while token.dep_ in ("conj", "appos") and token.head.pos_ == "NOUN":
+            token = token.head
+        verb = token.head
+        return (token.dep_ == "dobj" and verb.lemma_ in ("have", "get", "adopt")
+                and any(c.dep_ == "nsubj" and c.lower_ in ("i", "we") for c in verb.children))
 
     @staticmethod
     def _thing_text(chunk) -> str:

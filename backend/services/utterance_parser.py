@@ -50,7 +50,38 @@ NORMALIZATIONS = {
     "bday": "birthday",
     "bro": "brother",
     "sis": "sister",
+    "shes": "she's",
+    "hes": "he's",
+    "theyre": "they're",
+    "thats": "that's",
+    "whats": "what's",
+    "idk": "I don't know",
+    "nm": "not much",
+    "rn": "right now",
+    "gtg": "got to go",
+    "g2g": "got to go",
+    "ttyl": "talk to you later",
+    "brb": "be right back",
+    "jk": "just kidding",
 }
+
+# Spellings that are also words, replaced only where the next word shows which is meant:
+# "its so fun" (it's), "ill try" (I'll); "its wings" and "I feel ill" stay
+_CONTEXT_NORMALIZATIONS = [
+    (re.compile(r"\bits(?= (so|really|very|not|too|just|a|an|the|my|ok|okay|fine|fun|boring|hard|easy|cool|"
+                r"great|good|bad|true|time|going|gonna|like|always|never|raining|snowing|gross|yummy|awesome|"
+                r"amazing|weird|scary|funny|cute|about|mine|yours|over|super|kind|pretty)\b)", re.IGNORECASE),
+     "it's"),
+    (re.compile(r"\bur(?= (so|really|very|not|the|a|an|my|weird|cool|funny|nice|mean|smart|awesome|silly|dumb|"
+                r"stupid|annoying|best|worst|welcome|right|wrong|crazy|lying|kidding|joking|amazing|great|good|"
+                r"bad|too)\b)", re.IGNORECASE),
+     "you're"),
+    (re.compile(r"\bill(?= (try|do|be|go|ask|tell|practice|study|see|talk|play|have|get|make|show|let|just|never|"
+                r"always|probably|draw|read|call|text|come|help|work|remember)\b)", re.IGNORECASE),
+     "I'll"),
+]
+# "mr kim" -> "Mr Kim", so the parser reads a name
+_TITLE_RE = re.compile(r"\b(mr|mrs|ms|dr)\.? ([a-z])", re.IGNORECASE)
 
 _WORD_RE = re.compile(r"[A-Za-z]+")
 
@@ -83,6 +114,9 @@ class UtteranceParser:
     def normalize(text: str) -> str:
         """Collapse whitespace and replace common child spellings word by word"""
         text = " ".join(text.split())
+        for pattern, replacement in _CONTEXT_NORMALIZATIONS:
+            text = pattern.sub(replacement, text)
+        text = _TITLE_RE.sub(lambda m: f"{m.group(1).capitalize()} {m.group(2).upper()}", text)
 
         def replace(match):
             word = match.group(0)

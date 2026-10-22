@@ -468,8 +468,8 @@ class TestR7RuleFixes:
         assert "achievement" not in rule_ids(engine, "I get it")
 
     def test_reflected_are_agrees_with_i(self, engine):
-        reply = engine.generate_response("I think that you are nice", make_personality())
-        assert "I am nice" in reply
+        reply = engine.generate_response("I think that you are tall", make_personality())
+        assert "I am tall" in reply
 
     def test_relative_clause_i_is_not_a_coordinated_subject(self, engine):
         reply = engine.generate_response("The game that I played was fun", make_personality())

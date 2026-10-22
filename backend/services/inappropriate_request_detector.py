@@ -159,7 +159,6 @@ class InappropriateRequestDetector:
         # PERSONAL INFO REQUESTS patterns (MEDIUM severity)
         self.personal_info_patterns = [
             r"\b(what('s| is)|tell me) your (address|location|phone|number)\b",
-            r"\bwhere (do you|are you) (live|located)\b",
             r"\bcan (we|i) meet (in person|irl)\b",
             r"\b(send|share) (your|a) (picture|photo|image)\b",
         ]

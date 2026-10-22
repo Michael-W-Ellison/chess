@@ -318,12 +318,11 @@ class TestPersonalInfoDetection:
         assert "personal_info" in result["categories"]
         assert result["highest_severity"] == "medium"
 
-    def test_detect_location_request(self):
-        """Test detection of location requests"""
+    def test_where_do_you_live_is_allowed(self):
+        """Asking where the bot lives gets an answer (it lives in the app), not a safety lecture"""
         result = check_message("Where do you live?")
 
-        assert result["is_inappropriate"] is True
-        assert "personal_info" in result["categories"]
+        assert result["is_inappropriate"] is False
 
     def test_detect_phone_request(self):
         """Test detection of phone number requests"""
@@ -341,7 +340,7 @@ class TestPersonalInfoDetection:
 
     def test_personal_info_response(self):
         """Test that personal info requests get appropriate response"""
-        result = check_message("Where are you located?")
+        result = check_message("What's your address?")
 
         assert len(result["response_message"]) > 0
         assert "safe" in result["response_message"].lower() or "personal" in result["response_message"].lower()
