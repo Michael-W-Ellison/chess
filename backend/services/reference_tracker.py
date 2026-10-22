@@ -70,8 +70,10 @@ _GENDERED_RELATIONS = {
 _TIME_WORDS = {"today", "tomorrow", "yesterday", "tonight", "morning", "afternoon", "evening",
                "night", "week", "weekend", "month", "year", "time", "day", "lot", "thing", "something",
                "one", "anything", "everything", "nothing", "part", "stuff", "kind", "app", "fun",
-               "question", "huh", "fan"}
+               "question", "huh", "fan", "mine", "yours", "ours"}
 _TITLES = {"mr", "mrs", "ms", "dr"}
+# Groups of people the child talks about: "kids at school", "the boys in my class"
+_GROUPS = {"kid", "boy", "girl", "classmate", "student", "bully", "teenager", "people"}
 # Short answers that are not a favorite thing ("no", "idk")
 _NOT_ANSWERS = {"no", "nope", "nah", "yes", "yeah", "ok", "okay", "idk", "nothing", "dunno", "why", "what", "lol",
                 "haha", "same", "cool", "nice", "wow", "maybe", "um", "hmm"}
@@ -147,6 +149,7 @@ class Thing:
     plural: bool = False
     order: int = 0  # increases with every recorded mention, so later mentions rank first
     added: bool = False  # a joke or fact the bot added unasked: only "it" in a reaction ("That was funny")
+    short: bool = False  # the bot's own answer: only meant by "it" on the next turn
 
 
 @dataclass
@@ -331,7 +334,7 @@ class ReferenceTracker:
         for mention in mentions:
             mention_doc = self.parser.parse(mention)
             plural = mention_doc is not None and mention_doc[:].root.tag_ in ("NNS", "NNPS")
-            self._remember_thing(mention, state, plural=plural)
+            self._remember_thing(mention, state, plural=plural, short=True)
         if told:
             self._remember_thing(f"your {told}", state)
 
@@ -340,7 +343,8 @@ class ReferenceTracker:
     # ------------------------------------------------------------------
 
     def _recent(self, items, state: DiscourseState):
-        return [item for item in items if state.turn - item.turn <= MAX_AGE]
+        # The bot's own answers ("your name", its favorite color) only on the next turn
+        return [item for item in items if state.turn - item.turn <= (1 if getattr(item, "short", False) else MAX_AGE)]
 
     def _antecedent(self, token, state: DiscourseState, resolved_people: set, message: str,
                     named: set, drop: set) -> Optional[str]:
@@ -474,7 +478,8 @@ class ReferenceTracker:
                 return False  # "It's my turn"
             return head.lemma_ != "be" or bool(complements)
         if token.dep_ == "dobj":
-            return head.lemma_ not in _IDIOM_OBJECT_VERBS
+            # "They do it every day": what they do, not a thing ("I want to do that" is)
+            return head.lemma_ not in _IDIOM_OBJECT_VERBS and not (head.lemma_ == "do" and token.lower_ == "it")
         return token.dep_ == "pobj"
 
     def _clarification_answer(self, doc, pending: Ambiguity) -> Optional[Person]:
@@ -581,6 +586,13 @@ class ReferenceTracker:
                 names = [token.text, *(c.text for c in group)]
                 mentioned.append(Person(name=" and ".join(names), plural=True))
 
+        for token in doc:
+            # "Kids at school push me" -> "they" is the kids at school
+            if (token.dep_ == "nsubj" and token.tag_ == "NNS" and token.lemma_.lower() in _GROUPS
+                    and not any(c.dep_ == "poss" for c in token.children)):
+                words = [t for t in token.subtree if t.dep_ != "det" and t.i <= token.i + 3 and t.i >= token.i]
+                mentioned.append(Person(name=" ".join(t.text for t in words).lower(), plural=True))
+
         for person in mentioned:
             self._remember_person(person, state)
 
@@ -590,7 +602,9 @@ class ReferenceTracker:
         chunks = [c for c in doc.noun_chunks
                   if c.root.pos_ == "NOUN" and c.root.dep_ in salience
                   and c.root.lemma_.lower() not in self.relations
-                  and c.root.lemma_.lower() not in _TIME_WORDS]
+                  and c.root.lemma_.lower() not in _TIME_WORDS
+                  and c.root.lemma_.lower() != "name"  # "My name is Liam": not what "it" means later
+                  and c.root.lemma_.lower() not in _GROUPS]  # "kids" are people, not "it"
         for chunk in sorted(chunks, key=lambda c: (c.sent.start, salience[c.root.dep_], c.start)):
             self._remember_thing(self._thing_text(chunk), state, plural=chunk.root.tag_ == "NNS")
 
@@ -645,9 +659,11 @@ class ReferenceTracker:
             words[0] = words[0][:1].lower() + words[0][1:]
         return " ".join(words)
 
-    def _remember_thing(self, text: str, state: DiscourseState, plural: bool = False, added: bool = False) -> None:
+    def _remember_thing(self, text: str, state: DiscourseState, plural: bool = False, added: bool = False,
+                        short: bool = False) -> None:
         state.things = [t for t in state.things if t.text.lower() != text.lower()]
-        state.things.insert(0, Thing(text=text, turn=state.turn, plural=plural, order=state.tick(), added=added))
+        state.things.insert(0, Thing(text=text, turn=state.turn, plural=plural, order=state.tick(), added=added,
+                                     short=short))
         del state.things[6:]
 
     @staticmethod
@@ -686,6 +702,10 @@ class ReferenceTracker:
 
     def _is_person_name(self, token) -> bool:
         """A proper noun that names a person (spaCy's tag, or its position when untagged)"""
+        # "at Mario Kart", "in Minecraft": you play with people, not at them
+        place = token.head if token.dep_ == "compound" else token
+        if place.dep_ == "pobj" and place.head.lower_ in ("at", "in", "on"):
+            return False
         if token.ent_type_ == "PERSON":
             return True
         if token.dep_ == "conj" and token.head.pos_ == "PROPN":

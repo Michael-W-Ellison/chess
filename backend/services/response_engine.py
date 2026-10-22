@@ -83,6 +83,9 @@ class Analysis:
 _NO_NAME = "\x00"
 
 
+# Groups of people that can be a sentence's subject ("Kids chased me")
+_PEOPLE_GROUPS = {"kid", "boy", "girl", "classmate", "student", "people", "everyone", "everybody"}
+
 _ARITHMETIC_RE = re.compile(
     r"\b(\d{1,4}) ?(plus|\+|minus|-|times|x|\*|divided by|/) ?(\d{1,4})\b", re.IGNORECASE
 )
@@ -638,6 +641,10 @@ class ResponseEngine:
                 continue
             if child.lemma_.lower() in relations and any(c.dep_ == "poss" and c.lower_ == "my" for c in child.children):
                 return True
+            # "Mom told us to stop", "Kids chased me"
+            if not any(c.dep_ in ("det", "poss") for c in child.children) and (
+                    child.lemma_.lower() in relations or child.lemma_.lower() in _PEOPLE_GROUPS):
+                return True
             if child.pos_ == "PROPN" and (child.ent_type_ == "PERSON" or child.lower_ in known):
                 return True
             if any(c.dep_ == "acl" and c.lemma_ == "name" for c in child.children):
@@ -807,6 +814,7 @@ class ResponseEngine:
 
         text = " ".join(p.strip() for p in parts if p and p.strip())
         text = re.sub(rf",? ?{_NO_NAME}", "", text)
+        text = re.sub(r"\b (['’](re|s|m|ve|ll|d))\b", r"\1", text)  # "you 're" -> "you're"
         return self._apply_style(text, personality)
 
     def _compute_slots(self, frame: Frame, slots: Dict[str, str], personality) -> None:
@@ -839,6 +847,9 @@ class ResponseEngine:
                     slots["birthday_timing"] = "upcoming"
             elif name == "requested_content":
                 self._requested_content(slots.get("kind", ""), slots, user_id=getattr(personality, "user_id", 0))
+            elif name == "joke_content":
+                # "Tell me something funny"
+                self._requested_content("joke", slots, user_id=getattr(personality, "user_id", 0))
             elif name == "repeat_request":
                 kind = self._last_request.get(getattr(personality, "user_id", 0))
                 if kind:

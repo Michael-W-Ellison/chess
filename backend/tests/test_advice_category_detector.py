@@ -571,3 +571,9 @@ class TestRealWorldExamples:
             "my friend is being super annoying rn. idk what to do about it"
         )
         assert result["is_advice_request"] is True
+
+
+def test_someone_else_helping_is_not_an_advice_request():
+    from services.advice_category_detector import advice_category_detector
+    assert not advice_category_detector.detect_advice_request("my mom said she will help me study")["is_advice_request"]
+    assert advice_category_detector.detect_advice_request("can you help me")["is_advice_request"]

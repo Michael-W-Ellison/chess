@@ -7,6 +7,7 @@ from typing import Dict, Optional, List, Tuple
 import logging
 import random
 import re
+from collections import deque
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -17,6 +18,8 @@ from models.conversation import Conversation, Message
 from services.llm_service import llm_service
 from services.safety_filter import safety_filter
 from services.bullying_keyword_list import bullying_keyword_list
+from services.crisis_keyword_list import crisis_keyword_list
+from services import crisis_context
 from services.memory_manager import memory_manager
 from services.personality_manager import personality_manager
 from services.conversation_tracker import conversation_tracker
@@ -46,6 +49,7 @@ GIBBERISH_REPLIES = [
 logger = logging.getLogger("chatbot.conversation_manager")
 
 
+RECENT_MESSAGES = 3  # earlier messages the safety check reads crisis phrases against
 SENSITIVE_REPLIES = 4  # replies without jokes after a sad message, including its own
 
 ASK_NAME_AGAIN = ["Hi! What's your name?", "Hey there! What's your name?"]
@@ -113,6 +117,11 @@ class ConversationManager:
         self._awaiting_name: set = set()
         # Replies left with no fun facts or puns, after the child said something sad
         self._sensitive_replies: Dict[int, int] = {}
+        # The child's last few messages, for reading crisis phrases in context ("beats me"
+        # after talking about Mario Kart)
+        self._recent_messages: Dict[int, deque] = {}
+        # Messages like "my sister always beats me" whose meaning the bot asked about
+        self._pending_clarification: Dict[int, str] = {}
 
     def start_conversation(self, user_id: int, db: Session) -> Dict:
         """
@@ -170,6 +179,8 @@ class ConversationManager:
         greeting = self._generate_greeting(user, personality, db, conversation.id)
         self._set_awaiting_name(user_id, greeting)
         self._sensitive_replies.pop(user_id, None)
+        self._recent_messages.pop(user_id, None)
+        self._pending_clarification.pop(user_id, None)
 
         logger.info(f"Started conversation {conversation.id} for user {user_id}")
 
@@ -200,17 +211,49 @@ class ConversationManager:
         Returns:
             Dictionary with response and metadata
         """
-        # 1. Safety check. Bullying words are checked against who the message is about
-        # ("she takes my stuff" right after "I have a little sister")
+        recent = self._recent_messages.setdefault(user_id, deque(maxlen=RECENT_MESSAGES))
+        recent_messages = list(recent)
+        recent.append(user_message)
+
+        # The answer to "Do you mean she wins at games, or that she hits you?"
+        clarified = self._pending_clarification.pop(user_id, None)
+        if clarified is not None:
+            meaning = crisis_context.clarification_answer(user_message)
+            if meaning != "violence":
+                response = (crisis_context.CLARIFY_REPLY_GAME if meaning == "game"
+                            else crisis_context.CLARIFY_REPLY_UNCLEAR)
+                return self._safety_context_reply(conversation_id, user_id, user_message, response, db)
+
+        # 1. Safety check. Bullying and crisis words are checked against who or what the
+        # message is about ("she takes my stuff" right after "I have a little sister",
+        # "I'm scared of them" about spiders)
         resolved_preview = None
-        if bullying_keyword_list.contains_bullying_keywords(user_message):
+        if (bullying_keyword_list.contains_bullying_keywords(user_message)
+                or crisis_keyword_list.contains_crisis_keywords(user_message)):
             try:
                 resolved_preview = response_engine.references.preview(user_message, user_id)
             except Exception as e:
                 logger.error(f"Error resolving references for the safety check: {e}", exc_info=True)
-        safety_result = safety_filter.check_message(
-            user_message, user_id=user_id, resolved_message=resolved_preview
-        )
+        if clarified is not None:
+            # The child said yes, it means hitting: the original message gets the crisis response
+            safety_result = safety_filter.check_message(clarified, user_id=user_id, force_crisis=True)
+        else:
+            safety_result = safety_filter.check_message(
+                user_message, user_id=user_id, resolved_message=resolved_preview,
+                recent_messages=recent_messages, known_people=self._known_people(user_id),
+            )
+
+        if safety_result["action"] == "clarify":
+            self._pending_clarification[user_id] = user_message
+            return self._safety_context_reply(
+                conversation_id, user_id, user_message, safety_result["response_message"], db
+            )
+        if safety_result["action"] == "fear_support":
+            # "It makes me scared" about a storm or parents arguing: comfort, not a hotline
+            self._sensitive_replies[user_id] = SENSITIVE_REPLIES
+            return self._safety_context_reply(
+                conversation_id, user_id, user_message, safety_result["response_message"], db
+            )
 
         # Crisis, blocked and bullying messages are not engagement signals for the last reply
         if not safety_result["safe"] or safety_result["action"] in ("supportive_response", "crisis_response"):
@@ -265,6 +308,9 @@ class ConversationManager:
                 if "bullying" in safety_result["flags"]
                 else safety_filter.get_inappropriate_decline()
             )
+
+            # Keep track of who the child is talking about ("they do it every day")
+            self._resolve_references(user_message, user_id)
 
             user_msg = self._store_message(conversation_id, "user", user_message, db, flagged=True)
             self._store_message(conversation_id, "assistant", response, db)
@@ -986,6 +1032,29 @@ INSTRUCTIONS:
         db.commit()
         db.refresh(message)
         return message
+
+    def _safety_context_reply(
+        self, conversation_id: int, user_id: int, user_message: str, response: str, db: Session
+    ) -> Dict:
+        """
+        Store and return a reply the safety check chose after reading a crisis phrase in
+        context (a clarification question, comfort for a fear, or the answer to a question)
+        """
+        self._resolve_references(user_message, user_id)
+        engagement_tracker.discard_pending(user_id)
+        self._store_message(conversation_id, "user", user_message, db)
+        self._store_message(conversation_id, "assistant", response, db)
+        self.message_count += 1
+        self._set_awaiting_name(user_id, response)
+        return {"content": response, "metadata": {"safety_flag": False}}
+
+    @staticmethod
+    def _known_people(user_id: int) -> List[str]:
+        """Names of people the child mentioned recently"""
+        try:
+            return [p.name for p in response_engine.references.state(user_id).people if p.name]
+        except Exception:
+            return []
 
     def _resolve_references(self, user_message: str, user_id: int) -> str:
         """Resolve pronouns with the rule-based engine's reference tracker, if available"""

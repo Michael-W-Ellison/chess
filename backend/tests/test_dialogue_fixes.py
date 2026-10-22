@@ -102,6 +102,25 @@ class TestNewRules:
         ("what color do you like", "bot_like_which"),
         ("what do you like to do", "bot_hobby_question"),
         ("do you get bored", "bot_feeling_question"),
+        ("a kid hit me with the ball", "hit_by_ball"),
+        ("it didn't hurt", "didnt_hurt"),
+        ("we won", "we_won"),
+        ("I had a bad dream", "bad_dream"),
+        ("can you make me feel better", "cheer_me_up"),
+        ("it was an accident", "accident"),
+        ("should I say sorry", "should_apologize"),
+        ("can you tell me something funny", "request_funny"),
+        ("my cat bit me", "pet_bite"),
+        ("at soccer a boy pushed me", "pushed_me"),
+        ("I fell and scraped my knee", "got_hurt"),
+        ("what if I fail", "what_if_worry"),
+        ("I don't know what to do", "dont_know_what"),
+        ("I lost a tooth today", "lost_tooth"),
+        ("my best friend said I was mean", "person_says_about_me"),
+        ("my mom said I did a good job", "praise_reported"),
+        ("my grandma is really good at cards", "good_at"),
+        ("I'm bad at spelling", "good_at"),
+        ("I'm good", "feeling"),
     ])
     def test_rule(self, engine, message, rule):
         assert rule_of(engine, message)[0] == rule
@@ -202,6 +221,10 @@ class TestReferences:
         engine.record_bot_reply(1, "Not a fan of math, huh? That's okay, everybody likes different stuff.")
         assert engine.resolve_references("its so boring", 1) == "Math is so boring"
 
+    def test_mine_is_not_a_thing(self, engine):
+        rule_of(engine, "my favorite food is sushi")
+        assert "mine" not in engine.resolve_references("my mom doesnt like it", 1)
+
     def test_plural_thing_takes_are(self, engine):
         engine.record_bot_reply(1, "I love telling jokes and learning fun facts! What do you like to do?")
         assert engine.resolve_references("thats cool", 1) == "Fun facts are cool"
@@ -225,6 +248,29 @@ class TestReferences:
         assert "\x00" not in reply and " ," not in reply and " !" not in reply
 
 
+class TestRoundSix:
+    def test_contraction_is_joined(self, engine):
+        assert "you 're" not in rule_of(engine, "I'm good at math")[1]
+
+    def test_pillow_fight_is_not_sad(self, engine):
+        assert rule_of(engine, "we had a pillow fight")[0] != "fallback_reflection_sad"
+
+    def test_laughing_so_hard_is_not_sad(self, engine):
+        assert rule_of(engine, "we were laughing so hard")[0] != "fallback_reflection_sad"
+
+    @pytest.mark.parametrize("message", ["kids chased me", "mom told us to stop"])
+    def test_bare_people_subjects_are_reflected(self, engine, message):
+        assert rule_of(engine, message)[0].startswith("fallback_reflection")
+
+    def test_kids_are_not_it(self, engine):
+        rule_of(engine, "kids chased me")
+        assert not engine.resolve_references("it was fun", 1).lower().startswith("kids was")
+
+    def test_they_after_kids_at_school(self, engine):
+        rule_of(engine, "kids at school take my stuff and push me")
+        assert engine.resolve_references("they do it every day", 1) == "Kids at school do it every day"
+
+
 class TestNormalization:
     @pytest.mark.parametrize("text,expected", [
         ("shes nice", "she's nice"),
@@ -239,6 +285,8 @@ class TestNormalization:
         ("my teacher mr kim", "my teacher Mr Kim"),
         ("gtg bye", "got to go bye"),
         ("jk", "just kidding"),
+        ("my moms room", "my mom's room"),
+        ("my moms are nice", "my moms are nice"),
     ])
     def test_normalize(self, text, expected):
         assert UtteranceParser.normalize(text) == expected
@@ -261,6 +309,9 @@ class TestSafetyAndEmojis:
         ("I wasn't scared", False),
         ("I'm not sad", False),
         ("we buried him", True),
+        ("we had a pillow fight", False),
+        ("Wow, you lost a tooth?", False),
+        ("we were laughing so hard", False),
     ])
     def test_is_negative(self, text, negative):
         assert emoji_quirk_service.is_negative(text) is negative

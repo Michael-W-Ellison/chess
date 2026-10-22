@@ -75,8 +75,10 @@ class EmojiQuirkService:
         "afraid", "nervous", "stressed", "awful", "terrible", "mean", "lost", "broke", "broken",
         "hospital", "died", "dead", "funeral", "divorce", "injured", "fight", "fighting",
         "buried", "lonely", "alone", "annoying", "stupid", "dumb", "ugly", "fever", "pain", "hurts",
+        "ouch", "oof", "sting", "stings", "nightmare", "nightmares",
     }
     COMFORT_EMOJIS = ["💙", "🫂"]
+    PLAY_FIGHTS = {"pillow", "snowball", "water", "food", "nerf", "tickle", "play", "balloon"}
 
     def apply_emojis(self, text: str, mood: str = "happy", intensity: float = 0.5) -> str:
         """
@@ -131,11 +133,20 @@ class EmojiQuirkService:
         return matches
 
     def is_negative(self, text: str) -> bool:
-        """True if the text is about something sad or difficult ("I wasn't scared" is not)"""
+        """
+        True if the text is about something sad or difficult ("I wasn't scared" and "we were
+        laughing so hard" are not)
+        """
         words = re.findall(r"[a-z']+", text.lower())
+        if any(re.match(r"(laugh|giggl|fun|happy|yay|haha|lol)", word) for word in words):
+            return False
         for i, word in enumerate(words):
             if word in self.NEGATIVE_WORDS and not (i > 0 and (words[i - 1] in ("not", "no", "never")
                                                                  or words[i - 1].endswith(("n't", "nt")))):
+                if word.startswith("fight") and i > 0 and words[i - 1] in self.PLAY_FIGHTS:
+                    continue  # "a pillow fight"
+                if word == "lost" and ("tooth" in words or "teeth" in words):
+                    continue  # "I lost a tooth" is good news
                 return True
         return "oh no" in text.lower()
 

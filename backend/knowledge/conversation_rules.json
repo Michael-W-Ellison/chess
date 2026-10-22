@@ -441,6 +441,76 @@
       "responses": ["Sure! What would you like to talk about?", "Of course! What's something fun you like?"]
     },
     {
+      "id": "didnt_hurt",
+      "priority": 76,
+      "patterns": [[
+        {"RIGHT_ID": "hurt", "RIGHT_ATTRS": {"LEMMA": "hurt"}},
+        {"LEFT_ID": "hurt", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}}
+      ]],
+      "conditions": {"question": false, "max_tokens": 6},
+      "responses": ["Phew, I'm glad it didn't hurt!", "Good, I'm glad you're okay!"]
+    },
+    {
+      "id": "bad_dream",
+      "priority": 77,
+      "patterns": [[
+        {"RIGHT_ID": "have", "RIGHT_ATTRS": {"LEMMA": "have"}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "dream", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["dream", "nightmare"]}}}
+      ]],
+      "conditions": {"not_negated": "have"},
+      "slots": {"dream": {"node": "dream", "span": "subtree"}},
+      "mood": "sad",
+      "no_jokes": true,
+      "responses_by": {
+        "slot": "dream",
+        "variants": {
+          "a good dream": ["Ooh, a good dream! What happened in it?"],
+          "a nice dream": ["Ooh, a nice dream! What happened in it?"],
+          "default": [
+            "Bad dreams can be really scary. You're safe now. Do you want to tell me about it?",
+            "Nightmares are no fun. It's okay to feel scared, and it helps to tell a grown-up. What happened in it?"
+          ]
+        }
+      }
+    },
+    {
+      "id": "good_at",
+      "priority": 82,
+      "patterns": [
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["good", "great", "amazing", "awesome", "bad", "terrible", "awful"]}}},
+          {"LEFT_ID": "adj", "REL_OP": ">", "RIGHT_ID": "at", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": "at"}},
+          {"LEFT_ID": "at", "REL_OP": ">", "RIGHT_ID": "skill", "RIGHT_ATTRS": {"DEP": "pobj"}}
+        ],
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["good", "great", "amazing", "awesome", "bad", "terrible", "awful"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "at", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": "at"}},
+          {"LEFT_ID": "at", "REL_OP": ">", "RIGHT_ID": "skill", "RIGHT_ATTRS": {"DEP": "pobj"}}
+        ]
+      ],
+      "conditions": {"question": false},
+      "slots": {
+        "subject": {"node": "subj", "span": "subtree"},
+        "be": {"node": "be", "span": "verb_group"},
+        "adj": {"node": "adj", "span": "text"},
+        "skill": {"node": "skill", "span": "subtree"}
+      },
+      "responses_by": {
+        "slot": "adj",
+        "variants": {
+          "bad": ["That's okay! Everybody starts somewhere, and practice really helps."],
+          "terrible": ["That's okay! Everybody starts somewhere, and practice really helps."],
+          "awful": ["That's okay! Everybody starts somewhere, and practice really helps."],
+          "default": ["{subject} {be} {adj} at {skill}? That's awesome!", "Wow, {subject} {be} {adj} at {skill}! That's so cool."]
+        }
+      }
+    },
+    {
       "id": "feeling",
       "priority": 78,
       "patterns": [[
@@ -494,7 +564,8 @@
           "happy": ["What's making you feel so {emotion}?", "Tell me all about it!"],
           "neutral": ["Want to tell me more?"]
         }
-      }
+      },
+      "suppressed_by": ["good_at"]
     },
     {
       "id": "miss_person",
@@ -575,6 +646,56 @@
       "follow_ups": ["Are you feeling okay now?"]
     },
     {
+      "id": "got_hurt",
+      "priority": 68,
+      "patterns": [
+        [
+          {"RIGHT_ID": "fall", "RIGHT_ATTRS": {"LEMMA": {"IN": ["fall", "trip", "slip", "crash"]}}},
+          {"LEFT_ID": "fall", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}}
+        ],
+        [
+          {"RIGHT_ID": "hurt", "RIGHT_ATTRS": {"LEMMA": {"IN": ["scrape", "cut", "bump", "sprain", "bruise", "twist", "break", "hurt", "skin", "stub"]}}},
+          {"LEFT_ID": "hurt", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+          {"LEFT_ID": "hurt", "REL_OP": ">", "RIGHT_ID": "part", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["tummy", "stomach", "belly", "head", "arm", "leg", "foot", "feet", "tooth", "teeth", "ear", "throat", "back", "knee", "knees", "hand", "finger", "toe", "eye", "neck", "nose", "wrist", "ankle", "elbow", "lip", "chin"]}}}
+        ]
+      ],
+      "conditions": {"question": false, "not_negated": "subj"},
+      "mood": "sad",
+      "no_jokes": true,
+      "responses": ["Ouch! I'm sorry you got hurt. Are you okay?", "Oh no, that sounds like it hurt! Did someone help you?"]
+    },
+    {
+      "id": "lost_tooth",
+      "priority": 69,
+      "patterns": [[
+        {"RIGHT_ID": "lose", "RIGHT_ATTRS": {"LEMMA": "lose"}},
+        {"LEFT_ID": "lose", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "lose", "REL_OP": ">", "RIGHT_ID": "tooth", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["tooth", "teeth"]}}}
+      ]],
+      "conditions": {"not_negated": "lose"},
+      "valence": "positive",
+      "mood": "happy",
+      "responses": [
+        "Wow, you lost a tooth? That's a big deal! Did it hurt?",
+        "Yay, a lost tooth! Are you going to put it under your pillow?"
+      ]
+    },
+    {
+      "id": "what_if_worry",
+      "priority": 69,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"POS": {"IN": ["VERB", "AUX"]}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}}
+      ]],
+      "mood": "anxious",
+      "no_jokes": true,
+      "responses": [
+        "It's normal to worry about that. Even if it doesn't go perfectly, that's okay. You can always try again. What part feels hardest?"
+      ]
+    },
+    {
       "id": "setback",
       "priority": 65,
       "patterns": [[
@@ -588,7 +709,7 @@
       "opener": true,
       "responses": ["{clause}? That's really frustrating.", "{clause}? I'm sorry, that's no fun."],
       "follow_ups": ["What do you think you'll try next time?", "Is there anyone who can help you with it?"],
-      "suppressed_by": ["miss_person"]
+      "suppressed_by": ["miss_person", "got_hurt", "lost_tooth", "what_if_worry"]
     },
     {
       "id": "reassured",
@@ -609,13 +730,22 @@
     {
       "id": "praise_reported",
       "priority": 64,
-      "patterns": [[
-        {"RIGHT_ID": "say", "RIGHT_ATTRS": {"LEMMA": {"IN": ["say", "tell"]}}},
-        {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "we", "you"]}}},
-        {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "clause", "RIGHT_ATTRS": {"DEP": "ccomp"}},
-        {"LEFT_ID": "clause", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
-        {"LEFT_ID": "say", "REL_OP": ">>", "RIGHT_ID": "praise", "RIGHT_ATTRS": {"LOWER": {"IN": ["great", "good", "well", "awesome", "amazing", "proud", "best"]}}}
-      ]],
+      "patterns": [
+        [
+          {"RIGHT_ID": "say", "RIGHT_ATTRS": {"LEMMA": {"IN": ["say", "tell"]}}},
+          {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "we", "you"]}}},
+          {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "clause", "RIGHT_ATTRS": {"DEP": "ccomp"}},
+          {"LEFT_ID": "clause", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+          {"LEFT_ID": "clause", "REL_OP": ">>", "RIGHT_ID": "praise", "RIGHT_ATTRS": {"LOWER": {"IN": ["great", "good", "well", "awesome", "amazing", "proud", "best"]}}}
+        ],
+        [
+          {"RIGHT_ID": "say", "RIGHT_ATTRS": {"LEMMA": {"IN": ["say", "tell"]}}},
+          {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "we", "you"]}}},
+          {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "clause", "RIGHT_ATTRS": {"DEP": "ccomp"}},
+          {"LEFT_ID": "clause", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+          {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "praise", "RIGHT_ATTRS": {"LOWER": {"IN": ["great", "good", "well", "awesome", "amazing", "proud", "best"]}, "DEP": {"IN": ["ccomp", "advmod", "acomp", "xcomp", "dobj"]}}}
+        ]
+      ],
       "conditions": {"question": false},
       "slots": {"subject": {"node": "subj", "span": "subtree"}},
       "valence": "positive",
@@ -702,6 +832,75 @@
       "mood": "happy",
       "valence": "positive",
       "responses": ["{clause}? That's amazing! You worked hard for that!", "Wow, {clause}? You should be so proud!"]
+    },
+    {
+      "id": "beaten_at_game",
+      "priority": 66,
+      "patterns": [[
+        {"RIGHT_ID": "beat", "RIGHT_ATTRS": {"LEMMA": "beat"}},
+        {"LEFT_ID": "beat", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "we"]}}},
+        {"LEFT_ID": "beat", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "me"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "beat"},
+      "slots": {"subject": {"node": "subj", "span": "subtree"}},
+      "responses": [
+        "Ugh, losing to {subject} is so frustrating! Keep practicing and you might win next time.",
+        "That's tough! Everyone gets better with practice. What's your best trick?"
+      ]
+    },
+    {
+      "id": "hit_by_ball",
+      "priority": 67,
+      "patterns": [[
+        {"RIGHT_ID": "hit", "RIGHT_ATTRS": {"LEMMA": {"IN": ["hit", "bonk", "smack"]}}},
+        {"LEFT_ID": "hit", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "me"}},
+        {"LEFT_ID": "hit", "REL_OP": ">", "RIGHT_ID": "with", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": "with"}},
+        {"LEFT_ID": "with", "REL_OP": ">", "RIGHT_ID": "ball", "RIGHT_ATTRS": {"DEP": "pobj", "LEMMA": {"IN": ["ball", "dodgeball", "frisbee", "pillow", "balloon"]}}}
+      ]],
+      "slots": {"thing": {"node": "ball", "span": "lemma"}},
+      "no_jokes": true,
+      "responses": ["Ouch! Getting hit with a {thing} can sting. Are you okay?", "Oof! Are you okay?"]
+    },
+    {
+      "id": "we_won",
+      "priority": 64,
+      "patterns": [[
+        {"RIGHT_ID": "win", "RIGHT_ATTRS": {"LEMMA": "win"}},
+        {"LEFT_ID": "win", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}}
+      ]],
+      "suppressed_by": ["achievement"],
+      "conditions": {"question": false, "not_negated": "win", "max_tokens": 8},
+      "valence": "positive",
+      "mood": "happy",
+      "responses": ["You won? That's awesome! How did it feel?", "Woohoo, you won! What was the best part?"]
+    },
+    {
+      "id": "pet_bite",
+      "priority": 67,
+      "patterns": [[
+        {"RIGHT_ID": "bite", "RIGHT_ATTRS": {"LEMMA": {"IN": ["bite", "scratch", "nip", "peck"]}}},
+        {"LEFT_ID": "bite", "REL_OP": ">", "RIGHT_ID": "pet", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": ["dog", "cat", "puppy", "kitten", "hamster", "pet", "bird", "bunny", "rabbit", "horse", "guinea"]}}},
+        {"LEFT_ID": "bite", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "me"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "bite"},
+      "no_jokes": true,
+      "responses": [
+        "Ouch! Are you okay? Pets sometimes bite or scratch when they're scared or playing too rough.",
+        "Oh no, ouch! Did a grown-up help you clean it up?"
+      ]
+    },
+    {
+      "id": "pushed_me",
+      "priority": 66,
+      "patterns": [[
+        {"RIGHT_ID": "push", "RIGHT_ATTRS": {"LEMMA": {"IN": ["push", "shove", "trip", "knock", "tackle"]}}},
+        {"LEFT_ID": "push", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "we"]}}},
+        {"LEFT_ID": "push", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "me"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "push"},
+      "mood": "sad",
+      "no_jokes": true,
+      "responses": ["Oh no! Are you okay? If someone pushes you on purpose, tell your coach or teacher so they can help."]
     },
     {
       "id": "achievement",
@@ -1101,6 +1300,26 @@
       "responses": ["Ooh, how fun! What names do you like so far?"]
     },
     {
+      "id": "should_apologize",
+      "priority": 56,
+      "patterns": [
+        [
+          {"RIGHT_ID": "say", "RIGHT_ATTRS": {"LEMMA": "say"}},
+          {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "should", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": "should"}},
+          {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+          {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "sorry", "RIGHT_ATTRS": {"LOWER": "sorry"}}
+        ],
+        [
+          {"RIGHT_ID": "say", "RIGHT_ATTRS": {"LEMMA": "apologize"}},
+          {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "should", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": "should"}},
+          {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}}
+        ]
+      ],
+      "responses": [
+        "Saying sorry is a really kind thing to do, and it can help you both feel better. You could tell them how you felt, too."
+      ]
+    },
+    {
       "id": "plan",
       "priority": 57,
       "patterns": [[
@@ -1422,6 +1641,24 @@
       "responses": ["Nope! Talking with you is my favorite thing, so I'm happy whenever you're here. Do you ever get {feeling}?"]
     },
     {
+      "id": "cheer_me_up",
+      "priority": 89,
+      "patterns": [
+        [
+          {"RIGHT_ID": "make", "RIGHT_ATTRS": {"LEMMA": "make"}},
+          {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+          {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "feel", "RIGHT_ATTRS": {"DEP": {"IN": ["ccomp", "xcomp"]}, "LEMMA": "feel"}},
+          {"LEFT_ID": "feel", "REL_OP": ">", "RIGHT_ID": "better", "RIGHT_ATTRS": {"LOWER": "better"}}
+        ],
+        [
+          {"RIGHT_ID": "cheer", "RIGHT_ATTRS": {"LEMMA": "cheer"}},
+          {"LEFT_ID": "cheer", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "me"}},
+          {"LEFT_ID": "cheer", "REL_OP": ">", "RIGHT_ID": "up", "RIGHT_ATTRS": {"LOWER": "up"}}
+        ]
+      ],
+      "responses": ["I'll try my best! Want to hear a joke, or tell me about something that makes you happy?"]
+    },
+    {
       "id": "bot_do_question",
       "priority": 88,
       "patterns": [
@@ -1575,6 +1812,19 @@
       ]
     },
     {
+      "id": "dont_know_what",
+      "priority": 43,
+      "patterns": [[
+        {"RIGHT_ID": "know", "RIGHT_ATTRS": {"LEMMA": "know"}},
+        {"LEFT_ID": "know", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+        {"LEFT_ID": "know", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}},
+        {"LEFT_ID": "know", "REL_OP": ">", "RIGHT_ID": "do", "RIGHT_ATTRS": {"DEP": {"IN": ["xcomp", "ccomp"]}, "LEMMA": "do"}},
+        {"LEFT_ID": "do", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "what"}}
+      ]],
+      "conditions": {"question": false},
+      "responses": ["That's okay. Want to think about it together? Tell me more about what's going on."]
+    },
+    {
       "id": "dont_know",
       "priority": 42,
       "patterns": [[
@@ -1587,7 +1837,7 @@
         "That's okay, you don't have to know! Want to talk about something else?",
         "No worries! Sometimes it's hard to know. What's on your mind?"
       ],
-      "suppressed_by": ["know_nobody", "dont_know_how"]
+      "suppressed_by": ["know_nobody", "dont_know_how", "dont_know_what"]
     },
     {
       "id": "relation_is_name",
@@ -1819,6 +2069,17 @@
       "responses": ["A baby {gender}? How exciting! Do you have any name ideas?"]
     },
     {
+      "id": "accident",
+      "priority": 48,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "it", "RIGHT_ATTRS": {"DEP": "nsubj"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "accident", "RIGHT_ATTRS": {"DEP": "attr", "LEMMA": "accident"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "be"},
+      "responses": ["Oh, okay. Accidents happen! Are you okay?"]
+    },
+    {
       "id": "short_answer",
       "priority": 40,
       "patterns": [[{"RIGHT_ID": "word", "RIGHT_ATTRS": {"DEP": "ROOT"}}]],
@@ -1851,6 +2112,20 @@
       "patterns": [[{"RIGHT_ID": "word", "RIGHT_ATTRS": {"DEP": "ROOT", "LOWER": {"IN": "@nothing_words"}}}]],
       "conditions": {"max_tokens": 3},
       "responses": ["That's okay! Is there anything you're looking forward to?", "No worries! Want to tell me about something you like?"]
+    },
+    {
+      "id": "request_funny",
+      "priority": 88,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["tell", "say", "show"]}, "TAG": "VB"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["something", "anything"]}}},
+        {"LEFT_ID": "obj", "REL_OP": ">", "RIGHT_ID": "funny", "RIGHT_ATTRS": {"LOWER": {"IN": ["funny", "silly", "hilarious"]}}}
+      ]],
+      "conditions": {"addressed_to_bot": "verb"},
+      "compute": ["joke_content"],
+      "no_jokes": true,
+      "responses": ["Okay, here's one: {content}", "Ooh, I've got one! {content}"],
+      "follow_ups": ["Want another one?"]
     },
     {
       "id": "request",
@@ -2008,7 +2283,8 @@
           "happy": ["Yay, I'm glad {person} {be} {emotion}! Do you know why?"],
           "default": ["{person} {be} {emotion}? Thanks for telling me. Do you know why?"]
         }
-      }
+      },
+      "suppressed_by": ["good_at"]
     },
     {
       "id": "comparison_better",
@@ -2075,7 +2351,8 @@
       ]],
       "conditions": {"question": true},
       "slots": {"action": {"node": "verb", "span": "predicate"}},
-      "responses": ["Hmm, I don't think I can {action}, since I'm a computer program. But I can chat, tell jokes, and share fun facts! What would you like?"]
+      "responses": ["Hmm, I don't think I can {action}, since I'm a computer program. But I can chat, tell jokes, and share fun facts! What would you like?"],
+      "suppressed_by": ["cheer_me_up", "request_funny"]
     },
     {
       "id": "thanks",

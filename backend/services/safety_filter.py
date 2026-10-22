@@ -11,7 +11,7 @@ Integrates multiple specialized services:
 - SeverityScorer: Centralized severity scoring and classification
 """
 
-from typing import Dict, Optional
+from typing import Dict, Iterable, Optional
 import logging
 import re
 from datetime import datetime
@@ -28,6 +28,7 @@ from services.inappropriate_request_detector import inappropriate_request_detect
 from services.bullying_keyword_list import bullying_keyword_list
 from services.severity_scorer import severity_scorer
 from services.crisis_response_templates import crisis_response_templates
+from services import crisis_context
 
 logger = logging.getLogger("chatbot.safety_filter")
 
@@ -87,7 +88,8 @@ class SafetyFilter:
         logger.info("SafetyFilter initialized with all specialized services")
 
     def check_message(
-        self, message: str, user_id: Optional[int] = None, resolved_message: Optional[str] = None
+        self, message: str, user_id: Optional[int] = None, resolved_message: Optional[str] = None,
+        recent_messages: Iterable[str] = (), known_people: Iterable[str] = (), force_crisis: bool = False,
     ) -> Dict:
         """
         Comprehensive safety check integrating all services
@@ -99,7 +101,12 @@ class SafetyFilter:
             message: The message to check
             user_id: Optional user ID for violation tracking
             resolved_message: The message with pronouns resolved ("she" -> "my little
-                sister Ava"), used to tell a sibling taking things from bullying
+                sister Ava"), used to tell a sibling taking things from bullying and what
+                "them" is in "I'm scared of them"
+            recent_messages: The child's previous few messages ("beats me" after game talk)
+            known_people: Names of people the child mentioned recently
+            force_crisis: Skip the context check of crisis phrases (the child confirmed
+                that "beats me" means hitting)
 
         Returns:
             Dictionary with comprehensive safety check results:
@@ -143,7 +150,18 @@ class SafetyFilter:
         # PRIORITY 1: Crisis Detection (CRITICAL - HIGHEST PRIORITY)
         # ============================================================
         # Check for crisis keywords using specialized detector
-        if self.crisis_detector.contains_crisis_keywords(message):
+        # Phrases with everyday meanings are read in context (see services/crisis_context.py):
+        # "she beats me" at Mario Kart, "it makes me scared", "kids at school push me"
+        crisis_found = self.crisis_detector.contains_crisis_keywords(message)
+        context_decision = "crisis"
+        if crisis_found and not force_crisis:
+            found = self.crisis_detector.find_crisis_keywords(message)
+            if {f["category"] for f in found} <= {"abuse_physical", "abuse_emotional"}:
+                context_decision = crisis_context.classify(
+                    message, [f["keyword"] for f in found], recent_messages, resolved_message, known_people
+                )
+
+        if crisis_found and context_decision == "crisis":
             crisis_keywords_found = self.crisis_detector.find_crisis_keywords(message)
             crisis_category = self.crisis_detector.get_category(message)
             all_categories = self.crisis_detector.get_all_categories(message)
@@ -169,6 +187,27 @@ class SafetyFilter:
                 "all_categories": all_categories,
                 "keywords_found": crisis_keywords_found,
             }
+
+        elif crisis_found and context_decision == "clarify":
+            # "My sister always beats me": ask whether it means games or hitting
+            action = "clarify"
+            response_message = crisis_context.clarification_question(message)
+            details["crisis_context"] = {"decision": context_decision}
+
+        elif crisis_found and context_decision == "peer_bullying":
+            flags.append("bullying")
+            severity = self.severity_scorer.score_bullying_detection("physical", 1)
+            action = self.severity_scorer.get_action_recommendation(severity)
+            response_message = self.get_bullying_response()
+            details["crisis_context"] = {"decision": context_decision}
+            details["bullying"] = {"detected": True, "primary_category": "physical",
+                                   "all_categories": ["physical"], "keywords_found": []}
+
+        elif crisis_found and context_decision == "indirect_fear":
+            # "It makes me scared" (a storm, parents arguing): comfort and advice to tell a grown-up
+            action = "fear_support"
+            response_message = crisis_context.indirect_fear_reply(message, recent_messages, resolved_message)
+            details["crisis_context"] = {"decision": context_decision}
 
         # ============================================================
         # PRIORITY 2: Inappropriate Request Detection (MEDIUM to CRITICAL)

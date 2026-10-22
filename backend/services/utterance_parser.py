@@ -80,6 +80,11 @@ _CONTEXT_NORMALIZATIONS = [
                 r"always|probably|draw|read|call|text|come|help|work|remember)\b)", re.IGNORECASE),
      "I'll"),
 ]
+# "my moms room" -> "my mom's room"
+_POSSESSIVE_RE = re.compile(
+    r"\b(mom|dad|mommy|daddy|sister|brother|grandma|grandpa|friend|cousin|aunt|uncle)s (?=(room|house|car|bed|"
+    r"phone|office|work|birthday|friend|dog|cat|toys?|lap|side)\b)", re.IGNORECASE
+)
 # "mr kim" -> "Mr Kim", so the parser reads a name
 _TITLE_RE = re.compile(r"\b(mr|mrs|ms|dr)\.? ([a-z])", re.IGNORECASE)
 
@@ -116,6 +121,7 @@ class UtteranceParser:
         text = " ".join(text.split())
         for pattern, replacement in _CONTEXT_NORMALIZATIONS:
             text = pattern.sub(replacement, text)
+        text = _POSSESSIVE_RE.sub(r"\1's ", text)
         text = _TITLE_RE.sub(lambda m: f"{m.group(1).capitalize()} {m.group(2).upper()}", text)
 
         def replace(match):
