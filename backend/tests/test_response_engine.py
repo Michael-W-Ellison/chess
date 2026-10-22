@@ -158,8 +158,16 @@ class TestResponses:
         assert len(favorites) == 1
 
     def test_unknown_question_gets_question_fallback(self, engine):
-        reply = engine.generate_response("why is the sky blue?", make_personality())
+        reply = engine.generate_response("do you think so?", make_personality())
         assert reply in engine.kb["fallbacks"]["question"]
+
+    def test_known_world_question_is_answered(self, engine):
+        reply = engine.generate_response("why is the sky blue?", make_personality())
+        assert reply.startswith("The sky looks blue")
+
+    def test_unknown_world_question_suggests_looking_it_up(self, engine):
+        reply = engine.generate_response("what time is it?", make_personality())
+        assert reply in engine.kb["fallbacks"]["world_question"]
 
     def test_reflection_fallback(self, engine):
         reply = engine.generate_response("We went to the zoo and saw a giraffe", make_personality())

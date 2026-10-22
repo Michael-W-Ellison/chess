@@ -70,13 +70,31 @@ _GENDERED_RELATIONS = {
 _TIME_WORDS = {"today", "tomorrow", "yesterday", "tonight", "morning", "afternoon", "evening",
                "night", "week", "weekend", "month", "year", "time", "day", "lot", "thing", "something",
                "one", "anything", "everything", "nothing", "part", "stuff", "kind", "app", "fun",
-               "question", "huh", "fan", "mine", "yours", "ours"}
+               "question", "huh", "fan", "mine", "yours", "ours", "pick", "choice", "idea", "guess", "job"}
 _TITLES = {"mr", "mrs", "ms", "dr"}
+# Favorites that are people: "my favorite character is Hermione"
+_PERSON_CATEGORIES = {"character", "person", "friend", "hero", "superhero", "singer", "youtuber", "player",
+                      "athlete", "teacher", "author", "princess", "actor", "actress", "artist", "cousin"}
+_DETERMINERS = {"the", "a", "an", "my", "your", "his", "her", "our", "their", "this", "that", "these", "those",
+                "some", "two", "three", "all"}
 # Groups of people the child talks about: "kids at school", "the boys in my class"
 _GROUPS = {"kid", "boy", "girl", "classmate", "student", "bully", "teenager", "people"}
 # Short answers that are not a favorite thing ("no", "idk")
 _NOT_ANSWERS = {"no", "nope", "nah", "yes", "yeah", "ok", "okay", "idk", "nothing", "dunno", "why", "what", "lol",
                 "haha", "same", "cool", "nice", "wow", "maybe", "um", "hmm"}
+# What "it" does when it is a body part: "it stopped bleeding", "it still hurts"
+_BODY_VERBS = {"bleed", "hurt", "ache", "heal", "swell", "itch", "sting", "stop"}
+_BODY_PARTS = {"arm", "leg", "knee", "foot", "hand", "finger", "toe", "head", "tummy", "stomach", "elbow",
+               "wrist", "ankle", "nose", "lip", "tooth", "ear", "eye", "back", "neck", "chin", "cut", "scrape"}
+# Words of a reaction to a joke, fact or answer: "That was funny", not "it was even bigger"
+_REACTION_WORDS = {"funny", "hilarious", "silly", "corny", "lame", "cool", "good", "great", "awesome", "interesting",
+                   "weird", "true", "gross", "cute", "amazing", "bad", "dumb", "stupid", "boring", "nice", "fun",
+                   "crazy", "wild", "neat", "fascinating", "joke", "one", "sad", "unfair", "okay", "ok", "right",
+                   "fine", "scary", "annoying", "sweet", "bummer", "lucky", "smart", "mean", "rude", "terrible",
+                   "awful", "perfect", "wonderful", "fantastic", "epic", "excellent"}
+# Verbs whose "it" can be the bot's own answer: "I like it too", "I want to try it"
+_ANSWER_VERBS = {"like", "love", "hate", "want", "try", "play", "eat", "see", "watch", "read", "pick", "choose",
+                 "prefer", "get", "do"}
 # Words before an answer: "cool mine is green"
 _ANSWER_OPENERS = {"cool", "ok", "okay", "oh", "well", "um", "umm", "hmm", "yeah"}
 # Verbs whose object is usually a person, for names spaCy does not tag ("I saw Maya at school")
@@ -89,7 +107,7 @@ _NON_REFERENTIAL_COMPLEMENTS = {"time", "turn", "cold", "hot", "warm", "sunny", 
 _NON_REFERENTIAL_SUBJECT_VERBS = {"seem", "happen", "matter", "depend"}
 # "That sounds fun" is a reaction whose reply does not need the referent, and a gerund
 # subject is misparsed ("Playing a game sounds fun" makes "fun" an object)
-_REACTION_VERBS = {"sound", "look"}
+_REACTION_VERBS = {"sound", "look", "stink", "suck"}
 # Idioms with "it" as object: "I made it" (succeeded), "I get it" (understand), "I mean it"
 _IDIOM_OBJECT_VERBS = {"make", "get", "take", "mean", "fake", "nail"}
 # Verbs that describe a state or wish rather than something the child did
@@ -319,6 +337,9 @@ class ReferenceTracker:
                 # Not an exclamation at the start of a sentence ("Awesome! You built a castle")
                 exclamation = len(chunk) == 1 and root.i == root.sent.start and root.i + 1 < len(doc) \
                     and doc[root.i + 1].text in ("!", ",")
+                # "Have you told a grown-up?" names a person, not a thing
+                if "grown" in chunk.text.lower() or root.lemma_.lower() in ("adult", "grownup"):
+                    continue
                 if (root.pos_ in ("NOUN", "PROPN") and root.ent_type_ != "PERSON" and not exclamation
                         and not any(t.dep_ == "det" and t.lower_ == "no" for t in chunk)
                         and not any(t.pos_ == "PRON" or t.tag_ in ("WDT", "WP") for t in chunk)
@@ -359,7 +380,7 @@ class ReferenceTracker:
                     # "Do you like dinosaurs?" -> "Yes, I love them"
                     things = [t for t in self._recent(state.things, state) if t.plural]
                     if things and self._is_thing_reference(token):
-                        return self._match_case(things[0].text, token)
+                        return self._match_case(self._as_subject(things[0], token), token)
             else:
                 candidates = [p for p in people if not p.plural and p.pronoun in (None, gender)]
             if not candidates:
@@ -403,10 +424,18 @@ class ReferenceTracker:
                     drop.update(c.i for c in attr.children if c.dep_ == "det")
                 return self._match_case(match.text, token)
             things = self._recent(state.things, state)
+            # "It stopped bleeding": a body part, not the bandaid
+            if token.head.lemma_ in _BODY_VERBS:
+                things = sorted(things, key=lambda t: t.text.split()[-1].lower() not in _BODY_PARTS)
             # An added joke or fact: "That was funny", not "my teacher put it on the wall"
-            reaction = token.dep_ == "nsubj" and any(c.dep_ in ("acomp", "attr") for c in token.head.children)
+            reaction = token.dep_ == "nsubj" and any(
+                c.dep_ in ("acomp", "attr") and c.lemma_.lower() in _REACTION_WORDS for c in token.head.children)
             if not reaction:
                 things = [t for t in things if not t.added]
+            # The bot's own answer ("Mine is Jupiter") for a reaction or "I like it too", not
+            # for something the child goes on to say about their own topic ("It has rings")
+            if not (reaction or token.head.lemma_ in _ANSWER_VERBS):
+                things = [t for t in things if not t.short] or things
             if lower == "it":
                 # "it" is singular: prefer a singular thing ("that" can point at "cats")
                 things = [t for t in things if not t.plural] or things
@@ -423,7 +452,7 @@ class ReferenceTracker:
             if choice is not None:
                 choice.turn = state.turn
                 state.last_plural = getattr(choice, "plural", False)
-                return self._match_case(choice.text, token)
+                return self._match_case(self._as_subject(choice, token), token)
 
         return None
 
@@ -587,6 +616,16 @@ class ReferenceTracker:
                 mentioned.append(Person(name=" and ".join(names), plural=True))
 
         for token in doc:
+            # "My favorite character is Hermione": a person the child may call "she"
+            if (token.dep_ in ("attr", "acomp") and token.head.lemma_ == "be" and token.is_alpha
+                    and token.i not in named_tokens
+                    and any(c.dep_ == "nsubj" and c.lemma_.lower() in _PERSON_CATEGORIES
+                            and any(g.lower_ in ("favorite", "favourite") for g in c.children)
+                            for c in token.head.children)):
+                named_tokens.add(token.i)
+                mentioned.append(Person(name=token.text[:1].upper() + token.text[1:]))
+
+        for token in doc:
             # "Kids at school push me" -> "they" is the kids at school
             if (token.dep_ == "nsubj" and token.tag_ == "NNS" and token.lemma_.lower() in _GROUPS
                     and not any(c.dep_ == "poss" for c in token.children)):
@@ -600,7 +639,8 @@ class ReferenceTracker:
         # object of the latest sentence is the most recent thing
         salience = {"pobj": 0, "attr": 1, "nsubj": 1, "dobj": 2}
         chunks = [c for c in doc.noun_chunks
-                  if c.root.pos_ == "NOUN" and c.root.dep_ in salience
+                  if (c.root.pos_ == "NOUN" or (c.root.pos_ == "PROPN" and self._names_a_favorite(c.root)))
+                  and c.root.dep_ in salience
                   and c.root.lemma_.lower() not in self.relations
                   and c.root.lemma_.lower() not in _TIME_WORDS
                   and c.root.lemma_.lower() != "name"  # "My name is Liam": not what "it" means later
@@ -616,13 +656,24 @@ class ReferenceTracker:
             del state.events[3:]
 
     @staticmethod
+    def _as_subject(item, token) -> str:
+        """ "They had sprinkles" -> "The cupcakes had sprinkles", not "Cupcakes had sprinkles" """
+        text = item.text
+        if (token.dep_ == "nsubj" and getattr(item, "plural", False)
+                and text.split()[0].lower() not in _DETERMINERS and not text[:1].isupper()):
+            return f"the {text}"
+        return text
+
+    @staticmethod
     def _names_a_favorite(token) -> bool:
         """The token is in the answer of "My favorite <thing> is ..." """
         while token.dep_ in ("compound", "conj", "appos") and token.head != token:
             token = token.head
         if token.dep_ not in ("attr", "acomp") or token.head.lemma_ != "be":
             return False
-        return any(c.dep_ == "nsubj" and any(g.lower_ in ("favorite", "favourite") for g in c.children)
+        # "My favorite character is Hermione" names a person
+        return any(c.dep_ == "nsubj" and c.lemma_.lower() not in _PERSON_CATEGORIES
+                   and any(g.lower_ in ("favorite", "favourite") for g in c.children)
                    for c in token.head.children)
 
     @staticmethod
@@ -702,9 +753,12 @@ class ReferenceTracker:
 
     def _is_person_name(self, token) -> bool:
         """A proper noun that names a person (spaCy's tag, or its position when untagged)"""
-        # "at Mario Kart", "in Minecraft": you play with people, not at them
+        # "at Mario Kart", "in Minecraft": you play with people, not at them; and you read
+        # or watch a book or show ("I'm reading Harry Potter")
         place = token.head if token.dep_ == "compound" else token
         if place.dep_ == "pobj" and place.head.lower_ in ("at", "in", "on"):
+            return False
+        if place.dep_ == "dobj" and place.head.lemma_ in ("read", "watch", "play", "finish", "beat"):
             return False
         if token.ent_type_ == "PERSON":
             return True

@@ -4,6 +4,7 @@ Handles the shares_facts personality quirk
 """
 
 import random
+import re
 from typing import Optional
 
 from services.pun_quirk_service import join_transition
@@ -223,7 +224,8 @@ class FactQuirkService:
 
         # Find matching keyword
         for keyword, fact_list in self.CONTEXT_KEYWORDS.items():
-            if keyword in context_lower:
+            # Whole words, so "sun" is not found in "sunday"
+            if re.search(rf"\b{re.escape(keyword)}s?\b", context_lower):
                 return random.choice(fact_list)
 
         return None
@@ -242,6 +244,10 @@ class FactQuirkService:
             self.GEOGRAPHY_FACTS
         )
         return random.choice(all_facts)
+
+    def contextual_fact(self, context: str) -> Optional[str]:
+        """A fact matching the context's keywords, or None"""
+        return self._get_contextual_fact(context)
 
     def random_fact(self, context: str = "") -> str:
         """A fact matching the context's keywords if possible, otherwise any fact"""

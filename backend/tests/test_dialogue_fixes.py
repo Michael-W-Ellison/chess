@@ -121,6 +121,42 @@ class TestNewRules:
         ("my grandma is really good at cards", "good_at"),
         ("I'm bad at spelling", "good_at"),
         ("I'm good", "feeling"),
+        ("can I get a new fish", "ask_permission"),
+        ("are you a boy or a girl", "bot_gender_question"),
+        ("do you have a family", "bot_family_question"),
+        ("will you still talk to me", "bot_still_here"),
+        ("my mom took away my ipad", "taken_away"),
+        ("ugh", "ugh"),
+        ("I hit the target", "hit_target"),
+        ("I made a new friend named Leo", "new_friend"),
+        ("we are moving to a new house", "moving_house"),
+        ("do you like cupcakes", "bot_like_food"),
+        ("why is the sky blue", "fallback_world_answer"),
+        ("how far is the moon", "fallback_world_answer"),
+        ("do you know about planets", "fallback_world_question_fact"),
+        ("what time is it", "fallback_world_question"),
+        ("why do penguins not fly", "fallback_world_answer"),
+        ("nobody picked me for their team", "left_out"),
+        ("its raining", "weather"),
+        ("what can I do inside", "bored_ideas"),
+        ("should I start over", "should_i"),
+        ("my favorite was the penguins", "favorite_bare"),
+        ("we can't go to the park", "fallback_reflection_cant"),
+        ("the giraffe was so tall", "fallback_reflection_be"),
+        ("today was the best day ever", "day_evaluation"),
+        ("today was the worst day", "day_evaluation"),
+        ("I just want to go home", "want_to_go_home"),
+        ("I really want a dog", "want_thing"),
+        ("my parents said no", "said_no"),
+        ("what kind of dog should I get", "which_should_i"),
+        ("do you think I was good enough", "do_you_think_i"),
+        ("do you think I can beat her", "do_you_think_i"),
+        ("it made me feel sad", "made_me_feel"),
+        ("that stinks", "that_stinks"),
+        ("what do you want for christmas", "bot_want_question"),
+        ("I want to be a vet", "goal"),
+        ("my sister is really good", "person_evaluation"),
+        ("my sister is sad", "other_feeling"),
     ])
     def test_rule(self, engine, message, rule):
         assert rule_of(engine, message)[0] == rule
@@ -221,13 +257,58 @@ class TestReferences:
         engine.record_bot_reply(1, "Not a fan of math, huh? That's okay, everybody likes different stuff.")
         assert engine.resolve_references("its so boring", 1) == "Math is so boring"
 
+    def test_childs_topic_over_the_bots_answer(self, engine):
+        rule_of(engine, "my favorite planet is saturn")
+        assert "Jupiter" not in engine.resolve_references("it has rings", 1)  # the bot's favorite
+
+    def test_plural_thing_as_subject_gets_the(self, engine):
+        rule_of(engine, "me and my dad made cupcakes")
+        assert engine.resolve_references("they had sprinkles", 1) == "The cupcakes had sprinkles"
+
+    def test_new_friend_name_is_used(self, engine):
+        assert "Leo" in rule_of(engine, "I made a new friend named Leo")[1]
+
+    def test_song_title_keeps_all_words(self, engine):
+        assert "Fur elise" in rule_of(engine, "my song is called fur elise")[1]
+
+    def test_last_one_is_not_an_age(self, engine):
+        assert rule_of(engine, "I was the last one")[0] != "age_short"
+
+    def test_singular_and_plural_food(self, engine):
+        assert "cheese sounds yummy" in rule_of(engine, "do you like cheese")[1]
+        assert "cupcakes sound yummy" in rule_of(engine, "do you like cupcakes")[1]
+
+    def test_bleeding_is_the_body_part(self, engine):
+        rule_of(engine, "I hurt my arm")
+        engine.resolve_references("my mom put a bandaid on it", 1)
+        assert engine.resolve_references("it stopped bleeding", 1) == "My arm stopped bleeding"
+
+    def test_grown_up_from_bot_reply_is_not_it(self, engine):
+        rule_of(engine, "I hurt my arm")
+        engine.record_bot_reply(1, "Ouch! Have you told a grown-up?")
+        assert "grown" not in engine.resolve_references("my mom put a bandaid on it", 1)
+
+    def test_another_one_inside_a_sentence_is_not_a_request(self, engine):
+        assert rule_of(engine, "I built another one")[0] != "request_again"
+
+    def test_book_title_is_not_people(self, engine):
+        rule_of(engine, "im reading harry potter")
+        rule_of(engine, "my favorite character is hermione")
+        assert engine.resolve_references("she is really smart", 1) == "Hermione is really smart"
+
+    def test_added_joke_is_not_it_without_a_reaction(self, engine):
+        rule_of(engine, "I built another one")
+        engine.references.record_bot_reply(1, "You built another one? That's awesome!", told="joke",
+                                           told_was_added=True)
+        assert "joke" not in engine.resolve_references("it was even bigger", 1)
+
     def test_mine_is_not_a_thing(self, engine):
         rule_of(engine, "my favorite food is sushi")
         assert "mine" not in engine.resolve_references("my mom doesnt like it", 1)
 
     def test_plural_thing_takes_are(self, engine):
         engine.record_bot_reply(1, "I love telling jokes and learning fun facts! What do you like to do?")
-        assert engine.resolve_references("thats cool", 1) == "Fun facts are cool"
+        assert engine.resolve_references("thats cool", 1) == "The fun facts are cool"
 
     def test_fair_is_not_a_reference(self, engine):
         rule_of(engine, "my sister always takes my stuff")
@@ -312,6 +393,7 @@ class TestSafetyAndEmojis:
         ("we had a pillow fight", False),
         ("Wow, you lost a tooth?", False),
         ("we were laughing so hard", False),
+        ("today was the worst day", True),
     ])
     def test_is_negative(self, text, negative):
         assert emoji_quirk_service.is_negative(text) is negative

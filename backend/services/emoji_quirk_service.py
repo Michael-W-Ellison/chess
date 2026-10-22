@@ -75,7 +75,7 @@ class EmojiQuirkService:
         "afraid", "nervous", "stressed", "awful", "terrible", "mean", "lost", "broke", "broken",
         "hospital", "died", "dead", "funeral", "divorce", "injured", "fight", "fighting",
         "buried", "lonely", "alone", "annoying", "stupid", "dumb", "ugly", "fever", "pain", "hurts",
-        "ouch", "oof", "sting", "stings", "nightmare", "nightmares",
+        "ouch", "oof", "sting", "stings", "nightmare", "nightmares", "worst", "trouble",
     }
     COMFORT_EMOJIS = ["💙", "🫂"]
     PLAY_FIGHTS = {"pillow", "snowball", "water", "food", "nerf", "tickle", "play", "balloon"}

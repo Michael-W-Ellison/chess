@@ -309,6 +309,8 @@ class ResponseEngine:
             slots[f"{slot_name}_raw"] = raw
             slots[slot_name] = reflected
             slots[f"{slot_name}_slug"] = _slug(raw)
+            if nodes[spec["node"]].tag_ in ("NNS", "NNPS"):
+                slots[f"{slot_name}_plural"] = "yes"  # "cupcakes sound", "cheese sounds"
 
         slots["message_text"] = doc.text
         if "comparison_preference" in rule.get("compute", []):
@@ -972,6 +974,20 @@ class ResponseEngine:
             return self._pick(fallbacks[kind], user_id, f"template:fallback_{kind}", policy, features)
 
         if analysis.is_question:
+            # "Why is the sky blue?": a known answer, a fact on the topic, or "let's look it up"
+            about_bot = any(t.lower_ in ("you", "your", "yours", "yourself") for t in doc)
+            if not about_bot or re.match(r"(do|did) you know\b", doc.text, re.IGNORECASE):
+                answer = self._world_answer(doc.text)
+                if answer:
+                    return answer, "neutral", "world_answer"
+                if any(t.tag_ in ("WRB", "WP", "WDT") for t in doc) or doc[0].lemma_ in ("do", "be", "can"):
+                    from services.fact_quirk_service import fact_quirk_service
+                    fact = fact_quirk_service.contextual_fact(doc.text)
+                    if fact:
+                        slots["fact"] = fact
+                        return pick("world_question_fact").format_map(slots), "neutral", "world_question_fact"
+                    if any(t.tag_ in ("WRB", "WP", "WDT") for t in doc):
+                        return pick("world_question"), "neutral", "world_question"
             return pick("question"), "neutral", "question"
 
         # Reflect the last sentence that is short and about the child
@@ -992,8 +1008,12 @@ class ResponseEngine:
                         tense = self._tense(root)
                         kind = "reflection" if tense == "past" else f"reflection_{tense}"
                         # "He is a golden retriever": not "What's that like?"
-                        if kind == "reflection_present" and root.lemma_ == "be":
+                        # "He is a golden retriever", "It was so tall": not "What's that like?"
+                        if root.lemma_ == "be" and kind in ("reflection_present", "reflection"):
                             kind = "reflection_be"
+                        # "We can't go to the park"
+                        elif self._is_negated(root) and any(c.lower_ in ("ca", "can", "could") for c in root.children):
+                            kind = "reflection_cant"
                     return pick(kind).format_map(slots), "neutral", kind
 
         # Long sentences: echo the last clause about the child ("...and then I fell down")
@@ -1021,6 +1041,13 @@ class ResponseEngine:
                 return pick("topic").format_map(slots), "neutral", "topic"
 
         return pick("generic"), "neutral", "generic"
+
+    def _world_answer(self, text: str) -> Optional[str]:
+        """The answer to a common question about the world ("Why is the sky blue?"), if known"""
+        for entry in self.kb.get("answers", []):
+            if re.search(entry["pattern"], text, re.IGNORECASE):
+                return entry["answer"]
+        return None
 
     def _last_clause_about_child(self, doc) -> Optional[str]:
         """

@@ -275,6 +275,8 @@ class ConversationManager:
                     f"(user {user_id})"
                 )
 
+            # Gentle replies for the next few messages (no jokes or cheerful emojis)
+            self._sensitive_replies[user_id] = SENSITIVE_REPLIES
             # Keep track of who the child is talking about ("she is 14" after "my sister ...")
             self._resolve_references(user_message, user_id)
 
@@ -309,6 +311,8 @@ class ConversationManager:
                 else safety_filter.get_inappropriate_decline()
             )
 
+            # Gentle replies for the next few messages (no jokes or cheerful emojis)
+            self._sensitive_replies[user_id] = SENSITIVE_REPLIES
             # Keep track of who the child is talking about ("they do it every day")
             self._resolve_references(user_message, user_id)
 
@@ -1106,7 +1110,7 @@ INSTRUCTIONS:
                 )
                 # "What should I do?" with no advice template for it: not "What do you think?"
                 detection = context.get("advice_request") or {}
-                if (response and features is not None and features.get("rule") == "fallback_question"
+                if (response and features is not None and features.get("rule") in ("fallback_question", "should_i")
                         and detection.get("is_advice_request") and _ASKS_WHAT_TO_DO_RE.search(user_message)):
                     features["rule"] = "advice_generic"
                     return random.choice(GENERIC_ADVICE)
