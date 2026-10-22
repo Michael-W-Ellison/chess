@@ -456,6 +456,22 @@ class ReferenceTracker:
                 ))
 
         for token in doc:
+            # "My dog's name is Roxie" / "The dog's name is Roxie" (the child's dog)
+            head = token.head
+            if (token.dep_ == "poss" and token.lemma_.lower() in self.relations
+                    and head.lower_ == "name" and head.dep_ == "nsubj"
+                    and any(c.lower_ in ("my", "our", "the") for c in token.children)):
+                name_token = next((c for c in head.head.children
+                                   if c.dep_ in ("attr", "acomp", "npadvmod")), None)
+                if name_token is not None and name_token.is_alpha:
+                    named_tokens.add(name_token.i)
+                    mentioned.append(Person(
+                        name=name_token.text[:1].upper() + name_token.text[1:],
+                        relation=token.lemma_.lower(),
+                        pronoun=_GENDERED_RELATIONS.get(token.lemma_.lower()),
+                    ))
+
+        for token in doc:
             # Names on their own: "I played with Maya", "Maya and Jake came over"
             if token.i in named_tokens or token.pos_ != "PROPN" or self._is_childs_own_name(token):
                 continue

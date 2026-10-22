@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from services.reference_tracker import ReferenceTracker
+from services.reference_tracker import ReferenceTracker, gerund
 from services.utterance_parser import utterance_parser
 
 logger = logging.getLogger("chatbot.response_engine")
@@ -260,10 +260,13 @@ class ResponseEngine:
             if valence is None:
                 return None
             # "not bad" is positive, "not fun" is negative
-            if any(self._is_negated(t) for t in (token, token.head)):
+            # The adjective, its noun or verb, and for "is not a good dog" the verb over the noun
+            negatable = [token, token.head] + ([token.head.head] if token.head.dep_ == "attr" else [])
+            negated = any(self._is_negated(t) for t in negatable)
+            if negated:
                 valence = {"positive": "negative", "negative": "positive"}.get(valence, valence)
             slots["evaluation_valence"] = valence
-            slots["negation"] = "not " if any(self._is_negated(t) for t in (token, token.head)) else ""
+            slots["negation"] = "not " if negated else ""
 
         for slot_name, spec in rule.get("slots", {}).items():
             if spec["node"] not in nodes:  # optional node absent from this pattern
@@ -293,15 +296,24 @@ class ResponseEngine:
             mood = "sad" if flipped == "sad" else None
             valence = "negative" if flipped == "sad" else "neutral"
 
+        # "memory_conjuncts": one memory per item of a list ("two cats, a dog, and seven
+        # ducks" -> has_cat, has_dog, has_duck), not one for the whole list
+        memory_slots = [slots]
+        if "memory_conjuncts" in rule:
+            node_name = rule["memory_conjuncts"]
+            first = nodes[node_name]
+            memory_slots = [{**slots, **self._conjunct_slots(rule, node_name, item)}
+                            for item in self._list_items(first)]
         memories = []
         for memory in rule.get("memories", []):
-            referenced = re.findall(r"\{(\w+)\}", memory["key"] + memory["value"])
-            if any(not slots.get(name) for name in referenced):
-                continue  # e.g. "bigger than" states no preference
-            value = memory["value"].format_map(_BlankDict(slots)).strip()
-            key = memory["key"].format_map(_BlankDict(slots)).strip("_")
-            if value and key:
-                memories.append((memory["category"], key, value))
+            for item_slots in memory_slots:
+                referenced = re.findall(r"\{(\w+)\}", memory["key"] + memory["value"])
+                if any(not item_slots.get(name) for name in referenced):
+                    continue  # e.g. "bigger than" states no preference
+                value = memory["value"].format_map(_BlankDict(item_slots)).strip()
+                key = memory["key"].format_map(_BlankDict(item_slots)).strip("_")
+                if value and key:
+                    memories.append((memory["category"], key, value))
 
         return Frame(
             rule_id=rule["id"],
@@ -355,8 +367,48 @@ class ResponseEngine:
     # Slot extraction and perspective
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _is_list_link(token) -> bool:
+        """
+        A child that continues a list: a conjunct, or a common noun in apposition (the small
+        model reads "two cats, a dog, and seven ducks" as cats -appos-> dog -conj-> ducks)
+        """
+        return token.dep_ == "conj" or (token.dep_ == "appos" and token.pos_ == "NOUN")
+
+    def _list_items(self, token) -> List[Any]:
+        """The items of the list headed by token, in order (just the token if there is no list)"""
+        items = [token]
+        for child in token.children:
+            if self._is_list_link(child):
+                items.extend(self._list_items(child))
+        return sorted(items, key=lambda t: t.i)
+
+    def _conjunct_slots(self, rule: Dict[str, Any], node_name: str, conjunct) -> Dict[str, str]:
+        """The rule's slots for one item of a list bound to node_name, without the other items"""
+        slots = {}
+        others = [t for c in conjunct.children
+                  if self._is_list_link(c) or c.dep_ in ("cc", "punct") for t in c.subtree]
+        tokens = [t for t in conjunct.subtree if t not in others and t.dep_ not in _SKIP_DEPS]
+        for slot_name, spec in rule.get("slots", {}).items():
+            if spec["node"] != node_name:
+                continue
+            if spec["span"] == "lemma":
+                raw = reflected = conjunct.lemma_.lower()
+            else:
+                raw, reflected = self._join(tokens, reflect=False), self._join(tokens, reflect=True)
+            slots.update({slot_name: reflected, f"{slot_name}_raw": raw, f"{slot_name}_slug": _slug(raw)})
+        return slots
+
     def _extract_slot(self, token, span: str) -> Tuple[str, str]:
         """Return (child's wording, bot-perspective wording) for a bound node"""
+        if span == "activity":
+            # "I like to play Minecraft" -> "playing Minecraft", which reads right after
+            # "you like", "you really enjoy" and "isn't your thing"; nouns stay as they are
+            raw, reflected = self._extract_slot(token, "subtree")
+            if token.dep_ == "xcomp" and token.pos_ == "VERB" and raw.lower().startswith(token.lower_):
+                ing = gerund(token.lemma_.lower())
+                raw, reflected = ing + raw[len(token.text):], ing + reflected[len(token.text):]
+            return raw, reflected
         if span == "text":
             return token.text, token.text
         if span == "lemma":

@@ -177,21 +177,16 @@ class PunQuirkService:
         # Add pun with appropriate punctuation
         response = response.rstrip()
 
-        # Add spacing and pun
+        # Add the pun with a lead-in that says a joke is coming (and does not suggest it is
+        # related to what was just said, like "That reminds me:" did)
         if response:
-            # Add pun as separate sentence or with transition
-            if random.random() < 0.5:
-                # Direct append
-                return f"{response} {pun}"
-            else:
-                # With transition phrase
-                transition = random.choice([
-                    "Oh, and here's a fun one:",
-                    "Speaking of which...",
-                    "That reminds me:",
-                    "By the way,",
-                ])
-                return f"{response} {join_transition(transition, pun)}"
+            transition = random.choice([
+                "Oh, and here's a fun one:",
+                "Here's a joke for you:",
+                "Here's one that always makes me laugh:",
+                "Here's a silly one:",
+            ])
+            return f"{response} {join_transition(transition, pun)}"
         else:
             return pun
 

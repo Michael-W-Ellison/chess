@@ -1,5 +1,5 @@
 {
-  "_comment": "Knowledge base for the rule-based response engine (services/response_engine.py). Patterns use spaCy DependencyMatcher syntax; a string value starting with '@' inside an IN list refers to a lexicon below. A rule's suppressed_by lists rules whose match cancels it. Response text placeholders: {slot} is the slot from the bot's perspective (my -> your), {slot_raw} is the child's original wording, {slot_slug} is a key-safe form. Always available: {user_name}, {bot_name}, {bot_mood}. A rule's answer (optional) names what its reply says, from the child's point of view (\"your name\"), so the child can refer to it with \"it\" or \"that\".",
+  "_comment": "Knowledge base for the rule-based response engine (services/response_engine.py). Patterns use spaCy DependencyMatcher syntax; a string value starting with '@' inside an IN list refers to a lexicon below. A rule's suppressed_by lists rules whose match cancels it. Response text placeholders: {slot} is the slot from the bot's perspective (my -> your), {slot_raw} is the child's original wording, {slot_slug} is a key-safe form. Always available: {user_name}, {bot_name}, {bot_mood}. A rule's answer (optional) names what its reply says, from the child's point of view (\"your name\"), so the child can refer to it with \"it\" or \"that\". A rule's memory_conjuncts (optional) names a node whose list items (\"two cats, a dog\") are stored as separate memories; no_jokes keeps puns and facts off its replies.",
 
   "lexicons": {
     "like_verbs": ["love", "like", "enjoy", "adore"],
@@ -202,7 +202,7 @@
         ]
       ],
       "conditions": {"question": true},
-      "slots": {"thing": {"node": "obj", "span": "subtree"}},
+      "slots": {"thing": {"node": "obj", "span": "activity"}},
       "compute": ["bot_shares_like"],
       "responses": [
         {"text": "Yes, I really like {thing}! Do you?", "requires": ["bot_shares_like"]},
@@ -213,6 +213,7 @@
     {
       "id": "name_is",
       "priority": 80,
+      "no_jokes": true,
       "patterns": [[
         {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "name", "DEP": "nsubj"}},
@@ -426,7 +427,7 @@
           {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": {"IN": ["dobj", "xcomp"]}}}
         ]
       ],
-      "slots": {"thing": {"node": "obj", "span": "subtree"}},
+      "slots": {"thing": {"node": "obj", "span": "activity"}},
       "memories": [{"category": "dislike", "key": "dislikes_{thing_slug}", "value": "{thing_raw}"}],
       "valence": "neutral",
       "responses": ["Got it, {thing} isn't your thing. I'll remember that!", "Not a fan of {thing}, huh? That's okay, everybody likes different stuff."],
@@ -444,7 +445,7 @@
       ],
       "suppressed_by": ["love_person", "like_more"],
       "conditions": {"not_negated": "verb"},
-      "slots": {"thing": {"node": "obj", "span": "subtree"}, "verb": {"node": "verb", "span": "lemma"}},
+      "slots": {"thing": {"node": "obj", "span": "activity"}, "verb": {"node": "verb", "span": "lemma"}},
       "compute": ["bot_shares_like"],
       "memories": [{"category": "favorite", "key": "likes_{thing_slug}", "value": "{thing_raw}"}],
       "valence": "positive",
@@ -747,6 +748,55 @@
       }
     },
     {
+      "id": "relation_name_is",
+      "priority": 80,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "name", "DEP": "nsubj"}},
+        {"LEFT_ID": "subj", "REL_OP": ">", "RIGHT_ID": "rel", "RIGHT_ATTRS": {"DEP": "poss", "LEMMA": {"IN": "@relations"}}},
+        {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "owner", "RIGHT_ATTRS": {"LOWER": {"IN": ["my", "our", "the"]}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": {"IN": ["attr", "acomp", "npadvmod"]}}}
+      ]],
+      "conditions": {"not_negated": "be"},
+      "slots": {"name": {"node": "name", "span": "text", "capitalize": true}, "relation": {"node": "rel", "span": "lemma"}},
+      "memories": [{"category": "person", "key": "{relation_slug}_{name_slug}", "value": "{name_raw}"}],
+      "valence": "positive",
+      "responses": ["{name} is a great name for a {relation}!", "Aw, {name}! I'll remember that. What is {name} like?"]
+    },
+    {
+      "id": "noun_evaluation",
+      "priority": 59,
+      "suppressed_by": ["bot_thing_evaluation", "hard_question"],
+      "patterns": [
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "POS": "PROPN", "LOWER": {"NOT_IN": "@common_capitalized"}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "noun", "RIGHT_ATTRS": {"DEP": "attr", "POS": "NOUN"}},
+          {"LEFT_ID": "noun", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "amod"}}
+        ],
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": "@relations"}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "noun", "RIGHT_ATTRS": {"DEP": "attr", "POS": "NOUN"}},
+          {"LEFT_ID": "noun", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "amod"}}
+        ]
+      ],
+      "conditions": {"evaluation": "adj"},
+      "slots": {
+        "subject": {"node": "subj", "span": "subtree"},
+        "be": {"node": "be", "span": "verb_group"},
+        "description": {"node": "noun", "span": "subtree"}
+      },
+      "responses_by": {
+        "slot": "evaluation_valence",
+        "variants": {
+          "positive": ["Aw, I'm glad {subject} {be} {negation}{description}!", "{subject} {be} {negation}{description}? That's so nice!"],
+          "negative": ["Oh no, {subject} {be} {negation}{description}? What happened?"],
+          "neutral": ["{subject} {be} {negation}{description}? Tell me more!"]
+        }
+      }
+    },
+    {
       "id": "person_evaluation",
       "priority": 59,
       "suppressed_by": ["other_feeling"],
@@ -788,6 +838,7 @@
       "suppressed_by": ["have_named"],
       "conditions": {"not_negated": "verb"},
       "slots": {"thing": {"node": "rel", "span": "subtree"}, "relation": {"node": "rel", "span": "lemma"}},
+      "memory_conjuncts": "rel",
       "memories": [{"category": "basic", "key": "has_{relation_slug}", "value": "{thing_raw}"}],
       "valence": "positive",
       "responses": ["You have {thing}? That's awesome! Tell me more!", "Ooh, {thing}! What do you like to do together?"]

@@ -515,3 +515,63 @@ class TestReactionsToTheBot:
     def test_hard_question(self, engine, message):
         assert rule_ids(engine, message)[0] == "hard_question"
         assert "no wrong answer" in self.reply(engine, message)
+
+
+class TestTranscriptFixes:
+    """Replies from a reported conversation (activities, lists, pet names, "a good dog")"""
+
+    def reply(self, engine, message):
+        return engine.generate_response(message, make_personality())
+
+    @pytest.mark.parametrize("message,reflected,key", [
+        ("I like to play Minecraft.", "playing Minecraft", "likes_playing_minecraft"),
+        ("I like to take the dog on walks.", "taking the dog on walks", "likes_taking_the_dog_on_walks"),
+        ("I love playing soccer", "playing soccer", "likes_playing_soccer"),
+    ])
+    def test_activities_are_reflected_as_ing_forms(self, engine, message, reflected, key):
+        assert reflected.lower() in self.reply(engine, message).lower()
+        assert ("favorite", key, reflected) in memories(engine, message)
+
+    def test_disliked_activity(self, engine):
+        assert ("dislike", "dislikes_swimming", "swimming") in memories(engine, "I don't like to swim")
+
+    def test_goal_keeps_its_infinitive(self, engine):
+        assert ("goal", "goal_learn_to_swim", "learn to swim") in memories(engine, "I want to learn to swim")
+
+    @pytest.mark.parametrize("message,expected", [
+        ("I have two cats, a dog, and seven ducks.",
+         [("basic", "has_cat", "two cats"), ("basic", "has_dog", "a dog"), ("basic", "has_duck", "seven ducks")]),
+        ("I have a dog, a cat and a fish",
+         [("basic", "has_dog", "a dog"), ("basic", "has_cat", "a cat"), ("basic", "has_fish", "a fish")]),
+        ("I have a brother", [("basic", "has_brother", "a brother")]),
+    ])
+    def test_each_list_item_is_its_own_memory(self, engine, message, expected):
+        assert memories(engine, message) == expected
+
+    @pytest.mark.parametrize("message,name,relation", [
+        ("The dog's name is Roxie.", "Roxie", "dog"),
+        ("My mom's name is Sarah", "Sarah", "mom"),
+        ("my dog's name is roxie", "Roxie", "dog"),
+    ])
+    def test_relation_name(self, engine, message, name, relation):
+        assert rule_ids(engine, message)[0] == "relation_name_is"
+        assert ("person", f"{relation}_{name.lower()}", name) in memories(engine, message)
+        assert name in self.reply(engine, message)
+
+    def test_someone_elses_pets_name_is_not_the_childs(self, engine):
+        assert "relation_name_is" not in rule_ids(engine, "Jake's dog's name is Roxie")
+
+    @pytest.mark.parametrize("message,expected", [
+        ("Roxie is a good dog.", "Roxie is a good dog"),
+        ("Roxie is not a bad dog", "Roxie is not a bad dog"),
+        ("My dog is a good boy", "your dog is a good boy"),
+    ])
+    def test_positive_noun_evaluation(self, engine, message, expected):
+        assert rule_ids(engine, message)[0] == "noun_evaluation"
+        reply = self.reply(engine, message)
+        assert expected.lower() in reply.lower() and "What happened" not in reply
+
+    @pytest.mark.parametrize("message", ["Roxie is a bad dog", "Roxie is not a good dog", "Roxie isn't a nice cat"])
+    def test_negative_noun_evaluation(self, engine, message):
+        assert rule_ids(engine, message)[0] == "noun_evaluation"
+        assert "What happened?" in self.reply(engine, message)

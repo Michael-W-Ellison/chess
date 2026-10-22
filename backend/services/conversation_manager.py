@@ -63,6 +63,8 @@ class ConversationManager:
         self.current_conversation_id: Optional[int] = None
         self.message_count = 0
         self.conversation_start_time: Optional[datetime] = None
+        # Whether the last reply to each user had a fun fact or pun (no two in a row)
+        self._joked_last_reply: Dict[int, bool] = {}
 
     def start_conversation(self, user_id: int, db: Session) -> Dict:
         """
@@ -117,7 +119,7 @@ class ConversationManager:
         )
 
         # Generate greeting based on time since last conversation
-        greeting = self._generate_greeting(user, personality, db)
+        greeting = self._generate_greeting(user, personality, db, conversation.id)
 
         logger.info(f"Started conversation {conversation.id} for user {user_id}")
 
@@ -448,23 +450,38 @@ class ConversationManager:
         self.conversation_start_time = None
 
     def _generate_greeting(
-        self, user: User, personality: BotPersonality, db: Session
+        self, user: User, personality: BotPersonality, db: Session,
+        current_conversation_id: Optional[int] = None,
     ) -> str:
-        """Generate appropriate greeting based on time since last chat"""
-        # Get hours since last conversation
-        last_conversation = (
+        """
+        Greeting based on how long ago the child last talked with the bot: the time since the
+        last message of their previous conversation (not the one just started). The first
+        conversation gets an introduction.
+        """
+        previous = (
             db.query(Conversation)
-            .filter(Conversation.user_id == user.id)
+            .filter(Conversation.user_id == user.id, Conversation.id != current_conversation_id)
             .order_by(Conversation.timestamp.desc())
             .first()
         )
+        # The child's name, unless it is still the placeholder new accounts get
+        name = user.name if user.name and user.name != "User" else None
 
-        if last_conversation:
-            hours_since = (datetime.now() - last_conversation.timestamp).seconds / 3600
-        else:
-            hours_since = 999  # First conversation
+        if previous is None:
+            bot_name = getattr(personality, "name", None) or "Buddy"
+            if name:
+                return f"Hi {name}! I'm {bot_name}, and I'm so happy to meet you! What do you like to do for fun?"
+            return f"Hi there! I'm {bot_name}, your new friend. What's your name?"
 
-        name = user.name or "there"
+        last_message = (
+            db.query(Message)
+            .filter(Message.conversation_id == previous.id)
+            .order_by(Message.timestamp.desc())
+            .first()
+        )
+        last_active = last_message.timestamp if last_message else previous.timestamp
+        hours_since = (datetime.now() - last_active).total_seconds() / 3600
+        name = name or "there"
 
         if hours_since > 48:
             return f"Hey {name}! I missed you! It's been a while. How have you been?"
@@ -669,36 +686,28 @@ INSTRUCTIONS:
         """
         Apply personality quirks to response
 
-        Facts, puns and the catchphrase go before a closing question, so the reply still
-        ends with what the bot asked ("That's awesome! <pun> What was the best part?").
-        A reply gets at most one fact or pun.
+        A fact or pun is only added to a reply that does not ask the child something (a
+        question or "Tell me more!" should follow what the child said, not a joke), never to two replies in a
+        row, and after any emojis so an emoji cannot land between a joke's setup and
+        punchline. A reply gets at most one. The catchphrase goes before a closing question.
 
         If features is given, records whether a fun fact or pun was added ("humor" =
         "fact", "pun" or "none") so the child's reaction can be credited to it.
         """
         quirks = personality.get_quirks()
-        response, closing_question = self._split_closing_question(response)
+        user_id = getattr(personality, "user_id", None)
         # Higher humor means more puns and facts (0.5x at humor 0.0, 1.5x at humor 1.0)
         humor = getattr(personality, "humor", 0.5)
         humor_scale = 0.5 + humor if isinstance(humor, (int, float)) else 1.0
-        humor_added = None
 
-        # A reply that is only a question gets no fact or pun in front of it
-        joke_allowed = bool(response) and allow_jokes
+        joke_allowed = (bool(response) and allow_jokes and not self._invites_answer(response)
+                        and not self._joked_last_reply.get(user_id, False))
 
         # At most one fact or pun per reply (shares_facts / tells_puns quirks)
         joke = self._choose_joke(quirks, personality, humor_scale) if joke_allowed else None
-        if joke == "fact":
-            response = fact_quirk_service.add_fact(response, context=context, probability=1.0)
-            humor_added = "fact"
-        elif joke == "pun":
-            response = pun_quirk_service.add_pun(response, context=context, probability=1.0)
-            humor_added = "pun"
-
+        self._joked_last_reply[user_id] = joke is not None
         if features is not None and joke_allowed and ("shares_facts" in quirks or "tells_puns" in quirks):
-            features["humor"] = humor_added or "none"
-
-        response = f"{response} {closing_question}".strip() if closing_question else response
+            features["humor"] = joke or "none"
 
         # Apply uses_emojis quirk with enhanced emoji service
         if "uses_emojis" in quirks:
@@ -712,6 +721,12 @@ INSTRUCTIONS:
                 response, mood=personality.mood, intensity=intensity
             )
 
+        # The fact or pun goes at the end, after the emojis
+        if joke == "fact":
+            response = fact_quirk_service.add_fact(response, context=context, probability=1.0)
+        elif joke == "pun":
+            response = pun_quirk_service.add_pun(response, context=context, probability=1.0)
+
         # Add catchphrase occasionally (if feature unlocked), before any closing question
         if (
             can_use_catchphrase(personality)
@@ -722,6 +737,17 @@ INSTRUCTIONS:
             response = " ".join(p for p in (body, personality.catchphrase, closing_question) if p)
 
         return re.sub(r" {2,}", " ", response)
+
+    def _invites_answer(self, text: str) -> bool:
+        """
+        True if the reply ends by asking the child something: a question, or a closing
+        "Tell me ..." ("Tell me more!")
+        """
+        body, closing_question = self._split_closing_question(text)
+        if closing_question:
+            return True
+        sentences = [s for s in re.split(r"(?<=[.!?])\s+", body.strip()) if any(c.isalpha() for c in s)]
+        return bool(sentences) and sentences[-1].lower().startswith("tell me")
 
     @staticmethod
     def _choose_joke(quirks: List[str], personality: BotPersonality, humor_scale: float) -> Optional[str]:
