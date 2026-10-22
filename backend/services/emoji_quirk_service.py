@@ -75,7 +75,7 @@ class EmojiQuirkService:
         "afraid", "nervous", "stressed", "awful", "terrible", "mean", "lost", "broke", "broken",
         "hospital", "died", "dead", "funeral", "divorce", "injured", "fight", "fighting",
         "buried", "lonely", "alone", "annoying", "stupid", "dumb", "ugly", "fever", "pain", "hurts",
-        "ouch", "oof", "sting", "stings", "nightmare", "nightmares", "worst", "trouble",
+        "ouch", "oof", "sting", "stings", "nightmare", "nightmares", "worst", "trouble", "cracked", "spilled", "ripped", "ruined",
     }
     COMFORT_EMOJIS = ["💙", "🫂"]
     PLAY_FIGHTS = {"pillow", "snowball", "water", "food", "nerf", "tickle", "play", "balloon"}
@@ -147,6 +147,9 @@ class EmojiQuirkService:
                     continue  # "a pillow fight"
                 if word == "lost" and ("tooth" in words or "teeth" in words):
                     continue  # "I lost a tooth" is good news
+                if word == "hard" and any(w.startswith(("stud", "work", "tri", "try", "practic", "train"))
+                                          for w in words[max(0, i - 3):i]):
+                    continue  # "I studied really hard"
                 return True
         return "oh no" in text.lower()
 

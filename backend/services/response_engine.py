@@ -88,6 +88,10 @@ _NO_NAME = "\x00"
 # Groups of people that can be a sentence's subject ("Kids chased me")
 _PEOPLE_GROUPS = {"kid", "boy", "girl", "classmate", "student", "people", "everyone", "everybody"}
 
+# Replies to a joke the child tells: to the setup question, then to the punchline
+CHILD_JOKE_GUESSES = ["Hmm, I don't know! What?", "I give up! Tell me!", "Ooh, I'm not sure! Why?"]
+CHILD_JOKE_LAUGHS = ["Haha! That's a good one! You're really funny.", "Hahaha! I didn't see that coming!"]
+
 _ARITHMETIC_RE = re.compile(
     r"\b(\d{1,4}) ?(plus|\+|minus|-|times|x|\*|divided by|/) ?(\d{1,4})\b", re.IGNORECASE
 )
@@ -127,7 +131,9 @@ class ResponseEngine:
         self._last_request: Dict[int, str] = {}
         self._last_told: Dict[int, str] = {}  # "joke"/"fun fact" if the last reply told one
         self._last_mentions: Dict[int, List[str]] = {}  # the bot's own answers in the last reply
-        self._last_category: Dict[int, str] = {}  # the favorite category last talked about
+        self._last_category: Dict[int, str] = {}
+        # 1 after "I have a joke for you" (waiting for the setup), 2 after the bot's guess
+        self._child_joke: Dict[int, int] = {}  # the favorite category last talked about
         self._load_knowledge_base()
         self.references = ReferenceTracker(
             parser, self.kb["lexicons"]["relations"], self.kb["lexicons"]["common_capitalized"]
@@ -180,6 +186,7 @@ class ResponseEngine:
         self.references.reset(user_id)
         self._last_told.pop(user_id, None)
         self._last_mentions.pop(user_id, None)
+        self._child_joke.pop(user_id, None)
 
     def record_bot_reply(self, user_id: int, reply: str, humor: Optional[str] = None) -> None:
         """
@@ -317,8 +324,15 @@ class ResponseEngine:
             slots[f"{slot_name}_raw"] = raw
             slots[slot_name] = reflected
             slots[f"{slot_name}_slug"] = _slug(raw)
-            if nodes[spec["node"]].tag_ in ("NNS", "NNPS"):
-                slots[f"{slot_name}_plural"] = "yes"  # "cupcakes sound", "cheese sounds"
+            # "{thing} sound{thing_s}", "about {thing_them}": "cupcakes sound", "cheese sounds"
+            node = nodes[spec["node"]]
+            # A bare "pancakes" can be mistagged as singular
+            plural = node.tag_ in ("NNS", "NNPS") or (
+                node.pos_ in ("NOUN", "VERB") and node.lower_.endswith("s") and node.lemma_.lower() != node.lower_)
+            if plural:
+                slots[f"{slot_name}_plural"] = "yes"
+            slots[f"{slot_name}_s"] = "" if plural else "s"
+            slots[f"{slot_name}_them"] = "them" if plural else "it"
 
         slots["message_text"] = doc.text
         if "comparison_preference" in rule.get("compute", []):
@@ -616,8 +630,10 @@ class ResponseEngine:
     @staticmethod
     def _definite_thing_subject(token) -> bool:
         """True if the clause's subject is a specific thing ("the tower broke", "my bike is broken")"""
-        return any(c.dep_ == "nsubj" and c.pos_ == "NOUN"
-                   and any(d.dep_ in ("det", "poss") and d.lower_ in ("the", "my", "our", "your") for d in c.children)
+        # The noun can be mistagged ("The starfish felt bumpy" tags "starfish" as an adjective)
+        return any(c.dep_ == "nsubj" and c.pos_ in ("NOUN", "ADJ", "PROPN")
+                   and any(d.dep_ in ("det", "poss") and d.lower_ in ("the", "my", "our", "your", "his", "her", "their")
+                           for d in c.children)
                    for c in token.children)
 
     @staticmethod
@@ -744,6 +760,16 @@ class ResponseEngine:
             "bot_mood": getattr(personality, "mood", None) or "happy",
         }
 
+        # The child is telling a joke: "Why did the chicken cross the road?" ... the punchline
+        joke_stage = self._child_joke.pop(user_id, 0)
+        if joke_stage:
+            if features is not None:
+                features["rule"] = "child_joke"
+            if joke_stage == 1 and analysis.is_question:
+                self._child_joke[user_id] = 2
+                return self._apply_style(self.rng.choice(CHILD_JOKE_GUESSES), personality)
+            return self._apply_style(self.rng.choice(CHILD_JOKE_LAUGHS), personality)
+
         # "What's 2 plus 2?"
         sum_match = _ARITHMETIC_RE.search(message)
         if sum_match and not analysis.frames:
@@ -764,6 +790,8 @@ class ResponseEngine:
             self._record_answer(frame.rule, slots, user_id)
             core = self._choose_template(frame.rule, slots, level, user_id, policy, features)
             features["rule"] = frame.rule_id
+            if frame.rule_id == "offer_content" and slots.get("kind") in ("joke", "riddle", "pun"):
+                self._child_joke[user_id] = 1  # the next message is the child's joke
 
             # Multi-sentence messages: also answer the strongest match in another sentence
             # ("I won my game today! Do you like soccer?")
@@ -905,6 +933,9 @@ class ResponseEngine:
 
     def rule_flag(self, rule_id: Optional[str], flag: str) -> bool:
         """A rule's boolean option from the knowledge base (e.g. "no_jokes")"""
+        # Answers to questions about the world and the child's own joke get no joke added
+        if flag == "no_jokes" and rule_id and (rule_id.startswith("fallback_world") or rule_id == "child_joke"):
+            return True
         return bool(rule_id and self.rules.get(rule_id, {}).get(flag))
 
     def _decide(self, feature: str, probability: float, policy) -> bool:
@@ -1017,8 +1048,12 @@ class ResponseEngine:
                         kind = "reflection" if tense == "past" else f"reflection_{tense}"
                         # "He is a golden retriever": not "What's that like?"
                         # "He is a golden retriever", "It was so tall": not "What's that like?"
-                        if (root.lemma_ == "be" or (root.lemma_ == "have" and not self._first_person_subject(root))) \
-                                and kind in ("reflection_present", "reflection"):
+                        describes = root.lemma_ == "be" or (
+                            root.lemma_ == "have" and not self._first_person_subject(root)) or (
+                            root.lemma_ in ("feel", "look", "sound", "smell", "taste", "seem")
+                            and any(c.dep_ == "acomp" for c in root.children)
+                            and not self._first_person_subject(root))
+                        if describes and kind in ("reflection_present", "reflection"):
                             kind = "reflection_be"
                         # "We can't go to the park"
                         elif self._is_negated(root) and any(c.lower_ in ("ca", "can", "could") for c in root.children):

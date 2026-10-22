@@ -70,7 +70,7 @@ _MOOD_KEYWORDS = [
 ]
 
 # Words that end the gentle replies after sad news
-_CHEERFUL_RE = re.compile(r"\b(laugh\w*|fun|happy|better|great|awesome|excited|yay|haha\w*|lol)\b", re.IGNORECASE)
+_CHEERFUL_RE = re.compile(r"\b(laugh\w*|fun|happy|great|awesome|excited|yay|haha\w*|lol)\b", re.IGNORECASE)
 
 # "What should I do?", "can you help me", not "What ride should I go on?"
 _ASKS_WHAT_TO_DO_RE = re.compile(

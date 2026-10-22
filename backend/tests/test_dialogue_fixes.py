@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from main import app
 from services.emoji_quirk_service import emoji_quirk_service
+from services import response_engine as engine_module
 from services.response_engine import ResponseEngine
 from services.safety_filter import safety_filter
 from services.utterance_parser import UtteranceParser
@@ -157,6 +158,24 @@ class TestNewRules:
         ("I want to be a vet", "goal"),
         ("my sister is really good", "person_evaluation"),
         ("my sister is sad", "other_feeling"),
+        ("there was a shark", "there_was"),
+        ("can we go again", "ask_permission"),
+        ("it was my first goal ever", "first_ever"),
+        ("will my friend be ok", "will_be_ok"),
+        ("I get allowance", "allowance"),
+        ("is a whale a fish", "fallback_world_answer"),
+        ("The starfish felt bumpy", "fallback_reflection_be"),
+        ("I have 20 dinosaur toys", "have_many"),
+        ("I got a c on my test", "grade"),
+        ("my dad was disappointed", "other_feeling"),
+        ("I studied really hard", "tried_hard"),
+        ("I feel stupid", "feel_stupid"),
+        ("I feel bad", "feeling"),
+        ("is it scary", "is_it_scary"),
+        ("guess what I had for breakfast", "guess_what_i"),
+        ("pancakes", "food_mention"),
+        ("sing me a song", "bot_song"),
+        ("ok bye buddy", "farewell_last"),
     ])
     def test_rule(self, engine, message, rule):
         assert rule_of(engine, message)[0] == rule
@@ -319,6 +338,34 @@ class TestReferences:
         rule_of(engine, "I built a sandcastle")
         rule_of(engine, "I built another one")
         assert engine.resolve_references("it was even bigger", 1) == "The new sandcastle was even bigger"
+
+    def test_child_tells_a_joke(self, engine):
+        rule_of(engine, "I have a joke for you")
+        rule, reply = rule_of(engine, "why did the chicken cross the road")
+        assert rule == "child_joke"
+        assert reply in engine_module.CHILD_JOKE_GUESSES
+        rule, reply = rule_of(engine, "to get to the other side")
+        assert rule == "child_joke"
+        assert rule_of(engine, "why is the sky blue")[0] == "fallback_world_answer"  # back to normal
+
+    def test_no_joke_after_a_world_answer(self, engine):
+        assert engine.rule_flag("fallback_world_answer", "no_jokes")
+
+    def test_mine_is_my_last_thing(self, engine):
+        rule_of(engine, "in art we made clay pots")
+        assert engine.resolve_references("mine was blue and green", 1) == "My clay pot was blue and green"
+
+    def test_will_he_be_ok_is_not_an_evaluation(self, engine):
+        assert rule_of(engine, "will my friend be nice")[0] != "person_evaluation"
+
+    @pytest.mark.parametrize("message,text", [
+        ("I love dinosaurs", "dinosaurs sound like"),
+        ("I love origami", "origami sounds like"),
+    ])
+    def test_plural_agreement_in_templates(self, engine, message, text):
+        replies = {engine.generate_response(message, make_personality(user_id=n)) for n in range(1, 12)}
+        assert any(text in r.lower() for r in replies)
+        assert not any(("dinosaurs sounds" in r.lower() or "origami sound " in r.lower()) for r in replies)
 
     def test_mine_is_not_a_thing(self, engine):
         rule_of(engine, "my favorite food is sushi")
@@ -486,6 +533,13 @@ class TestConversation:
         user_id, conversation_id, _ = start(api)
         with patch("services.conversation_manager.ConversationManager._choose_joke", return_value="pun"):
             for message in ("my grandpa is in the hospital", "we visited him on sunday", "he gave me a hug"):
+                reply = send(api, user_id, conversation_id, message)
+                assert "joke" not in reply.lower() and "fun one" not in reply.lower()
+
+    def test_hoping_someone_gets_better_stays_gentle(self, api):
+        user_id, conversation_id, _ = start(api)
+        with patch("services.conversation_manager.ConversationManager._choose_joke", return_value="pun"):
+            for message in ("my friend is sick", "I made him a card", "I hope he gets better"):
                 reply = send(api, user_id, conversation_id, message)
                 assert "joke" not in reply.lower() and "fun one" not in reply.lower()
 

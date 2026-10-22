@@ -414,6 +414,16 @@ class ReferenceTracker:
             possessive = lower in _POSSESSIVE_FORMS or (lower == "her" and token.dep_ == "poss")
             return self._match_case(person.phrase(possessive), token)
 
+        # "Mine was blue and green" after "we made clay pots": my clay pot
+        if lower == "mine" and token.dep_ == "nsubj":
+            things = [t for t in self._recent(state.things, state) if not t.short and not t.added]
+            if things:
+                words = things[0].text.split()
+                noun = " ".join(w for w in words if w.lower() not in _DETERMINERS)
+                if noun:
+                    noun = noun[:-1] if things[0].plural and noun.endswith("s") else noun
+                    return self._match_case(f"my {noun}", token)
+
         if lower in _THING_PRONOUNS and self._is_thing_reference(token):
             match, attr = self._named_thing(token, state)
             if match is not None:
