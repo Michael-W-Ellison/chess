@@ -877,6 +877,10 @@ class ResponseEngine:
                 if options:
                     slots["category"] = category
                     slots["bot_favorite"] = options[_stable_index(f"{seed_id}:{category}", len(options))]
+            elif name == "gift_container":
+                # "a goody bag" holds something; "a bike" does not
+                if slots.get("gift_raw", "").lower().split()[-1:] in (["bag"], ["box"], ["basket"], ["stocking"]):
+                    slots["gift_container"] = "yes"
             elif name == "birthday_timing":
                 text = slots.get("message_text", "").lower()
                 if re.search(r"\btoday\b", text):

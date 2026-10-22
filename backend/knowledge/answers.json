@@ -1,6 +1,7 @@
 {
   "_comment": "Short answers to common questions children ask about the world, used by the rule-based response engine (services/response_engine.py) when a question matches no rule. Each pattern is a case-insensitive regular expression matched against the child's question; the first match wins, so put specific patterns before general ones. Keep answers short, simple and well established.",
   "answers": [
+    {"pattern": "\\bhow (do|does) (a )?computers? work\\b", "answer": "Computers follow lists of instructions called programs, super fast! They use electricity and tiny switches to do math, remember things, and show pictures."},
     {"pattern": "\\bwhat did (the )?t\\.? ?rex eat\\b", "answer": "T. rex was a meat-eater! It probably hunted other dinosaurs, like Triceratops."},
     {"pattern": "\\bhow tall (can|do) sunflowers\\b", "answer": "Sunflowers can grow taller than a grown-up! Most get about 5 to 10 feet tall, and some grow even taller."},
     {"pattern": "\\bwhat do hamsters eat\\b", "answer": "Hamsters eat special hamster food, seeds, and little bits of veggies like carrots. Ask a grown-up which foods are safe!"},

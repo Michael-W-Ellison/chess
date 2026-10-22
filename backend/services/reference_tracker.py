@@ -384,6 +384,13 @@ class ReferenceTracker:
             else:
                 candidates = [p for p in people if not p.plural and p.pronoun in (None, gender)]
             if not candidates:
+                # "We built a snowman. His name is Frosty": the thing the child made
+                if lower in ("his", "her") and token.head.lower_ == "name":
+                    things = [t for t in self._recent(state.things, state)
+                              if not t.short and not t.added and not t.plural]
+                    if things:
+                        noun = things[0].text.split()[-1]
+                        return self._match_case(f"the {noun}'s", token)
                 return None
 
             # Most recent turn first; within a turn, someone known to be "she"/"he"
@@ -439,7 +446,7 @@ class ReferenceTracker:
                 things = sorted(things, key=lambda t: t.text.split()[-1].lower() not in _BODY_PARTS)
             # An added joke or fact: "That was funny", not "my teacher put it on the wall"
             reaction = token.dep_ == "nsubj" and any(
-                c.dep_ in ("acomp", "attr") and c.lemma_.lower() in _REACTION_WORDS for c in token.head.children)
+                c.dep_ in ("acomp", "attr") and c.lower_ in _REACTION_WORDS for c in token.head.children)
             if not reaction:
                 things = [t for t in things if not t.added]
             # The bot's own answer ("Mine is Jupiter") for a reaction or "I like it too", not
@@ -581,6 +588,14 @@ class ReferenceTracker:
         for token in doc:
             # "My dog's name is Roxie" / "The dog's name is Roxie" (the child's dog)
             head = token.head
+            if (token.dep_ == "poss" and token.pos_ == "NOUN" and token.lemma_.lower() not in self.relations
+                    and head.lower_ == "name" and head.dep_ == "nsubj"
+                    and any(c.lower_ in ("my", "our", "the") for c in token.children)):
+                # "The snowman's name is Frosty": Frosty, a he or she the child may talk about
+                name_token = next((c for c in head.head.children if c.dep_ in ("attr", "acomp")), None)
+                if name_token is not None and name_token.is_alpha and not any(c.dep_ == "det" for c in name_token.children):
+                    named_tokens.add(name_token.i)
+                    mentioned.append(Person(name=name_token.text[:1].upper() + name_token.text[1:]))
             if (token.dep_ == "poss" and token.lemma_.lower() in self.relations
                     and head.lower_ == "name" and head.dep_ == "nsubj"
                     and any(c.lower_ in ("my", "our", "the") for c in token.children)):

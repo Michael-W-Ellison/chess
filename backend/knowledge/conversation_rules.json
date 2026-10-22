@@ -22,7 +22,22 @@
     "bad_results": ["f", "d", "detention", "zero", "f-", "d-", "0"],
     "team_words": ["team", "cut", "varsity", "squad", "roll"],
     "negative_person_actions": ["yell", "scream", "shout", "ground", "punish", "ignore", "tease", "blame", "break", "ruin", "steal"],
-    "positive_person_actions": ["buy", "teach", "help", "surprise", "bring", "show", "read", "cook", "bake", "hug", "make"],
+    "positive_person_actions": [
+      "buy",
+      "teach",
+      "help",
+      "surprise",
+      "bring",
+      "show",
+      "read",
+      "cook",
+      "bake",
+      "hug",
+      "make",
+      "smile",
+      "wave",
+      "share"
+    ],
     "identity_words": ["robot", "human", "person", "ai", "real", "alive", "computer", "bot", "machine", "kid", "child"],
     "common_capitalized": ["school", "today", "tomorrow", "yesterday", "recess", "lunch", "math", "science", "art",
                            "gym", "music", "reading", "class", "practice", "homework", "everything", "everyone",
@@ -258,7 +273,7 @@
     "reflection_present": ["{clause}? Tell me more!", "Oh, {clause}? What's that like?"],
     "reflection_sad": [
       "Oh no, {clause}? I'm sorry. Do you want to talk about it?",
-      "Oh no, {clause}? That's too bad. What happened?"
+      "Oh no, {clause}? I'm sorry to hear that. What happened?"
     ],
     "reflection_gentle": ["{clause}? Thank you for telling me about that.", "{clause}? I'm listening."],
     "reflection_be": ["{clause}? Tell me more!", "Oh, {clause}? I didn't know that!"],
@@ -627,12 +642,19 @@
     {
       "id": "made_me_feel",
       "priority": 77,
-      "patterns": [[
-        {"RIGHT_ID": "make", "RIGHT_ATTRS": {"LEMMA": "make"}},
-        {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "feel", "RIGHT_ATTRS": {"DEP": {"IN": ["ccomp", "xcomp"]}, "LEMMA": "feel"}},
-        {"LEFT_ID": "feel", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "me"}},
-        {"LEFT_ID": "feel", "REL_OP": ">", "RIGHT_ID": "emotion", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["sad", "happy", "mad", "angry", "scared", "bad", "good", "better", "worse", "lonely", "upset", "excited", "proud", "silly", "nervous", "special", "great", "awful", "terrible"]}}}
-      ]],
+      "patterns": [
+        [
+          {"RIGHT_ID": "make", "RIGHT_ATTRS": {"LEMMA": "make"}},
+          {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "feel", "RIGHT_ATTRS": {"DEP": {"IN": ["ccomp", "xcomp"]}, "LEMMA": "feel"}},
+          {"LEFT_ID": "feel", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "me"}},
+          {"LEFT_ID": "feel", "REL_OP": ">", "RIGHT_ID": "emotion", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["sad", "happy", "mad", "angry", "scared", "bad", "good", "better", "worse", "lonely", "upset", "excited", "proud", "silly", "nervous", "special", "great", "awful", "terrible"]}}}
+        ],
+        [
+          {"RIGHT_ID": "make", "RIGHT_ATTRS": {"LEMMA": "make"}},
+          {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "emotion", "RIGHT_ATTRS": {"DEP": {"IN": ["ccomp", "xcomp", "oprd", "acomp"]}, "LOWER": {"IN": ["sad", "happy", "mad", "angry", "scared", "upset", "nervous", "excited", "proud", "lonely", "worried", "afraid", "frustrated", "embarrassed", "jealous"]}}},
+          {"LEFT_ID": "emotion", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": {"IN": ["nsubj", "dobj"]}, "LOWER": "me"}}
+        ]
+      ],
       "conditions": {"emotion": "emotion", "question": false},
       "slots": {"emotion": {"node": "emotion", "span": "text"}},
       "responses_by": {
@@ -1131,7 +1153,7 @@
       "id": "allowance",
       "priority": 66,
       "patterns": [[
-        {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": {"IN": ["get", "earn"]}}},
+        {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": {"IN": ["get", "earn", "make", "save"]}}},
         {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
         {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "money", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["allowance", "money", "dollar", "dollars"]}}}
       ]],
@@ -1175,6 +1197,39 @@
       "responses": ["{thing}? Wow, that's a lot! Which one is your favorite?"]
     },
     {
+      "id": "animal_scary",
+      "priority": 66,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["bark", "growl", "chase", "jump", "hiss", "snap", "run"]}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "at", "RIGHT_ATTRS": {"LOWER": {"IN": ["at", "after"]}}},
+        {"LEFT_ID": "at", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "pobj", "LOWER": "me"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "verb"},
+      "mood": "anxious",
+      "no_jokes": true,
+      "responses": [
+        "Whoa, that sounds scary! Are you okay? It's a good idea to stay calm and walk away slowly from a dog you don't know."
+      ]
+    },
+    {
+      "id": "got_gift",
+      "priority": 66,
+      "patterns": [[
+        {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": {"IN": ["get", "receive"]}}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "gift", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["gift", "present", "bag", "toy", "candy", "sticker", "balloon", "prize", "treat", "card", "book", "game", "bike", "doll", "lego", "legos", "shirt", "shoes", "phone", "tablet", "ipad", "watch"]}}}
+      ]],
+      "conditions": {"not_negated": "get", "question": false},
+      "slots": {"gift": {"node": "gift", "span": "subtree"}},
+      "valence": "positive",
+      "mood": "happy",
+      "responses": [
+        {"text": "Ooh, {gift}! What was in it?", "requires": ["gift_container"]},
+        {"text": "Yay, {gift}! Do you like {gift_them}?"}
+      ],
+      "compute": ["gift_container"]
+    },
+    {
       "id": "achievement",
       "priority": 65,
       "patterns": [
@@ -1194,7 +1249,7 @@
           {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "xcomp"}}
         ]
       ],
-      "suppressed_by": ["bad_result", "tried_hard", "grade"],
+      "suppressed_by": ["bad_result", "tried_hard", "grade", "got_gift", "allowance"],
       "conditions": {"not_negated": "verb", "question": false},
       "slots": {"clause": {"node": "verb", "span": "clause"}, "what": {"node": "verb", "span": "predicate"}},
       "memories": [{"category": "achievement", "key": "achievement_{what_slug}", "value": "{what}"}],
@@ -1234,13 +1289,26 @@
       ]
     },
     {
+      "id": "want_to_buy",
+      "priority": 59,
+      "patterns": [[
+        {"RIGHT_ID": "want", "RIGHT_ATTRS": {"LEMMA": "want"}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "buy", "RIGHT_ATTRS": {"DEP": "xcomp", "LEMMA": {"IN": ["buy", "get"]}}},
+        {"LEFT_ID": "buy", "REL_OP": ">", "RIGHT_ID": "thing", "RIGHT_ATTRS": {"DEP": "dobj"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "want"},
+      "slots": {"thing": {"node": "thing", "span": "subtree"}},
+      "responses": ["Ooh, {thing}! Do you know which one you want?"]
+    },
+    {
       "id": "goal",
       "priority": 60,
       "suppressed_by": ["crying", "offer_content"],
       "patterns": [[
         {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["want", "hope", "plan", "wish"]}}},
         {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
-        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "goal", "RIGHT_ATTRS": {"DEP": "xcomp", "LEMMA": {"NOT_IN": ["go", "leave", "cry", "hide", "quit", "sleep", "stop", "die"]}}}
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "goal", "RIGHT_ATTRS": {"DEP": "xcomp", "LEMMA": {"NOT_IN": ["go", "leave", "cry", "hide", "quit", "sleep", "stop", "die", "buy", "get", "eat", "have", "watch", "play", "see"]}}}
       ]],
       "conditions": {"not_negated": "verb"},
       "slots": {"goal": {"node": "goal", "span": "subtree"}},
@@ -2146,6 +2214,43 @@
       ]
     },
     {
+      "id": "bot_body_question",
+      "priority": 89,
+      "patterns": [[
+        {"RIGHT_ID": "have", "RIGHT_ATTRS": {"LEMMA": "have"}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "part", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["brain", "feeling", "heart", "body", "eye", "ear", "hand", "face", "nose", "mouth", "leg", "arm", "hair", "feelings"]}}}
+      ]],
+      "conditions": {"question": true},
+      "slots": {"part": {"node": "part", "span": "lemma"}},
+      "responses_by": {
+        "slot": "part",
+        "variants": {
+          "feeling": ["I don't have feelings like you do, but I really like chatting with you!"],
+          "brain": ["I don't have a brain like yours! I'm a computer program, so I follow lots of instructions really fast."],
+          "default": ["I don't have a body like you do, since I'm a computer program. I live right here in this app!"]
+        }
+      }
+    },
+    {
+      "id": "bot_think_question",
+      "priority": 89,
+      "patterns": [[
+        {"RIGHT_ID": "think", "RIGHT_ATTRS": {"LEMMA": {"IN": ["think", "learn", "dream", "remember"]}}},
+        {"LEFT_ID": "think", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+        {"LEFT_ID": "think", "REL_OP": ">", "RIGHT_ID": "can", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": {"IN": ["can", "could"]}}}
+      ]],
+      "conditions": {"question": true, "max_tokens": 6},
+      "slots": {"verb": {"node": "think", "span": "lemma"}},
+      "responses_by": {
+        "slot": "verb",
+        "variants": {
+          "remember": ["I can remember some things you tell me, like your name and your favorite things!"],
+          "default": ["Not like you do! I'm a computer program, so I follow lots of instructions really fast to chat with you."]
+        }
+      }
+    },
+    {
       "id": "bot_do_question",
       "priority": 88,
       "patterns": [
@@ -2165,7 +2270,9 @@
         "ability_question",
         "bot_family_question",
         "bot_gender_question",
-        "bot_still_here"
+        "bot_still_here",
+        "bot_body_question",
+        "bot_think_question"
       ],
       "conditions": {"question": true},
       "slots": {"thing": {"node": "obj", "span": "subtree"}, "verb": {"node": "verb", "span": "lemma"}},
@@ -2381,6 +2488,20 @@
         "Aw, {name}! I'll remember that. What is {name} like?",
         {"text": "{name} is a lovely name. It sounds like {name} was really special to you.", "requires": ["past"]}
       ]
+    },
+    {
+      "id": "thing_name_is",
+      "priority": 79,
+      "suppressed_by": ["relation_name_is", "name_is"],
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "name", "DEP": "nsubj"}},
+        {"LEFT_ID": "subj", "REL_OP": ">", "RIGHT_ID": "owner", "RIGHT_ATTRS": {"DEP": "poss", "POS": "NOUN"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": {"IN": ["attr", "acomp"]}}}
+      ]],
+      "conditions": {"not_negated": "be", "no_det": "name"},
+      "slots": {"name": {"node": "name", "span": "text", "capitalize": true}, "thing": {"node": "owner", "span": "lemma"}},
+      "responses": ["{name} is a great name for a {thing}!"]
     },
     {
       "id": "relation_name_is",
@@ -2679,6 +2800,17 @@
       "responses": ["Yum, {food}! Sounds delicious."]
     },
     {
+      "id": "school_cancelled",
+      "priority": 60,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["cancel", "close"]}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "school", "RIGHT_ATTRS": {"DEP": {"IN": ["nsubjpass", "nsubj"]}, "LEMMA": {"IN": ["school", "class", "practice"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "verb"},
+      "slots": {"school": {"node": "school", "span": "lemma"}},
+      "responses": ["No {school} today? What are you going to do instead?"]
+    },
+    {
       "id": "short_answer",
       "priority": 40,
       "patterns": [[{"RIGHT_ID": "word", "RIGHT_ATTRS": {"DEP": "ROOT"}}]],
@@ -2951,7 +3083,7 @@
       "conditions": {"question": true},
       "slots": {"action": {"node": "verb", "span": "predicate"}},
       "responses": ["Hmm, I don't think I can {action}, since I'm a computer program. But I can chat, tell jokes, and share fun facts! What would you like?"],
-      "suppressed_by": ["cheer_me_up", "request_funny"]
+      "suppressed_by": ["cheer_me_up", "request_funny", "bot_think_question"]
     },
     {
       "id": "thanks",

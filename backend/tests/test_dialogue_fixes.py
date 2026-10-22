@@ -176,6 +176,19 @@ class TestNewRules:
         ("pancakes", "food_mention"),
         ("sing me a song", "bot_song"),
         ("ok bye buddy", "farewell_last"),
+        ("school is cancelled", "school_cancelled"),
+        ("a big dog barked at me", "animal_scary"),
+        ("it made me scared", "made_me_feel"),
+        ("I want to buy a toy", "want_to_buy"),
+        ("I made 12 dollars", "allowance"),
+        ("I got a goody bag", "got_gift"),
+        ("I got a B", "achievement"),
+        ("do you have a brain", "bot_body_question"),
+        ("do you have feelings", "bot_body_question"),
+        ("can you think", "bot_think_question"),
+        ("can you remember my name", "bot_think_question"),
+        ("the snowman's name is Frosty", "thing_name_is"),
+        ("how do computers work", "fallback_world_answer"),
     ])
     def test_rule(self, engine, message, rule):
         assert rule_of(engine, message)[0] == rule
@@ -366,6 +379,16 @@ class TestReferences:
         replies = {engine.generate_response(message, make_personality(user_id=n)) for n in range(1, 12)}
         assert any(text in r.lower() for r in replies)
         assert not any(("dinosaurs sounds" in r.lower() or "origami sound " in r.lower()) for r in replies)
+
+    def test_his_name_for_a_thing_the_child_made(self, engine):
+        rule_of(engine, "we built a snowman")
+        assert engine.resolve_references("his name is frosty", 1) == "The snowman's name is frosty"
+        assert engine.resolve_references("he has a carrot nose", 1) == "Frosty has a carrot nose"
+
+    def test_the_best_is_not_a_reaction_to_an_added_joke(self, engine):
+        rule_of(engine, "I got a goody bag")
+        engine.references.record_bot_reply(1, "Ooh, a goody bag! What was in it?", told="joke", told_was_added=True)
+        assert "joke" not in engine.resolve_references("it was the best", 1)
 
     def test_mine_is_not_a_thing(self, engine):
         rule_of(engine, "my favorite food is sushi")
