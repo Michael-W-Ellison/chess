@@ -323,7 +323,8 @@
     "silly": ["{topic}? Hehe, that's so silly! You're funny.", "{topic}? Haha, what a silly combo!"],
     "reflection_present_other": ["Oh, {clause}? Tell me more!"],
     "unknown_person_event": ["{clause}? Who was that?"],
-    "unknown_person_upset": ["Oh no, {clause}? Are you okay? Who was it?"]
+    "unknown_person_upset": ["Oh no, {clause}? Are you okay? Who was it?"],
+    "unknown_person_pet": ["Uh oh, {clause}? Was it a pet?"]
   },
 
   "rules": [
@@ -361,6 +362,29 @@
       "slots": {"a": {"node": "a", "span": "text"}, "b": {"node": "b", "span": "text"}},
       "no_jokes": true,
       "responses": ["Feeling {a} and {b} at the same time is totally normal! What's making you feel each one?"]
+    },
+    {
+      "id": "two_feelings",
+      "priority": 79,
+      "patterns": [
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": {"IN": ["be", "feel"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "x", "RIGHT_ATTRS": {"DEP": "acomp"}},
+          {"LEFT_ID": "x", "REL_OP": ">", "RIGHT_ID": "and", "RIGHT_ATTRS": {"DEP": "cc", "LOWER": "and"}},
+          {"LEFT_ID": "x", "REL_OP": ">", "RIGHT_ID": "y", "RIGHT_ATTRS": {"DEP": "conj", "POS": "ADJ"}}
+        ],
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": {"IN": ["be", "feel"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "x", "RIGHT_ATTRS": {"DEP": "acomp"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "and", "RIGHT_ATTRS": {"DEP": "cc", "LOWER": "and"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "y", "RIGHT_ATTRS": {"DEP": "conj", "TAG": {"IN": ["JJ", "VBN"]}}}
+        ]
+      ],
+      "conditions": {"question": false, "not_negated": "be", "max_tokens": 8},
+      "slots": {"x": {"node": "x", "span": "text"}, "y": {"node": "y", "span": "text"}},
+      "responses": ["Feeling {x} and {y} at the same time is a lot! Tell me more about it."]
     },
     {
       "id": "knocked_over",
@@ -2662,7 +2686,7 @@
           "neutral": ["Want to tell me more?"]
         }
       },
-      "suppressed_by": ["good_at", "feel_stupid", "mixed_feelings", "better_than"],
+      "suppressed_by": ["good_at", "feel_stupid", "mixed_feelings", "better_than", "two_feelings"],
       "modality_ok_for": ["future"]
     },
     {
@@ -3188,7 +3212,7 @@
       "patterns": [[
         {"RIGHT_ID": "have", "RIGHT_ATTRS": {"LEMMA": "have"}},
         {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
-        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "thing", "RIGHT_ATTRS": {"DEP": "dobj", "TAG": "NNS", "LEMMA": {"NOT_IN": ["friend", "bff", "brother", "sister", "mom", "mother", "mum", "mommy", "dad", "father", "daddy", "grandma", "grandpa", "grandmother", "grandfather", "nana", "aunt", "uncle", "cousin", "teacher", "coach", "neighbor", "classmate", "stepmom", "stepdad", "stepbrother", "stepsister", "parent", "parents", "family", "baby", "dog", "cat", "puppy", "kitten", "hamster", "pet", "fish", "bird", "bunny", "rabbit", "turtle", "guinea", "horse", "dollar", "cent", "buck", "penny", "nickel", "dime", "quarter", "minute", "hour", "day", "week", "month", "year", "second", "point", "mile", "inch", "foot", "feet", "pound"]}}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "thing", "RIGHT_ATTRS": {"DEP": "dobj", "TAG": "NNS", "LEMMA": {"NOT_IN": ["friend", "bff", "brother", "sister", "mom", "mother", "mum", "mommy", "dad", "father", "daddy", "grandma", "grandpa", "grandmother", "grandfather", "nana", "aunt", "uncle", "cousin", "teacher", "coach", "neighbor", "classmate", "stepmom", "stepdad", "stepbrother", "stepsister", "parent", "parents", "family", "baby", "dog", "cat", "puppy", "kitten", "hamster", "pet", "fish", "bird", "bunny", "rabbit", "turtle", "guinea", "horse", "dollar", "cent", "buck", "penny", "nickel", "dime", "quarter", "minute", "hour", "day", "week", "month", "year", "second", "point", "mile", "inch", "foot", "feet", "pound", "slice", "piece", "bite", "scoop", "cup", "glass", "bowl", "plate", "serving", "spoonful", "sip"]}}},
         {"LEFT_ID": "thing", "REL_OP": ">", "RIGHT_ID": "num", "RIGHT_ATTRS": {"DEP": "nummod"}}
       ]],
       "conditions": {"not_negated": "have", "question": false},
@@ -6053,7 +6077,7 @@
       "receive": {"default": "positive"},
       "lost_item": {"default": "negative"},
       "fun": {"default": "positive"},
-      "eat": {"default": "positive"},
+      "eat": {"default": "positive", "person>child_thing": "negative", "pet>child_thing": "negative"},
       "fear": {"default": "negative"},
       "conflict": {"default": "negative"}
     },
@@ -6181,7 +6205,9 @@
       "*.conditional.positive": ["{clause}? Sounds like a good deal!"],
       "*.conditional.negative": ["{clause}? Ooh, I see. That sounds tough."],
       "*.conditional": ["{clause}? Ooh, I see! Tell me more."],
-      "receive.real.negative": ["{clause}? Aw, that's no fun. Are you okay?"]
+      "receive.real.negative": ["{clause}? Aw, that's no fun. Are you okay?"],
+      "eat.real.person>child_thing": ["Hey, {clause}? That doesn't seem fair. Did you tell a grown-up?"],
+      "eat.real.pet>child_thing": ["Uh oh, {clause}? Pets can be so sneaky! Is your pet okay?"]
     },
     "chore_places": [
       "dentist",

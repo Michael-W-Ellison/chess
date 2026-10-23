@@ -716,3 +716,64 @@ class TestRoundTen:
     def test_relative_clause_verb_does_not_match(self, engine):
         from tests.test_dialogue_fixes import rule_of
         assert rule_of(engine, "the teacher i like the most is mr smith")[0] != "like_thing"
+
+
+class TestRoundEleven:
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    @pytest.mark.parametrize("text,rule,reply", [
+        ("he chewed my shoes", "fallback_unknown_person_pet", "Uh oh, who chewed your shoes? Was it a pet?"),
+        ("the dog that bit me was big", "fallback_appraisal_harm_real", "The dog bit you? Oh no! I hope everyone is okay."),
+        ("i'm tired and hungry", "two_feelings", "Feeling tired and hungry at the same time is a lot! Tell me more about it."),
+        ("i'm happy and excited", "two_feelings", "Feeling happy and excited at the same time is a lot! Tell me more about it."),
+    ])
+    def test_reply(self, engine, text, rule, reply):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text) == (rule, reply)
+
+    @pytest.mark.parametrize("text,rule", [("i'm happy and sad", "mixed_feelings"), ("i was sad and cried", "feeling")])
+    def test_other_feeling_rules_keep_their_messages(self, engine, text, rule):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text)[0] == rule
+
+
+def test_helped_person_do_something():
+    doc = parser.parse("i helped my grandma bake cookies and we ate them all")
+    assert token(doc, "grandma").dep_ == "dobj" and token(doc, "bake").pos_ == "VERB"
+
+
+@pytest.mark.parametrize("text", ["i'm happy and excited", "i am sad and scared"])
+def test_second_feeling_joins_the_first(text):
+    doc = parser.parse(text)
+    second = [t for t in doc if t.dep_ == "conj"][0]
+    assert second.pos_ == "ADJ" and second.head.dep_ == "acomp"
+
+
+class TestRoundTwelve:
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    @pytest.mark.parametrize("text,rule", [
+        ("we went to the beach and i built a sandcastle but a wave knocked it down", "knocked_down"),
+        ("i lost my tooth but i found it", "found_it"),
+        ("i lost my tooth. but i found it!", "found_it"),
+        ("i helped my grandma bake cookies and we ate them all", "helped_someone"),
+    ])
+    def test_rule(self, engine, text, rule):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text)[0] == rule
+
+    @pytest.mark.parametrize("text,words", [
+        ("my sister ate my candy", "That doesn't seem fair"),
+        ("we had pizza for dinner and i had three slices", "Sounds tasty"),
+    ])
+    def test_wording(self, engine, text, words):
+        from tests.test_dialogue_fixes import rule_of
+        assert words in rule_of(engine, text)[1]

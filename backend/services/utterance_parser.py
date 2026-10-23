@@ -534,6 +534,17 @@ def _repair_tags(doc) -> None:
                 c.dep_ == "nsubj" for c in token.children):
             token.pos_, token.tag_ = "VERB", "VBP"
     for token in doc:
+        # "I'm happy and excited": the second feeling joins the first, not the verb
+        if token.dep_ == "conj" and token.head.lemma_ == "be" and (token.tag_ == "JJ" or token.lower_ in _FEELING_WORDS) \
+                and not any(c.dep_ in ("nsubj", "nsubjpass", "aux", "dobj") for c in token.children):
+            first = next((c for c in token.head.children if c.dep_ == "acomp" and c.i < token.i), None)
+            if first is not None:
+                cc = next((c for c in token.head.children if c.dep_ == "cc" and first.i < c.i < token.i), None)
+                token.head, token.pos_, token.tag_ = first, "ADJ", "JJ"
+                if cc is not None:
+                    cc.head = first
+        if token.dep_ == "conj" and token.lower_ in _FEELING_WORDS and token.head.dep_ == "acomp" and token.pos_ == "VERB":
+            token.pos_, token.tag_ = "ADJ", "JJ"  # "sad and scared"
         # "which is better, pizza or tacos": the choices hang on the verb, not on "better"
         if token.dep_ == "conj" and token.pos_ in ("NOUN", "PROPN") and token.head.pos_ == "ADJ" \
                 and token.head.dep_ == "acomp":
@@ -738,6 +749,16 @@ def _repair_objects(doc) -> None:
                 if c.dep_ == "punct":
                     c.head = token
             continue
+        # "I helped my grandma bake cookies": "grandma" read as the subject of a noun "bake"
+        if (token.dep_ == "ccomp" and token.head.lemma_ in ("help", "watch", "see", "let", "make", "hear")
+                and token.pos_ == "NOUN" and token.lower_ in _BARE_VERBS):
+            person = next((c for c in token.children if c.dep_ == "nsubj" and c.i < token.i
+                           and c.lower_ not in ("'s", "us", "s")), None)
+            # "made you a card": "a card" is a thing, not a verb
+            if person is not None and not any(c.dep_ == "det" for c in token.children):
+                person.head, person.dep_ = token.head, "dobj"
+                token.pos_, token.tag_, token.lemma_ = "VERB", "VB", token.lower_
+                continue
         # "I helped my mom bake cookies": "my mom bake cookies" read as one noun
         if (token.dep_ == "dobj" and token.head.lemma_ in ("help", "watch", "see", "let", "make", "hear")
                 and token.pos_ == "NOUN"):
@@ -811,7 +832,8 @@ _SAYING_VERBS = {"say", "think", "know", "hope", "wish", "guess", "bet", "feel",
 
 _FEELING_WORDS = {"scared", "afraid", "worried", "sure", "glad", "happy", "sad", "sorry", "mad", "nervous",
                   "excited", "upset", "proud", "surprised", "angry", "certain", "lucky", "thankful", "jealous",
-                  "embarrassed", "disappointed", "frustrated", "confused", "shocked", "positive"}
+                  "embarrassed", "disappointed", "frustrated", "confused", "shocked", "positive", "bored", "tired",
+                  "annoyed", "amazed", "terrified", "stressed", "relieved", "thrilled", "pleased", "grossed"}
 
 
 _TITLE_KINDS = {"book", "movie", "show", "song", "series", "cartoon", "film"}

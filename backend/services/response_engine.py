@@ -76,6 +76,7 @@ class Frame:
     valence: str = "neutral"
     sentence: int = 0
     rule: Dict[str, Any] = field(default_factory=dict, repr=False)
+    last_token: int = -1  # the last matched token, for "... but ..." (see _before_but)
 
 
 @dataclass
@@ -230,6 +231,9 @@ class _BlankDict(dict):
     def __missing__(self, key):
         return ""
 
+
+# Things pets do: "he chewed my shoes" is likely about a pet
+_PET_VERBS = {"chew", "lick", "bark", "meow", "purr", "sniff", "wag", "growl", "pee", "poop", "nibble", "peck"}
 
 _NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
                  "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16,
@@ -667,6 +671,7 @@ class ResponseEngine:
             valence=valence,
             sentence=sentence.start,
             rule=rule,
+            last_token=max(t.i for t in nodes.values()),
         )
 
     @staticmethod
@@ -1256,6 +1261,10 @@ class ResponseEngine:
         if not allow_reflection:
             # Only rules whose replies use no words taken from the message
             responding = [f for f in responding if not f.rule.get("slots")]
+        # "I built a sandcastle but a wave knocked it down": the part after "but" is the news
+        but = self._but_clause_start(analysis.doc) if analysis.doc is not None else None
+        if but is not None and any(f.last_token > but for f in responding):
+            responding = [f for f in responding if f.last_token > but]
 
         # "What part are you playing?" - "a tree"; "Why is it your favorite?" - "it has rings"
         if expectation is not None and expectation.kind in ("item", "reason") and allow_reflection and not responding:
@@ -1619,6 +1628,13 @@ class ResponseEngine:
             composed = self._appraisal_reply(doc, slots, user_id, policy, features, gentle)
             if composed is not None:
                 return composed
+            # "The dog that bit me was big": what happened is in the relative clause
+            event = self._event_in_description(doc)
+            if event is not None:
+                relcl, clause = event
+                composed = self._appraisal_reply(doc, slots, user_id, policy, features, gentle, clause=clause, root=relcl)
+                if composed is not None:
+                    return composed
 
         # Reflect the last sentence that is short and about the child
         if allow_reflection:
@@ -1693,6 +1709,10 @@ class ResponseEngine:
                 slots["clause"] = clause
                 upset = any(t.lemma_ in _HURT_VERBS for t in doc) or emoji_quirk_service.is_negative(doc.text)
                 kind = "unknown_person_upset" if upset else "unknown_person_event"
+                # "he chewed my shoes": often a pet, not a person
+                if root.lemma_ in _PET_VERBS and clause.lower().startswith("someone "):
+                    slots["clause"] = "who" + clause[len("someone"):]
+                    kind = "unknown_person_pet"
                 return pick(kind).format_map(slots), ("negative" if upset else "neutral"), kind
             return pick("unknown_person"), "neutral", "unknown_person"
 
@@ -1709,6 +1729,37 @@ class ResponseEngine:
                 return pick("topic").format_map(slots), "neutral", "topic"
 
         return pick("generic"), "neutral", "generic"
+
+    @staticmethod
+    def _but_clause_start(doc) -> Optional[int]:
+        """The position of a "but" that starts a clause with its own verb in the last sentence, else None"""
+        sentence = list(doc.sents)[-1]
+        # "I lost my tooth. But I found it!"
+        if sentence.start > 0 and sentence[0].lower_ == "but":
+            return sentence[0].i
+        for token in sentence:
+            if token.lower_ == "but" and token.dep_ == "cc" and any(
+                    t.pos_ in ("VERB", "AUX") and t.dep_ == "conj" and t.i > token.i for t in sentence):
+                return token.i
+        return None
+
+    def _event_in_description(self, doc):
+        """
+        (relative-clause verb, "the dog bit you") when the message describes something with a
+        relative clause about what it did to the child ("the dog that bit me was big"), else None
+        """
+        root = list(doc.sents)[-1].root
+        if root.lemma_ != "be":
+            return None
+        subject = next((c for c in root.children if c.dep_ == "nsubj"), None)
+        relcl = next((c for c in subject.children if c.dep_ == "relcl"), None) if subject is not None else None
+        if relcl is None or not any(t.lower_ in ("me", "us") for t in relcl.subtree):
+            return None
+        inside = {t.i for t in relcl.subtree}
+        noun = [t for t in subject.subtree if t.i not in inside]
+        verb = [t for t in relcl.subtree if not (t.dep_ in ("nsubj", "nsubjpass") and t.head.i == relcl.i
+                                                 and t.lower_ in ("that", "who", "which"))]
+        return relcl, f"{self._join(noun, reflect=True)} {self._join(verb, reflect=True)}"
 
     def _appraisal_reply(self, doc, slots: Dict[str, str], user_id: int, policy=None,
                          features: Optional[Dict[str, str]] = None, gentle: bool = False,
