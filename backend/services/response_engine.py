@@ -129,6 +129,9 @@ RIDDLES = [
 ]
 _KNOCK_KNOCK_RE = re.compile(r"^\W*knock,? knock\W*$", re.IGNORECASE)
 
+# Things someone (or a pet) can do that hurt the child: "He scratched me"
+_HURT_VERBS = {"scratch", "bite", "hit", "push", "kick", "hurt", "pinch", "bump", "punch", "slap", "trip", "shove"}
+
 # "How do you spell because?"
 _SPELL_RE = re.compile(r"\b(?:how (?:do|would|can) (?:you|i|we) spell|can you spell|spell) ([a-z]{2,20})\b", re.IGNORECASE)
 
@@ -350,6 +353,9 @@ class ResponseEngine:
         if "not_negated" in conditions and self._is_negated(nodes[conditions["not_negated"]]):
             return None
         if "not_past" in conditions and self._is_past(nodes[conditions["not_past"]]):
+            return None
+        # "Next time we will win": not a win yet
+        if conditions.get("not_future") and slots.get("future"):
             return None
         if "past" in conditions and not self._is_past(nodes[conditions["past"]]):
             return None
@@ -1281,10 +1287,16 @@ class ResponseEngine:
         if options:
             slots["options"] = options[0] if len(options) == 1 else \
                 f"{', '.join(options[:-1])} or {options[-1]}"
+            # "He scratched me": care first, then the question
+            if any(t.lemma_ in _HURT_VERBS for t in doc) or emoji_quirk_service.is_negative(doc.text):
+                return pick("ambiguous_person_upset").format_map(slots), "negative", "ambiguous_person"
             return pick("ambiguous_person").format_map(slots), "neutral", "ambiguous_person"
 
         # A he/she/they the reference tracker could not resolve
-        if any(t.lower_ in ("he", "she", "they") and t.dep_ in ("nsubj", "nsubjpass") for t in doc):
+        # (not a generic "they gave me a toothbrush" at the dentist)
+        if any(t.lower_ in ("he", "she", "they") and t.dep_ in ("nsubj", "nsubjpass")
+               and not (t.lower_ == "they" and t.head.lemma_ in ("give", "bring", "let", "show", "teach", "hand"))
+               for t in doc):
             return pick("unknown_person"), "neutral", "unknown_person"
 
         if allow_reflection:

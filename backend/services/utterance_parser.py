@@ -54,6 +54,8 @@ NORMALIZATIONS = {
     "hes": "he's",
     "theyre": "they're",
     "thats": "that's",
+    "theres": "there's",
+    "heres": "here's",
     "whats": "what's",
     "idk": "I don't know",
     "nm": "not much",
@@ -216,6 +218,9 @@ def repair_parse(doc):
     return doc
 
 
+# Verbs after "help/watch/let someone": "helped my mom bake cookies"
+_BARE_VERBS = {"bake", "cook", "make", "clean", "build", "fix", "wash", "paint", "plant", "fold", "carry", "find",
+               "pick", "set", "feed", "walk", "decorate", "wrap", "dig", "draw", "play", "read", "write"}
 _GIVING_VERBS = {"make", "get", "buy", "give", "bring", "send", "show", "cook", "bake", "read", "sing", "draw"}
 
 
@@ -227,6 +232,21 @@ def _repair_objects(doc) -> None:
     "What game do you like": "you" the object of "do" -> the subject of "like"
     """
     for token in doc:
+        # "I helped my mom bake cookies": "my mom bake cookies" read as one noun
+        if (token.dep_ == "dobj" and token.head.lemma_ in ("help", "watch", "see", "let", "make", "hear")
+                and token.pos_ == "NOUN"):
+            compounds = [c for c in token.children if c.dep_ == "compound"]
+            if len(compounds) == 2 and compounds[1].lower_ in _BARE_VERBS:
+                person, verb = compounds
+                main = token.head
+                person.head, person.dep_ = main, "dobj"
+                verb.head, verb.dep_, verb.pos_, verb.tag_ = main, "ccomp", "VERB", "VB"
+                verb.lemma_ = verb.lower_
+                token.head, token.dep_ = verb, "dobj"
+                for c in list(token.children):
+                    if c.dep_ == "poss" and c.i < person.i:
+                        c.head = person
+                continue
         # "brought me a present": "present" read as an adjective
         if token.dep_ == "dobj" and token.pos_ == "ADJ" and any(c.dep_ == "det" for c in token.children):
             token.pos_ = "NOUN"

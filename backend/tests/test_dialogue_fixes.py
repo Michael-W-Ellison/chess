@@ -94,6 +94,17 @@ class TestNewRules:
         ("ok what else", "what_else"),
         ("did you know sharks dont have bones", "did_you_know"),
         ("how do you spell because", "spelling"),
+        ("can we go again", "do_it_again"),
+        ("i had no cavities", "no_cavities_det"),
+        ("i dont have any cavities", "no_cavities"),
+        ("we lost our soccer game", "lost_game"),
+        ("next time we will win", "will_win"),
+        ("we won", "we_won"),
+        ("i helped my mom bake cookies", "helped_someone"),
+        ("theres a spider in my room", "creepy_crawly"),
+        ("my dad got rid of it", "got_rid_of"),
+        ("i had to sleep with the light on", "light_on"),
+        ("they gave me a new toothbrush", "got_gift"),
         ("coach said I did great", "praise_reported"),
         ("not much you", "not_much"),
         ("yes", "yes_no"),
@@ -202,7 +213,8 @@ class TestNewRules:
         ("my sister is really good", "person_evaluation"),
         ("my sister is sad", "other_feeling"),
         ("there was a shark", "there_was"),
-        ("can we go again", "ask_permission"),
+        ("can i have a cookie", "ask_permission"),
+        ("can we go to the park", "ask_permission"),
         ("it was my first goal ever", "first_ever"),
         ("will my friend be ok", "will_be_ok"),
         ("I get allowance", "allowance"),
@@ -421,6 +433,31 @@ class TestReferences:
 
     def test_did_you_know_with_a_known_answer(self, engine):
         assert rule_of(engine, "did you know how the knight moves")[0] == "fallback_world_answer"
+
+    def test_rule_ids_are_unique(self, engine):
+        ids = [r["id"] for r in engine.kb["rules"]]
+        assert len(ids) == len(set(ids))
+
+    def test_caring_question_when_unsure_who_hurt_the_child(self, engine):
+        for message in ("i have two cats", "their names are luna and milo", "luna is black", "milo is orange"):
+            rule_of(engine, message)
+        assert rule_of(engine, "he scratched me")[1].startswith("Oh no, are you okay?")
+        assert rule_of(engine, "milo")[0] == "fallback_reflection_sad"
+
+    def test_named_pet_chewing(self, engine):
+        for message in ("we got a puppy", "her name is honey"):
+            rule_of(engine, message)
+        assert rule_of(engine, "she chewed my shoe")[0] == "pet_chewed"
+
+    def test_cute_is_the_puppy(self, engine):
+        for message in ("we got a puppy", "her name is honey", "my mom was mad"):
+            rule_of(engine, message)
+        assert "Honey" in engine.resolve_references("she is so cute", 1)
+
+    def test_they_who_gave_something_is_not_a_thing(self, engine):
+        for message in ("i went to the dentist", "i had no cavities"):
+            rule_of(engine, message)
+        assert "cavities" not in rule_of(engine, "they gave me a new toothbrush")[1]
 
     def test_knock_knock_joke(self, engine):
         assert rule_of(engine, "knock knock")[1] == "Who's there?"
@@ -675,6 +712,7 @@ class TestNormalization:
         ("their names are luna and milo", "their names are Luna and Milo"),
         ("he lives in florida", "he lives in Florida"),
         ("its math", "it's math"),
+        ("theres a spider", "there's a spider"),
         ("named after my grandpa", "named after my grandpa"),
         ("I feel ill", "I feel ill"),
         ("ur weird", "you're weird"),
@@ -724,6 +762,9 @@ class TestSafetyAndEmojis:
         ("we were laughing so hard", False),
         ("today was the worst day", True),
         ("she came home from the hospital", False),
+        ("the dog bit me", True),
+        ("I bit into an apple", False),
+        ("he kicked the ball", False),
     ])
     def test_is_negative(self, text, negative):
         assert emoji_quirk_service.is_negative(text) is negative

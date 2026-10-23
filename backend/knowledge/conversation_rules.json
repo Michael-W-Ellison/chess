@@ -270,7 +270,8 @@
         "dancing",
         "learning new things",
         "playing games"
-      ]
+      ],
+      "cookie": ["chocolate chip", "oatmeal raisin", "sugar cookies"]
     }
   },
 
@@ -299,10 +300,127 @@
       "Ooh, I'm not sure! That's a great one to ask a teacher or look up together with a grown-up."
     ],
     "world_question_fact": ["I'm not sure about that, but here's something cool: {fact}"],
-    "reflection_cant": ["Aw, {clause}? That's a bummer.", "Oh no, {clause}? That's too bad."]
+    "reflection_cant": ["Aw, {clause}? That's a bummer.", "Oh no, {clause}? That's too bad."],
+    "ambiguous_person_upset": ["Oh no, are you okay? Which one was it, {options}?"]
   },
 
   "rules": [
+    {
+      "id": "no_cavities_det",
+      "priority": 70,
+      "patterns": [[
+        {"RIGHT_ID": "have", "RIGHT_ATTRS": {"LEMMA": "have"}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "cav", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["cavity", "cavities"]}}},
+        {"LEFT_ID": "cav", "REL_OP": ">", "RIGHT_ID": "no", "RIGHT_ATTRS": {"DEP": "det", "LOWER": "no"}}
+      ]],
+      "responses": ["No cavities? Great job taking care of your teeth!"]
+    },
+    {
+      "id": "lost_game",
+      "priority": 67,
+      "patterns": [[
+        {"RIGHT_ID": "lose", "RIGHT_ATTRS": {"LEMMA": "lose"}},
+        {"LEFT_ID": "lose", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+        {"LEFT_ID": "lose", "REL_OP": ">", "RIGHT_ID": "game", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["game", "match", "race", "tournament"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "lose"},
+      "mood": "sad",
+      "no_jokes": true,
+      "responses": ["Aw, losing is tough. It's okay to feel disappointed. What was the best part of the game?"]
+    },
+    {
+      "id": "will_win",
+      "priority": 66,
+      "patterns": [[
+        {"RIGHT_ID": "win", "RIGHT_ATTRS": {"LEMMA": "win"}},
+        {"LEFT_ID": "win", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+        {"LEFT_ID": "win", "REL_OP": ">", "RIGHT_ID": "will", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": {"IN": ["will", "'ll", "gonna"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "win"},
+      "responses": ["That's the spirit! Keep practicing and you'll get there!"]
+    },
+    {
+      "id": "helped_someone",
+      "priority": 66,
+      "patterns": [[
+        {"RIGHT_ID": "help", "RIGHT_ATTRS": {"LEMMA": "help"}},
+        {"LEFT_ID": "help", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "help", "REL_OP": ">", "RIGHT_ID": "person", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": "@relations"}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "help"},
+      "slots": {"person": {"node": "person", "span": "subtree"}},
+      "responses": ["That's so nice of you to help {person}! What was the best part?"]
+    },
+    {
+      "id": "creepy_crawly",
+      "priority": 68,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "there", "RIGHT_ATTRS": {"DEP": "expl"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "bug", "RIGHT_ATTRS": {"DEP": "attr", "LEMMA": {"IN": ["spider", "bug", "bee", "wasp", "snake", "mouse", "cockroach", "roach", "ant", "fly"]}}}
+      ]],
+      "conditions": {"question": false},
+      "slots": {"bug": {"node": "bug", "span": "lemma"}},
+      "responses": ["Eek, a {bug}! That can be scary. Most are harmless, but it's a good idea to ask a grown-up to help move it."]
+    },
+    {
+      "id": "got_rid_of",
+      "priority": 66,
+      "patterns": [[
+        {"RIGHT_ID": "rid", "RIGHT_ATTRS": {"LOWER": "rid"}},
+        {"LEFT_ID": "rid", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": {"IN": ["nsubj", "nsubjpass"]}, "LOWER": {"NOT_IN": ["i", "we"]}}}
+      ]],
+      "conditions": {"question": false},
+      "slots": {"subject": {"node": "subj", "span": "subtree", "capitalize": "names"}},
+      "responses": ["Phew! I'm glad {subject} helped!"]
+    },
+    {
+      "id": "light_on",
+      "priority": 64,
+      "patterns": [[
+        {"RIGHT_ID": "sleep", "RIGHT_ATTRS": {"LEMMA": "sleep"}},
+        {"LEFT_ID": "sleep", "REL_OP": ">", "RIGHT_ID": "with", "RIGHT_ATTRS": {"LOWER": "with"}},
+        {"LEFT_ID": "with", "REL_OP": ">", "RIGHT_ID": "light", "RIGHT_ATTRS": {"DEP": "pobj", "LEMMA": "light"}}
+      ]],
+      "no_jokes": true,
+      "responses": [
+        "Scary movies can stick in your head! Sleeping with the light on is a good idea when you feel scared. Did it help?"
+      ]
+    },
+    {
+      "id": "pet_chewed",
+      "priority": 65,
+      "patterns": [
+        [
+          {"RIGHT_ID": "chew", "RIGHT_ATTRS": {"LEMMA": {"IN": ["chew", "eat", "rip"]}}},
+          {"LEFT_ID": "chew", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": ["puppy", "dog", "kitten", "cat", "bunny", "rabbit", "hamster"]}}},
+          {"LEFT_ID": "chew", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj"}}
+        ],
+        [
+          {"RIGHT_ID": "chew", "RIGHT_ATTRS": {"LEMMA": {"IN": ["chew", "eat", "rip"]}}},
+          {"LEFT_ID": "chew", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj"}},
+          {"LEFT_ID": "chew", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj"}},
+          {"LEFT_ID": "subj", "REL_OP": ">", "RIGHT_ID": "kind", "RIGHT_ATTRS": {"DEP": {"IN": ["compound", "amod"]}, "LEMMA": {"IN": ["puppy", "dog", "kitten", "cat", "bunny", "rabbit", "hamster"]}}}
+        ]
+      ],
+      "conditions": {"question": false, "not_negated": "chew"},
+      "slots": {"obj": {"node": "obj", "span": "subtree"}},
+      "responses": ["Uh oh! Puppies and pets love to chew. Maybe give them a chew toy instead of {obj}!"]
+    },
+    {
+      "id": "do_it_again",
+      "priority": 84,
+      "patterns": [[
+        {"RIGHT_ID": "go", "RIGHT_ATTRS": {"LEMMA": {"IN": ["go", "do", "visit", "play"]}}},
+        {"LEFT_ID": "go", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["we", "i"]}}},
+        {"LEFT_ID": "go", "REL_OP": ">", "RIGHT_ID": "again", "RIGHT_ATTRS": {"LOWER": "again"}}
+      ]],
+      "conditions": {"question": true},
+      "responses": [
+        "It sounds like you had so much fun! You could ask your mom or dad if you can do it again soon. What would you want to do next time?"
+      ]
+    },
     {
       "id": "keeps_bugging_me",
       "priority": 63,
@@ -1380,8 +1498,8 @@
       "valence": "negative",
       "opener": true,
       "responses": ["{clause}? That's really frustrating.", "{clause}? I'm sorry, that's no fun."],
-      "follow_ups": ["What do you think you'll try next time?", "Is there anyone who can help you with it?"],
-      "suppressed_by": ["miss_person", "got_hurt", "lost_tooth", "what_if_worry", "what_if_worry", "what_if_liked"]
+      "follow_ups": ["What do you think you'll try next time?", "Do you want to talk about it?"],
+      "suppressed_by": ["miss_person", "got_hurt", "lost_tooth", "what_if_worry", "what_if_worry", "what_if_liked", "lost_game"]
     },
     {
       "id": "reassured",
@@ -1568,8 +1686,8 @@
         {"RIGHT_ID": "win", "RIGHT_ATTRS": {"LEMMA": "win"}},
         {"LEFT_ID": "win", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}}
       ]],
-      "suppressed_by": ["achievement"],
-      "conditions": {"question": false, "not_negated": "win", "max_tokens": 8},
+      "suppressed_by": ["achievement", "will_win"],
+      "conditions": {"question": false, "not_negated": "win", "max_tokens": 8, "not_future": true},
       "valence": "positive",
       "mood": "happy",
       "responses": ["You won? That's awesome! How did it feel?", "Woohoo, you won! What was the best part?"]
@@ -1792,6 +1910,11 @@
           {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
           {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "gift", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"NOT_IN": "@relations"}}},
           {"LEFT_ID": "gift", "REL_OP": ">", "RIGHT_ID": "new", "RIGHT_ATTRS": {"DEP": "amod", "LOWER": "new"}}
+        ],
+        [
+          {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": {"IN": ["give", "hand"]}}},
+          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "dative", "LOWER": {"IN": ["me", "us"]}}},
+          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "gift", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"NOT_IN": "@relations"}}}
         ]
       ],
       "conditions": {"not_negated": "get", "question": false},
@@ -1803,7 +1926,7 @@
         {"text": "Yay, {gift}! Do you like {gift_them}?"}
       ],
       "compute": ["gift_container"],
-      "suppressed_by": ["get_new_later"]
+      "suppressed_by": ["get_new_later", "person_kindness"]
     },
     {
       "id": "found_it",
@@ -2390,6 +2513,12 @@
           {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
           {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "can", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": {"IN": ["can", "may", "could"]}}},
           {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "again", "RIGHT_ATTRS": {"LOWER": {"IN": ["again", "back", "there", "home", "outside"]}}}
+        ],
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["go", "come", "stay"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "can", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": {"IN": ["can", "may", "could"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "to", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": {"IN": ["to", "at"]}}}
         ]
       ],
       "conditions": {"question": true},
@@ -2729,7 +2858,8 @@
           "negative": ["Oh no, I'm sorry! I'm still learning. What could I do better?"],
           "neutral": ["Hehe, I'll take that as a compliment!"]
         }
-      }
+      },
+      "no_jokes": true
     },
     {
       "id": "bot_dislike_question",
@@ -3563,7 +3693,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "be"},
       "slots": {"thing": {"node": "thing", "span": "subtree"}},
-      "responses": [{"text": "Whoa, {thing}? What was it like?", "requires": ["past"]}, {"text": "Ooh, {thing}? Tell me more!"}]
+      "responses": [{"text": "Whoa, {thing}? What was it like?", "requires": ["past"]}, {"text": "Ooh, {thing}? Tell me more!"}],
+      "suppressed_by": ["creepy_crawly"]
     },
     {
       "id": "first_ever",

@@ -70,7 +70,7 @@ class EmojiQuirkService:
 
     # Words that make a sentence sad or difficult: use a caring emoji, not a cheerful one
     NEGATIVE_WORDS = {
-        "sorry", "sad", "hard", "tough", "frustrating", "upset", "worried", "worry", "sick",
+        "scary", "eek", "sorry", "sad", "hard", "tough", "frustrating", "upset", "worried", "worry", "sick",
         "hurt", "miss", "lonely", "scared", "angry", "mad", "wrong", "bad", "cry", "crying",
         "afraid", "nervous", "stressed", "awful", "terrible", "mean", "lost", "broke", "broken",
         "hospital", "died", "dead", "funeral", "divorce", "injured", "fight", "fighting",
@@ -153,6 +153,10 @@ class EmojiQuirkService:
                                           for w in words[max(0, i - 3):i]):
                     continue  # "I studied really hard"
                 return True
+        # "He scratched me", "the dog bit me": the child was hurt
+        if re.search(r"\b(scratched|bit|bitten|kicked|pinched|punched|hit|pushed|shoved|tripped) (me|my)\b",
+                     text.lower()):
+            return True
         return "oh no" in text.lower()
 
     def _choose_emoji(self, sentence: str, mood: str) -> str:

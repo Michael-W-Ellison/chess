@@ -134,6 +134,13 @@ def gerund(lemma: str) -> str:
 _CREATURES = {"unicorn", "dragon", "dinosaur", "monster", "robot", "mermaid", "fairy", "princess", "prince",
               "superhero", "bunny", "bear", "teddy", "doll", "alien", "pony", "horse", "puppy", "kitty",
               "snowman", "giant", "wizard", "witch", "knight", "king", "queen", "ghost", "zombie"}
+# Verbs whose subject is a person: "they" with these is not a thing
+_PERSON_ACTIONS = {"give", "say", "tell", "ask", "help", "let", "teach", "show", "call", "yell", "invite", "bring"}
+# Pets and babies, and what is said about them: "she is so cute"
+_PETS = {"dog", "puppy", "cat", "kitten", "kitty", "hamster", "bunny", "rabbit", "fish", "bird", "horse", "pony",
+         "guinea", "pig", "turtle", "lizard", "baby", "parrot", "gerbil"}
+_PET_WORDS = {"cute", "fluffy", "adorable", "furry", "soft", "cuddly", "tiny", "playful", "naughty"}
+
 _MAKING_VERBS = {"make", "cook", "bake", "buy", "get", "eat", "bring", "give", "drink", "order"}
 
 
@@ -419,7 +426,9 @@ class ReferenceTracker:
                 if not candidates and lower in ("they", "them"):
                     # "Do you like dinosaurs?" -> "Yes, I love them"
                     things = [t for t in self._recent(state.things, state) if t.plural]
-                    if things and self._is_thing_reference(token):
+                    # "They gave me a toothbrush": people (at the dentist), not "no cavities"
+                    agent = token.dep_ == "nsubj" and token.head.lemma_ in _PERSON_ACTIONS
+                    if things and self._is_thing_reference(token) and not agent:
                         return self._match_case(self._as_subject(things[0], token), token)
             else:
                 candidates = [p for p in people if not p.plural and p.pronoun in (None, gender, "any")]
@@ -448,6 +457,13 @@ class ReferenceTracker:
             # "My brother broke his arm": "his" is the subject of its own clause
             if lower in ("his", "her") and token.dep_ == "poss" and self._clause_subject_owns(token, gender):
                 return None
+
+            # "She is so cute" after "we got a puppy ... my mom was mad": the puppy
+            if token.dep_ == "nsubj" and any(c.dep_ == "acomp" and c.lower_ in _PET_WORDS
+                                             for c in token.head.children):
+                pets = [p for p in candidates if p.relation and p.relation.split()[-1] in _PETS]
+                if pets:
+                    candidates = pets
 
             # Most recent turn first; within a turn, someone known to be "she"/"he"
             # A new baby ("my aunt had a baby. She is so tiny") is "he" or "she" and comes first
@@ -622,7 +638,7 @@ class ReferenceTracker:
         return (token.pos_ in ("NOUN", "PROPN") and relation is not None
                 and any(c.dep_ == "poss" and c.lower_ in ("my", "our")
                         for c in list(token.children) + list(relation.children))
-                and (token.pos_ == "PROPN" or token.lower_ not in self.parser.known_words()))
+                and (token.pos_ == "PROPN" or not {token.lower_, token.lemma_.lower()} & self.parser.known_words()))
 
     def _is_detail(self, noun) -> bool:
         """
