@@ -397,9 +397,11 @@ class ResponseEngine:
             if spec["node"] not in nodes:  # optional node absent from this pattern
                 continue
             raw, reflected = self._extract_slot(nodes[spec["node"]], spec["span"])
+            if raw.lower() in ("what", "which", "who", "whom", "whatever"):
+                raw = reflected = ""  # "What do you eat?": no "but what sounds yummy"
             node = nodes[spec["node"]]
             # "capitalize": "names" capitalizes only a name ("jake" -> "Jake", "my brother" stays)
-            if spec.get("capitalize") and raw and (spec["capitalize"] is True or node.pos_ == "PROPN"):
+            if spec.get("capitalize") and raw and (spec["capitalize"] is True or node.left_edge.pos_ == "PROPN"):
                 raw = raw[:1].upper() + raw[1:]
                 reflected = reflected[:1].upper() + reflected[1:]
             # Lowercase a capitalized common word ("School was boring", "Today was fun"), not a name
@@ -1143,7 +1145,10 @@ class ResponseEngine:
     def rule_flag(self, rule_id: Optional[str], flag: str) -> bool:
         """A rule's boolean option from the knowledge base (e.g. "no_jokes")"""
         # Answers to questions about the world and the child's own joke get no joke added
-        if flag == "no_jokes" and rule_id and (rule_id.startswith("fallback_world") or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes", "spelling")):
+        # and replies repeating back the child's news ("The present was a book about sharks?")
+        if flag == "no_jokes" and rule_id and (
+                rule_id.startswith(("fallback_world", "fallback_reflection", "fallback_long_reflection"))
+                or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes", "spelling")):
             return True
         return bool(rule_id and self.rules.get(rule_id, {}).get(flag))
 
@@ -1228,7 +1233,9 @@ class ResponseEngine:
             about_bot = any(t.lower_ in ("you", "your", "yours", "yourself") for t in doc)
             # "How do I get him to stop?" is about the child's life, not the world
             personal = any(t.lower_ in ("i", "me", "my", "mine") for t in doc) and not self._world_answer(doc.text)
-            if (not about_bot or re.match(r"(do|did) you know\b", doc.text, re.IGNORECASE)) and not personal:
+            # An answer written for a "you" question ("How much money do you get from the tooth fairy?")
+            generic_you = any(p.search(doc.text) and "you" in p.pattern for p, _ in self.answers)
+            if (not about_bot or generic_you or re.match(r"(do|did) you know\b", doc.text, re.IGNORECASE)) and not personal:
                 answer = self._world_answer(doc.text)
                 if answer:
                     return answer, "neutral", "world_answer"

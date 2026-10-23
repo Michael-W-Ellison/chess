@@ -1,6 +1,10 @@
 {
   "_comment": "Short answers to common questions children ask about the world, used by the rule-based response engine (services/response_engine.py) when a question matches no rule. Each pattern is a case-insensitive regular expression matched against the child's question; the first match wins, so put specific patterns before general ones. Keep answers short, simple and well established.",
   "answers": [
+    {"pattern": "\\b(will|does|is) the tooth fairy (come|real|coming)\\b|\\bis the tooth fairy real\\b", "answer": "Lots of kids put their tooth under their pillow and hope for a visit! That's a fun one to ask your mom or dad about."},
+    {"pattern": "\\bhow much (money )?(do you get|does the tooth fairy (give|leave|bring))\\b", "answer": "It's different for every family! Some kids find a coin, and some find a dollar. Your mom or dad would know best!"},
+    {"pattern": "\\bhow (do|can) (i|you) build (a |an )?castle in minecraft\\b", "answer": "Start with a strong base of stone blocks, build tall walls with a tower at each corner, and add a gate! You could look up castle ideas with a grown-up too."},
+    {"pattern": "\\bhow (do|can) (i|you) (make|build) (a |an )?(house|home) in minecraft\\b", "answer": "Pick a spot, build four walls with wood planks, add a roof, a door and some windows, and put a bed inside so you can sleep through the night!"},
     {"pattern": "\\bdo cats (like|drink) milk\\b|\\bcan cats (have|drink) milk\\b", "answer": "Lots of cats like the taste of milk, but most grown-up cats can't digest it well, so it can upset their tummies. Water is best for them!"},
     {"pattern": "\\bcan dogs (eat|have) chocolate\\b|\\bis chocolate bad for dogs\\b", "answer": "No! Chocolate can make dogs really sick. If a dog eats chocolate, tell a grown-up right away."},
     {"pattern": "\\bwhy do dogs wag their tails\\b", "answer": "Dogs wag their tails to show how they feel. A loose, happy wag usually means they're excited or friendly!"},

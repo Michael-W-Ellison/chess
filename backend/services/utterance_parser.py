@@ -178,12 +178,26 @@ _PLACES = ["alabama", "alaska", "arizona", "arkansas", "california", "colorado",
            "france", "spain", "italy", "germany", "china", "japan", "india", "australia", "brazil", "africa",
            "europe", "disneyland", "disney world", "new york", "chicago", "paris", "london", "hawaii"]
 _PLACES_RE = re.compile(r"\b(" + "|".join(sorted(set(_PLACES), key=len, reverse=True)) + r")\b")
+# Songs, books, games and shows children name in lowercase
+_TITLES = {
+    "fur elise": "Für Elise", "twinkle twinkle little star": "Twinkle Twinkle Little Star",
+    "jingle bells": "Jingle Bells", "happy birthday": "Happy Birthday", "harry potter": "Harry Potter",
+    "minecraft": "Minecraft", "roblox": "Roblox", "fortnite": "Fortnite", "pokemon": "Pokémon",
+    "mario kart": "Mario Kart", "mario": "Mario", "zelda": "Zelda", "spiderman": "Spider-Man",
+    "spider-man": "Spider-Man", "batman": "Batman", "superman": "Superman",
+    "moana": "Moana", "encanto": "Encanto", "bluey": "Bluey", "paw patrol": "Paw Patrol",
+    "peppa pig": "Peppa Pig", "lego": "LEGO", "legos": "LEGOs", "star wars": "Star Wars",
+    "dog man": "Dog Man", "captain underpants": "Captain Underpants", "among us": "Among Us",
+    "animal crossing": "Animal Crossing", "toy story": "Toy Story", "sonic": "Sonic",
+    "youtube": "YouTube", "tiktok": "TikTok", "nintendo": "Nintendo", "xbox": "Xbox",
+}
+_TITLES_RE = re.compile(r"\b(" + "|".join(re.escape(t) for t in sorted(_TITLES, key=len, reverse=True)) + r")\b")
 # "its math" (a whole message): "it's math"
 _ITS_ALONE_RE = re.compile(r"^its (?=[a-z]*[a-rt-z][.!]*$)", re.IGNORECASE)  # not "its wings"
 # "mr kim" -> "Mr Kim", so the parser reads a name
 _TITLE_RE = re.compile(r"\b(mr|mrs|ms|dr)\.? ([a-z])", re.IGNORECASE)
 
-_WORD_RE = re.compile(r"[A-Za-z]+")
+_WORD_RE = re.compile(r"[^\W\d_]+")  # letters, including accented ones ("Für")
 
 
 def repair_parse(doc):
@@ -329,6 +343,7 @@ class UtteranceParser:
         text = _NAMED_RE.sub(lambda m: f"{m.group(1)} {m.group(3).upper()}", text)
         text = _NAMES_ARE_RE.sub(lambda m: f"{m.group(1)} {m.group(2).capitalize()} and {m.group(3).capitalize()}", text)
         text = _PLACES_RE.sub(lambda m: m.group(1).title(), text)
+        text = _TITLES_RE.sub(lambda m: _TITLES[m.group(1)], text)
         text = _ITS_ALONE_RE.sub("it's ", text)
         text = _TITLE_RE.sub(lambda m: f"{m.group(1).capitalize()} {m.group(2).upper()}", text)
         # "what's your name and how old are you": two questions, answered one by one

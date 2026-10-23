@@ -306,6 +306,102 @@
 
   "rules": [
     {
+      "id": "loose_tooth",
+      "priority": 66,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": {"IN": ["be", "feel"]}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "tooth", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": "tooth"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "loose", "RIGHT_ATTRS": {"DEP": {"IN": ["acomp", "advmod"]}, "LOWER": {"IN": ["wiggly", "loose", "wobbly"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "be"},
+      "responses": ["A wiggly tooth! That means a big-kid tooth is getting ready to grow in. Are you going to wiggle it?"]
+    },
+    {
+      "id": "still_friends",
+      "priority": 90,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "we", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "we"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "still", "RIGHT_ATTRS": {"LOWER": "still"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "friends", "RIGHT_ATTRS": {"DEP": "attr", "LEMMA": {"IN": ["friend", "bff"]}}}
+      ]],
+      "conditions": {"question": true},
+      "responses": [
+        "Yes! Lots of friends stay close even when they live far apart. You could video chat, write letters, or send each other drawings!"
+      ]
+    },
+    {
+      "id": "on_purpose",
+      "priority": 64,
+      "patterns": [[
+        {"RIGHT_ID": "do", "RIGHT_ATTRS": {"LEMMA": {"IN": ["do", "break", "hit", "push", "ruin", "take"]}}},
+        {"LEFT_ID": "do", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "we", "you"]}}},
+        {"LEFT_ID": "do", "REL_OP": ">", "RIGHT_ID": "on", "RIGHT_ATTRS": {"LOWER": "on"}},
+        {"LEFT_ID": "on", "REL_OP": ">", "RIGHT_ID": "purpose", "RIGHT_ATTRS": {"DEP": "pobj", "LOWER": "purpose"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "do"},
+      "mood": "angry",
+      "no_jokes": true,
+      "responses": ["That's really upsetting when someone does something on purpose. It makes sense that you're mad."]
+    },
+    {
+      "id": "i_yelled",
+      "priority": 64,
+      "patterns": [[
+        {"RIGHT_ID": "yell", "RIGHT_ATTRS": {"LEMMA": {"IN": ["yell", "scream", "shout"]}}},
+        {"LEFT_ID": "yell", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "yell", "past": "yell"},
+      "no_jokes": true,
+      "responses": [
+        "It's easy to yell when you're really mad. Next time, you could take a deep breath first, or go get a grown-up to help."
+      ]
+    },
+    {
+      "id": "best_ever",
+      "priority": 60,
+      "patterns": [[
+        {"RIGHT_ID": "x", "RIGHT_ATTRS": {"LOWER": {"IN": ["day", "time", "birthday", "trip", "party", "weekend", "summer"]}}},
+        {"LEFT_ID": "x", "REL_OP": ">", "RIGHT_ID": "best", "RIGHT_ATTRS": {"DEP": "amod", "LOWER": "best"}},
+        {"LEFT_ID": "x", "REL_OP": ">", "RIGHT_ID": "ever", "RIGHT_ATTRS": {"LOWER": "ever"}}
+      ]],
+      "conditions": {"question": false, "max_tokens": 5},
+      "slots": {"x": {"node": "x", "span": "lemma"}},
+      "responses": ["Yay! It sounds like the best {x} ever! What was your favorite part?"]
+    },
+    {
+      "id": "score",
+      "priority": 62,
+      "patterns": [[
+        {"RIGHT_ID": "b", "RIGHT_ATTRS": {"LIKE_NUM": true}},
+        {"LEFT_ID": "b", "REL_OP": ">", "RIGHT_ID": "a", "RIGHT_ATTRS": {"DEP": "quantmod", "LIKE_NUM": true}},
+        {"LEFT_ID": "b", "REL_OP": ">", "RIGHT_ID": "to", "RIGHT_ATTRS": {"DEP": "quantmod", "LOWER": {"IN": ["to", "-"]}}}
+      ]],
+      "conditions": {"question": false, "max_tokens": 8},
+      "slots": {"a": {"node": "a", "span": "text"}, "b": {"node": "b", "span": "text"}},
+      "responses": ["{a} to {b}! Thanks for telling me the score. What was your favorite part of the game?"]
+    },
+    {
+      "id": "pet_cute",
+      "priority": 61,
+      "patterns": [
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "pet", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": ["dog", "puppy", "cat", "kitten", "kitty", "hamster", "bunny", "rabbit", "fish", "bird", "horse", "pony", "turtle", "lizard", "parrot", "gerbil", "baby"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "cute", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["cute", "fluffy", "adorable", "furry", "soft", "cuddly", "tiny", "playful", "sweet"]}}}
+        ],
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "pet", "RIGHT_ATTRS": {"DEP": "nsubj"}},
+          {"LEFT_ID": "pet", "REL_OP": ">", "RIGHT_ID": "kind", "RIGHT_ATTRS": {"DEP": {"IN": ["compound", "amod"]}, "LEMMA": {"IN": ["dog", "puppy", "cat", "kitten", "kitty", "hamster", "bunny", "rabbit", "fish", "bird", "horse", "pony", "turtle", "lizard", "parrot", "gerbil", "baby"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "cute", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["cute", "fluffy", "adorable", "furry", "soft", "cuddly", "tiny", "playful", "sweet"]}}}
+        ]
+      ],
+      "conditions": {"question": false, "not_negated": "be"},
+      "slots": {"pet": {"node": "pet", "span": "subtree", "capitalize": "names"}, "cute": {"node": "cute", "span": "text"}},
+      "responses": ["Aww, {pet} sounds so {cute}! What's your favorite thing to do together?"]
+    },
+    {
       "id": "no_cavities_det",
       "priority": 70,
       "patterns": [[
@@ -2689,7 +2785,14 @@
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": {"IN": ["nsubj", "csubj"]}, "LOWER": {"NOT_IN": ["i", "you", "we", "he", "she", "they"]}}},
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "acomp"}}
       ]],
-      "suppressed_by": ["bot_thing_evaluation", "person_evaluation", "other_feeling", "comparison_better", "comparison_question"],
+      "suppressed_by": [
+        "bot_thing_evaluation",
+        "person_evaluation",
+        "other_feeling",
+        "comparison_better",
+        "comparison_question",
+        "pet_cute"
+      ],
       "conditions": {"evaluation": "adj", "question": false},
       "slots": {
         "subject": {"node": "subj", "span": "subtree", "lowercase": true},
@@ -3222,7 +3325,8 @@
       "responses": [
         "Of course! You're my friend, and talking with you is my favorite thing!",
         "Yes! You're my friend! What do you like to do with your friends?"
-      ]
+      ],
+      "suppressed_by": ["still_friends"]
     },
     {
       "id": "bot_age_question",
@@ -3469,7 +3573,7 @@
     {
       "id": "person_evaluation",
       "priority": 59,
-      "suppressed_by": ["other_feeling"],
+      "suppressed_by": ["other_feeling", "pet_cute"],
       "patterns": [
         [
           {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},

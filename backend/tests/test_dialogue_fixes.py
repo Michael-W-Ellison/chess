@@ -105,6 +105,14 @@ class TestNewRules:
         ("my dad got rid of it", "got_rid_of"),
         ("i had to sleep with the light on", "light_on"),
         ("they gave me a new toothbrush", "got_gift"),
+        ("it was 3 to 1", "score"),
+        ("my cat is so fluffy", "pet_cute"),
+        ("my tooth is wiggly", "loose_tooth"),
+        ("can we still be friends", "still_friends"),
+        ("can we be friends", "bot_friends_question"),
+        ("she did it on purpose", "on_purpose"),
+        ("i yelled at her", "i_yelled"),
+        ("best day ever", "best_ever"),
         ("coach said I did great", "praise_reported"),
         ("not much you", "not_much"),
         ("yes", "yes_no"),
@@ -434,6 +442,19 @@ class TestReferences:
     def test_did_you_know_with_a_known_answer(self, engine):
         assert rule_of(engine, "did you know how the knight moves")[0] == "fallback_world_answer"
 
+    def test_no_jokes_after_a_reflection(self, engine):
+        assert engine.rule_flag("fallback_reflection_be", "no_jokes")
+        assert not engine.rule_flag("like_thing", "no_jokes")
+
+    def test_cute_named_pet(self, engine):
+        for message in ("we got a puppy", "her name is honey", "my mom was mad"):
+            rule_of(engine, message)
+        rule, reply = rule_of(engine, "but she is so cute")
+        assert rule == "pet_cute" and "your puppy Honey" in reply
+
+    def test_question_word_is_not_echoed(self, engine):
+        assert "what sounds" not in rule_of(engine, "what do you eat")[1]
+
     def test_rule_ids_are_unique(self, engine):
         ids = [r["id"] for r in engine.kb["rules"]]
         assert len(ids) == len(set(ids))
@@ -713,6 +734,8 @@ class TestNormalization:
         ("he lives in florida", "he lives in Florida"),
         ("its math", "it's math"),
         ("theres a spider", "there's a spider"),
+        ("im playing fur elise", "I'm playing Für Elise"),
+        ("i like frozen yogurt", "I like frozen yogurt"),
         ("named after my grandpa", "named after my grandpa"),
         ("I feel ill", "I feel ill"),
         ("ur weird", "you're weird"),
@@ -724,7 +747,7 @@ class TestNormalization:
         ("heyyy", "hey"),
         ("I GOT A PUPPY TODAY", "I got a puppy today"),
         ("my cat is fluffy 😻", "my cat is fluffy"),
-        ("i lik minecraft alot", "I like minecraft a lot"),
+        ("i lik minecraft alot", "I like Minecraft a lot"),
         ("its rlly big", "it's really big"),
         ("whats your name and how old are you", "what's your name? how old are you"),
         ("I went home and what a day", "I went home and what a day"),
