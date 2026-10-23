@@ -1,5 +1,6 @@
 {
   "_comment": "Knowledge base for the rule-based response engine (services/response_engine.py). Patterns use spaCy DependencyMatcher syntax; a string value starting with '@' inside an IN list refers to a lexicon below. A rule's suppressed_by lists rules whose match cancels it. Response text placeholders: {slot} is the slot from the bot's perspective (my -> your), {slot_raw} is the child's original wording, {slot_slug} is a key-safe form, and {slot_a} is \"a\" or \"an\" for the slot, and {slot_s} / {slot_them} are \"s\"/\"it\" for a singular noun and \"\"/\"them\" for a plural one (\"{thing} sound{thing_s} fun\"). Always available: {user_name}, {bot_name}, {bot_mood}. A rule's answer (optional) names what its reply says, from the child's point of view (\"your name\"), so the child can refer to it with \"it\" or \"that\". A rule's memory_conjuncts (optional) names a node whose list items (\"two cats, a dog\") are stored as separate memories; no_jokes keeps puns and facts off its replies. A response's requires lists slots it needs and unless lists slots that rule it out.",
+
   "lexicons": {
     "like_verbs": ["love", "like", "enjoy", "adore"],
     "hate_verbs": ["hate", "dislike", "detest"],
@@ -292,6 +293,30 @@
   },
 
   "rules": [
+    {
+      "id": "what_if_liked",
+      "priority": 92,
+      "patterns": [
+        [
+          {"RIGHT_ID": "like", "RIGHT_ATTRS": {"LEMMA": {"IN": ["like", "want", "play", "talk", "sit"]}}},
+          {"LEFT_ID": "like", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}},
+          {"LEFT_ID": "like", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}},
+          {"LEFT_ID": "like", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["nobody", "no", "everyone", "everybody", "they", "anyone", "one"]}}}
+        ],
+        [
+          {"RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what", "DEP": "ROOT"}},
+          {"LEFT_ID": "what", "REL_OP": ">", "RIGHT_ID": "like", "RIGHT_ATTRS": {"LEMMA": {"IN": ["like", "want", "play", "talk", "sit"]}, "DEP": "advcl"}},
+          {"LEFT_ID": "like", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}},
+          {"LEFT_ID": "like", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["nobody", "no", "everyone", "everybody", "they", "anyone", "one"]}}}
+        ]
+      ],
+      "conditions": {"first_token": "what"},
+      "no_jokes": true,
+      "mood": "anxious",
+      "responses": [
+        "Lots of kids worry about that. You could start by saying hi and asking someone what they like to do. You're kind and fun to talk to, so I bet people will like you!"
+      ]
+    },
     {
       "id": "bot_name_question",
       "answer": "your name",
@@ -970,12 +995,20 @@
     {
       "id": "what_if_worry",
       "priority": 69,
-      "patterns": [[
-        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"POS": {"IN": ["VERB", "AUX"]}}},
-        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}},
-        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}},
-        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}}
-      ]],
+      "patterns": [
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"POS": {"IN": ["VERB", "AUX"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}}
+        ],
+        [
+          {"RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what", "DEP": "ROOT"}},
+          {"LEFT_ID": "what", "REL_OP": ">", "RIGHT_ID": "verb", "RIGHT_ATTRS": {"POS": {"IN": ["VERB", "AUX"]}, "DEP": "advcl"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}}
+        ]
+      ],
       "mood": "anxious",
       "no_jokes": true,
       "responses": [
@@ -996,7 +1029,7 @@
       "opener": true,
       "responses": ["{clause}? That's really frustrating.", "{clause}? I'm sorry, that's no fun."],
       "follow_ups": ["What do you think you'll try next time?", "Is there anyone who can help you with it?"],
-      "suppressed_by": ["miss_person", "got_hurt", "lost_tooth", "what_if_worry"]
+      "suppressed_by": ["miss_person", "got_hurt", "lost_tooth", "what_if_worry", "what_if_worry", "what_if_liked"]
     },
     {
       "id": "reassured",
@@ -1326,6 +1359,46 @@
       ]
     },
     {
+      "id": "get_new_later",
+      "priority": 67,
+      "patterns": [[
+        {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": "get"}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "modal", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": {"IN": ["can", "could", "might", "may", "will", "'ll", "should"]}}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "thing", "RIGHT_ATTRS": {"DEP": "dobj"}},
+        {"LEFT_ID": "thing", "REL_OP": ">", "RIGHT_ID": "new", "RIGHT_ATTRS": {"DEP": "amod", "LOWER": "new"}}
+      ]],
+      "conditions": {"not_negated": "get", "question": false},
+      "slots": {"thing": {"node": "thing", "span": "subtree"}},
+      "responses": [
+        {
+          "text": "That's kind of them. It's okay if you're not ready yet. You can still miss the one you had.",
+          "requires": ["sensitive"]
+        },
+        {"text": "Ooh, {thing}? That would be exciting! What would you want?"}
+      ]
+    },
+    {
+      "id": "not_want_new",
+      "priority": 67,
+      "patterns": [[
+        {"RIGHT_ID": "want", "RIGHT_ATTRS": {"LEMMA": "want"}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "thing", "RIGHT_ATTRS": {"DEP": "dobj"}},
+        {"LEFT_ID": "thing", "REL_OP": ">", "RIGHT_ID": "new", "RIGHT_ATTRS": {"DEP": "amod", "LOWER": "new"}}
+      ]],
+      "conditions": {"question": false},
+      "no_jokes": true,
+      "responses": [
+        {
+          "text": "That's okay. A new one couldn't take the place of the one you love. You can take all the time you need.",
+          "requires": ["sensitive"]
+        },
+        {"text": "Oh, you don't want a new one? Why not?"}
+      ]
+    },
+    {
       "id": "got_gift",
       "priority": 66,
       "patterns": [
@@ -1349,7 +1422,8 @@
         {"text": "Ooh, {gift}! What was in it?", "requires": ["gift_container"]},
         {"text": "Yay, {gift}! Do you like {gift_them}?"}
       ],
-      "compute": ["gift_container"]
+      "compute": ["gift_container"],
+      "suppressed_by": ["get_new_later"]
     },
     {
       "id": "found_it",

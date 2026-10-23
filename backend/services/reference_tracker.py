@@ -555,6 +555,14 @@ class ReferenceTracker:
     # Recording
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _acl_name(token):
+        """The name in "a dog named Max" / "my cat called Luna", if any"""
+        for clause in token.children:
+            if clause.dep_ == "acl" and clause.lemma_ in ("name", "call"):
+                return next((c for c in clause.children if c.dep_ in ("oprd", "dobj") and c.pos_ == "PROPN"), None)
+        return None
+
     def _record(self, doc, state: DiscourseState) -> None:
         mentioned: List[Person] = []
         named_tokens = set()
@@ -575,6 +583,8 @@ class ReferenceTracker:
                 if name_token is None and token.dep_ == "nsubj" and token.head.lemma_ == "be":
                     name_token = next((c for c in token.head.children
                                        if c.dep_ == "attr" and c.pos_ == "PROPN"), None)
+                if name_token is None:
+                    name_token = self._acl_name(token)
                 if name_token is not None:
                     named_tokens.add(name_token.i)
                 mentioned.append(Person(
@@ -593,7 +603,11 @@ class ReferenceTracker:
                     mentioned.append(Person(name="the new baby", pronoun="any"))
             elif token.lemma_.lower() in self.relations and self._is_new_relation(token):
                 # "I got a new puppy", "We have two cats and a dog": the child's from now on
+                name_token = self._acl_name(token)
+                if name_token is not None:
+                    named_tokens.add(name_token.i)
                 mentioned.append(Person(
+                    name=self._full_name(name_token) if name_token is not None else None,
                     relation=token.lemma_.lower(),
                     plural=token.tag_ == "NNS",
                     pronoun=_GENDERED_RELATIONS.get(token.lemma_.lower()),

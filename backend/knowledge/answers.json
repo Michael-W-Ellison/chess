@@ -1,6 +1,17 @@
 {
   "_comment": "Short answers to common questions children ask about the world, used by the rule-based response engine (services/response_engine.py) when a question matches no rule. Each pattern is a case-insensitive regular expression matched against the child's question; the first match wins, so put specific patterns before general ones. Keep answers short, simple and well established.",
   "answers": [
+    {"pattern": "\\b(how|where) (does |do |can )?(a |the )?knights? (move|moves|go|goes)\\b", "answer": "A knight moves in an L shape: two squares one way, then one square to the side. It's the only piece that can jump over other pieces!"},
+    {"pattern": "\\b(how|where) (does |do |can )?(a |the )?bishops? (move|moves|go|goes)\\b", "answer": "A bishop moves diagonally, as many squares as it wants, so it always stays on the same color!"},
+    {"pattern": "\\b(how|where) (does |do |can )?(a |the )?(rooks?|castles?) (move|moves|go|goes)\\b", "answer": "A rook moves in straight lines, up, down, or sideways, as many squares as it wants!"},
+    {"pattern": "\\b(how|where) (does |do |can )?(a |the )?queens? (move|moves|go|goes)\\b", "answer": "The queen is the most powerful piece! She can move any number of squares in a straight line or diagonally."},
+    {"pattern": "\\b(how|where) (does |do |can )?(a |the )?kings? (move|moves|go|goes)\\b", "answer": "The king moves just one square in any direction. Keep him safe, because if he's trapped, it's checkmate!"},
+    {"pattern": "\\b(how|where) (does |do |can )?(a |the )?pawns? (move|moves|go|goes)\\b", "answer": "A pawn moves forward one square, or two on its very first move. It captures diagonally, one square forward!"},
+    {"pattern": "\\bwhat (is|does) (a )?checkmate\\b|\\bwhat does checkmate mean\\b", "answer": "Checkmate is when the king is under attack and has no way to escape. That's how you win a chess game!"},
+    {"pattern": "\\bwhat (is|does) (a )?(check|stalemate)( mean)?\\b", "answer": "Check means the king is under attack and must get safe right away. Stalemate is when a player has no legal move but isn't in check, and the game is a tie!"},
+    {"pattern": "\\bwhat is castling\\b|\\bhow do (you|i) castle\\b", "answer": "Castling is a special move where the king moves two squares toward a rook, and the rook jumps to the other side of the king. It helps keep your king safe!"},
+    {"pattern": "\\b(best|good) (chess )?openings?\\b", "answer": "A good start is to move your center pawns, bring out your knights and bishops, and castle to keep your king safe. Lots of players like the Italian Game!"},
+    {"pattern": "\\bhow (do|does) (you|i|a person) win (at |in |a )?chess\\b|\\bhow do you play chess\\b", "answer": "In chess, you win by checkmating the other player's king, which means trapping it so it can't escape. Each piece moves in its own special way!"},
     {"pattern": "\\bwhat (is|are) (a )?fractions?\\b", "answer": "A fraction is a part of something whole! If you cut a pizza into 4 equal slices, one slice is 1/4, or one fourth, of the pizza."},
     {"pattern": "\\bwhat (is|are) (a )?decimals?\\b", "answer": "A decimal is another way to write part of a number, like 0.5, which means one half!"},
     {"pattern": "\\bwhat is (a )?prime number\\b", "answer": "A prime number can only be divided evenly by 1 and itself, like 2, 3, 5, 7, and 11!"},

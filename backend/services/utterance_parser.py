@@ -149,7 +149,9 @@ _CONTEXT_NORMALIZATIONS = [
                 r"bad|too)\b)", re.IGNORECASE),
      "you're"),
     (re.compile(r"\bill(?= (try|do|be|go|ask|tell|practice|study|see|talk|play|have|get|make|show|let|just|never|"
-                r"always|probably|draw|read|call|text|come|help|work|remember)\b)", re.IGNORECASE),
+                r"always|probably|draw|read|call|text|come|help|work|remember|eat|drink|wait|clean|finish|sleep|bring|"
+                r"buy|use|build|write|stop|take|give|send|keep|think|put|pick|sit|stay|watch|listen|look|fix|"
+                r"share|win|beat|check|miss|need|wear|sing|dance|run|swim|ride)\b)", re.IGNORECASE),
      "I'll"),
 ]
 # "my moms room" -> "my mom's room"
@@ -161,6 +163,8 @@ _QUESTION_START_RE = re.compile(r"^(what|how|where|when|why|who|do|does|are|is|c
 _JOINED_QUESTION_RE = re.compile(
     r",?\s+and\s+(?=(how|what|where|when|why|who|do you|are you|can you|will you)\b)", re.IGNORECASE
 )
+# "a snowman named frosty" -> "a snowman named Frosty"
+_NAMED_RE = re.compile(r"\b(named|called) (?!(after|it|him|her|them|me|you|us|that|this|what|a|an|the|my)\b)([a-z])")
 # "mr kim" -> "Mr Kim", so the parser reads a name
 _TITLE_RE = re.compile(r"\b(mr|mrs|ms|dr)\.? ([a-z])", re.IGNORECASE)
 
@@ -249,6 +253,7 @@ class UtteranceParser:
             text = pattern.sub(replacement, text)
         text = re.sub(r"\bur\b", "your", text, flags=re.IGNORECASE)
         text = _POSSESSIVE_RE.sub(r"\1's ", text)
+        text = _NAMED_RE.sub(lambda m: f"{m.group(1)} {m.group(3).upper()}", text)
         text = _TITLE_RE.sub(lambda m: f"{m.group(1).capitalize()} {m.group(2).upper()}", text)
         # "what's your name and how old are you": two questions, answered one by one
         if _QUESTION_START_RE.match(text):

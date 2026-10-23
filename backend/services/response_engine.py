@@ -49,6 +49,11 @@ _QUESTION_STARTERS = {"what", "who", "where", "when", "why", "how", "which", "do
 _SKIP_DEPS = {"intj"}
 _TRIM_DEPS = {"punct", "cc"}
 
+
+def _skipped(token) -> bool:
+    """Interjections, and a word like "fine" or "okay" opening the sentence ("fine I'll eat it")"""
+    return token.dep_ in _SKIP_DEPS or (token.pos_ == "INTJ" and token.i == token.sent.start)
+
 # Chance of mentioning a stored memory (friendship level 3+) before engagement data exists
 CALLBACK_PROBABILITY = 0.35
 
@@ -479,7 +484,7 @@ class ResponseEngine:
         slots = {}
         others = [t for c in conjunct.children
                   if self._is_list_link(c) or c.dep_ in ("cc", "punct") for t in c.subtree]
-        tokens = [t for t in conjunct.subtree if t not in others and t.dep_ not in _SKIP_DEPS]
+        tokens = [t for t in conjunct.subtree if t not in others and not _skipped(t)]
         for slot_name, spec in rule.get("slots", {}).items():
             if spec["node"] != node_name:
                 continue
@@ -506,7 +511,7 @@ class ResponseEngine:
             lemma = token.lemma_.lower()
             return lemma, lemma
         if span == "subtree":
-            tokens = [t for t in token.subtree if t.dep_ not in _SKIP_DEPS]
+            tokens = [t for t in token.subtree if not _skipped(t)]
             if token.dep_ == "xcomp" and tokens and tokens[0].lower_ == "to":
                 tokens = tokens[1:]
         elif span == "verb_group":
@@ -520,7 +525,7 @@ class ResponseEngine:
             tokens = [t for t in token.subtree
                       if t == token or (t.head == token and t.dep_ in ("amod", "compound"))]
         elif span == "clause":
-            tokens = [t for t in token.subtree if t.dep_ not in _SKIP_DEPS]
+            tokens = [t for t in token.subtree if not _skipped(t)]
             while tokens and tokens[0].dep_ == "mark":
                 tokens = tokens[1:]
         elif span == "predicate":
@@ -529,14 +534,14 @@ class ResponseEngine:
                 if child.dep_ in ("nsubj", "aux", "neg") or child.ent_type_ in ("DATE", "TIME"):
                     excluded.update(child.subtree)
             tokens = [t for t in token.subtree
-                      if t not in excluded and t.dep_ not in _SKIP_DEPS and t.ent_type_ not in ("DATE", "TIME")]
+                      if t not in excluded and not _skipped(t) and t.ent_type_ not in ("DATE", "TIME")]
         elif span == "because_clause":
             tokens = []
             for child in token.children:
                 if child.dep_ == "advcl" and any(m.dep_ == "mark" and m.lower_ in ("because", "cause", "since")
                                                  for m in child.children):
                     tokens = [t for t in child.subtree
-                              if t.dep_ not in _SKIP_DEPS and not (t.dep_ == "mark" and t.head == child)]
+                              if not _skipped(t) and not (t.dep_ == "mark" and t.head == child)]
                     break
         else:
             raise ValueError(f"Unknown slot span type: {span}")
@@ -770,6 +775,8 @@ class ResponseEngine:
             # Without a name, "Hi {user_name}!" becomes "Hi!" (see _NO_NAME)
             "user_name": user_name or _NO_NAME,
             "known_name": "yes" if user_name else "",
+            # The child said something sad recently: templates can require it, or be "unless" it
+            "sensitive": "yes" if (context or {}).get("sensitive") else "",
             "bot_name": getattr(personality, "name", None) or "Buddy",
             "bot_mood": getattr(personality, "mood", None) or "happy",
         }
@@ -1184,7 +1191,7 @@ class ResponseEngine:
             # The clause's own words: not the clauses joined to it
             joined = {t.i for c in verb.children if c.dep_ == "conj" for t in c.subtree}
             tokens = [t for t in verb.subtree
-                      if t.i not in joined and t.dep_ not in _SKIP_DEPS
+                      if t.i not in joined and not _skipped(t)
                       and not (t.dep_ == "cc" and t.head == verb)
                       and not (t.dep_ == "advmod" and t.lower_ == "then" and t.head == verb)]
             if subject_owner is not verb:

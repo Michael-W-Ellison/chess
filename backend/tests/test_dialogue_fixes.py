@@ -53,6 +53,12 @@ class TestNewRules:
         ("I miss my grandpa", "miss_person"),
         ("my grandma is feeling better", "person_better"),
         ("can you give me advice", "ask_for_advice"),
+        ("what if nobody likes me", "what_if_liked"),
+        ("what if no one wants to play with me", "what_if_liked"),
+        ("what if I fail the test", "what_if_worry"),
+        ("my mom said we can get a new one", "get_new_later"),
+        ("I don't want a new one", "not_want_new"),
+        ("I got a new bike", "got_gift"),
         ("coach said I did great", "praise_reported"),
         ("not much you", "not_much"),
         ("yes", "yes_no"),
@@ -288,6 +294,18 @@ class TestReferences:
         rule_of(engine, "we have two cats and a dog")
         rule_of(engine, "the dog is named Buster")
         assert engine.resolve_references("he is really old", 1) == "My dog Buster is really old"
+
+    def test_pet_named_in_the_same_sentence(self, engine):
+        rule_of(engine, "I have a dog named max")
+        assert engine.resolve_references("he is brown", 1) == "My dog Max is brown"
+
+    def test_named_snowman(self, engine):
+        rule_of(engine, "I made a snowman named frosty")
+        assert engine.resolve_references("he has a carrot nose", 1) == "Frosty has a carrot nose"
+
+    def test_opening_word_is_not_echoed(self, engine):
+        _, reply = rule_of(engine, "fine ill eat broccoli")
+        assert "fine" not in reply.lower()
 
     def test_teacher_with_title(self, engine):
         rule_of(engine, "my teacher is mrs garcia")
@@ -528,6 +546,9 @@ class TestNormalization:
         ("its so boring", "it's so boring"),
         ("its wings", "its wings"),
         ("ok ill try that", "ok I'll try that"),
+        ("fine ill eat broccoli", "fine I'll eat broccoli"),
+        ("a snowman named frosty", "a snowman named Frosty"),
+        ("named after my grandpa", "named after my grandpa"),
         ("I feel ill", "I feel ill"),
         ("ur weird", "you're weird"),
         ("ur dog", "your dog"),
@@ -558,6 +579,10 @@ class TestSafetyAndEmojis:
 
     def test_taking_stuff_without_family_is_still_bullying(self):
         assert "bullying" in safety_filter.check_message("He takes my stuff")["flags"]
+
+    def test_what_if_worry_is_not_bullying(self):
+        assert "bullying" not in safety_filter.check_message("what if nobody likes me")["flags"]
+        assert "bullying" in safety_filter.check_message("nobody likes me")["flags"]
 
     def test_where_do_you_live_is_allowed(self):
         assert safety_filter.check_message("where do you live")["safe"]
@@ -710,3 +735,10 @@ class TestConversation:
         user_id, conversation_id, _ = start(api)
         send(api, user_id, conversation_id, problem)
         assert word in send(api, user_id, conversation_id, question)
+
+    def test_gentle_reply_about_a_new_pet_after_one_died(self, api):
+        user_id, conversation_id, _ = start(api)
+        for message in ("my hamster died yesterday", "his name was peanut"):
+            send(api, user_id, conversation_id, message)
+        reply = send(api, user_id, conversation_id, "my mom said we can get a new one")
+        assert "not ready" in reply and "Yay" not in reply

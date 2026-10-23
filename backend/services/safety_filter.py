@@ -43,6 +43,10 @@ _FAMILY_WORDS = {
 }
 
 
+# "What if nobody likes me?": a worry about something that has not happened, not bullying
+_WHAT_IF_RE = re.compile(r"^\W*(but |and |so )?(what if|what happens if)\b", re.IGNORECASE)
+
+
 class SafetyFilter:
     """
     Safety Filter - Comprehensive safety orchestration layer
@@ -254,7 +258,8 @@ class SafetyFilter:
             # ============================================================
             # Check for bullying if no other issues found
             if (not flags and self.bullying_detector.contains_bullying_keywords(message)
-                    and not self._sibling_taking_things(message, resolved_message)):
+                    and not self._sibling_taking_things(message, resolved_message)
+                    and not _WHAT_IF_RE.match(message)):
                 bullying_keywords_found = self.bullying_detector.find_bullying_keywords(message)
                 bullying_category = self.bullying_detector.get_category(message)
                 all_bullying_categories = self.bullying_detector.get_all_categories(message)

@@ -53,6 +53,10 @@ def reply(engine, message):
     ("what is a black hole", "A black hole"),
     ("do you know why the sky is blue", "The sky looks blue"),
     ("where do babies come from", "That's a great question to ask"),
+    ("do you know how the knight moves", "A knight moves in an L shape"),
+    ("how does the rook move", "A rook moves"),
+    ("whats the best opening", "A good start"),
+    ("what is checkmate", "Checkmate is"),
 ])
 def test_known_questions(engine, question, start):
     text, rule = reply(engine, question)
