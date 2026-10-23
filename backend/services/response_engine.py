@@ -106,8 +106,25 @@ CHILD_JOKE_LAUGHS = ["Haha! That's a good one! You're really funny.", "Hahaha! I
 # A joke the child starts without saying so: "Why did the chicken cross the road?", "Knock knock"
 _JOKE_SETUP_RE = re.compile(
     r"^\W*(why did the \w+ cross the road|what do you call (a|an)\b|what did the \w+ say to\b|"
-    r"why did the \w+ (go to|bring|sit on|eat|wear)\b|what has \w+ \w+ but)", re.IGNORECASE
+    r"why did the \w+ (go to|bring|sit on|eat|wear)\b|what has \w+ \w+ but|"
+    r"what('s| is) [a-z]+ and [a-z]+\W*$)", re.IGNORECASE
 )
+# "Want to hear a funny joke?" - "yes": tell one
+_JOKE_OFFER_RE = re.compile(r"\bwant to hear a (funny |silly )?joke\?", re.IGNORECASE)
+_YES_RE = re.compile(r"^\W*(yes|yeah|yea|yep|yup|sure|ok|okay|please|yes please|ya|uh huh|of course)\W*$", re.IGNORECASE)
+# Riddles the bot asks and waits for a guess: (riddle, answer, words that count as the answer)
+RIDDLES = [
+    ("What has hands but can't clap?", "A clock!", "clock"),
+    ("What has to be broken before you can use it?", "An egg!", "egg"),
+    ("What gets wetter the more it dries?", "A towel!", "towel"),
+    ("What has a face and two hands but no arms or legs?", "A clock!", "clock|watch"),
+    ("What can you catch but not throw?", "A cold!", "cold"),
+    ("What has legs but doesn't walk?", "A table!", "table|chair"),
+    ("What goes up but never comes down?", "Your age!", "age"),
+    ("What has lots of keys but can't open any doors?", "A piano!", "piano|keyboard"),
+    ("What has one eye but can't see?", "A needle!", "needle"),
+    ("What is full of holes but still holds water?", "A sponge!", "sponge"),
+]
 _KNOCK_KNOCK_RE = re.compile(r"^\W*knock,? knock\W*$", re.IGNORECASE)
 
 _ARITHMETIC_RE = re.compile(
@@ -156,6 +173,11 @@ class ResponseEngine:
         self._child_joke: Dict[int, int] = {}
         # Turns of a story the child and the bot are making up together
         self._story_mode: Dict[int, int] = {}  # the favorite category last talked about
+        # The answer to a riddle the bot asked, while the child guesses
+        self._riddle: Dict[int, Tuple[str, str]] = {}
+        # What the bot's last reply offered: "joke" ("Want to hear a funny joke?") or
+        # "again" ("Want another one?", the same kind as the last joke, riddle or fact)
+        self._offered: Dict[int, str] = {}
         self._load_knowledge_base()
         self.references = ReferenceTracker(
             parser, self.kb["lexicons"]["relations"], self.kb["lexicons"]["common_capitalized"]
@@ -217,6 +239,8 @@ class ResponseEngine:
         self._last_mentions.pop(user_id, None)
         self._child_joke.pop(user_id, None)
         self._story_mode.pop(user_id, None)
+        self._riddle.pop(user_id, None)
+        self._offered.pop(user_id, None)
 
     def record_bot_reply(self, user_id: int, reply: str, humor: Optional[str] = None) -> None:
         """
@@ -225,6 +249,12 @@ class ResponseEngine:
         """
         if not self.is_available():
             return
+        if _JOKE_OFFER_RE.search(reply):
+            self._offered[user_id] = "joke"
+        elif re.search(r"\bwant another( one)?\?", reply, re.IGNORECASE):
+            self._offered[user_id] = "again"
+        else:
+            self._offered.pop(user_id, None)
         told = self._last_told.pop(user_id, None)
         added = {"pun": "joke", "fact": "fun fact"}.get(humor or "") if told is None else None
         mentions = self._last_mentions.pop(user_id, [])
@@ -820,6 +850,38 @@ class ResponseEngine:
                     features["rule"] = "story"
                 return self._apply_style(self._pick(STORY_PROMPTS, user_id), personality)
 
+        # The child's guess at the bot's riddle
+        riddle = self._riddle.pop(user_id, None)
+        # A guess is short ("a clock", "is it a towel?"); "do you like farts" changes the subject,
+        # and "you're funny" or "haha" is not a guess (the riddle stays open)
+        if riddle is not None and re.match(r"\W*(you|you're|youre|ur|that's|thats|haha\w*|lol|lmao|wow|cool|hehe)\b",
+                                           message, re.IGNORECASE):
+            self._riddle[user_id] = riddle
+            riddle = None
+        if (riddle is not None and len(message.split()) <= 6
+                and not re.match(r"\W*(do|can|will|what's|whats) you\b|\W*tell me\b", message, re.IGNORECASE)):
+            answer, accepted = riddle
+            if features is not None:
+                features["rule"] = "riddle_answer"
+            if re.search(rf"\b({accepted})s?\b", message, re.IGNORECASE):
+                reply = f"Yes, you got it! {answer[:-1]}. You're a great riddle solver! Want another one?"
+            elif re.search(r"\b(know|idk|give up|no idea|tell me|not sure)\b", message, re.IGNORECASE):
+                reply = f"That's okay, it's a tricky one! The answer is: {answer} Want another one?"
+            else:
+                reply = f"Good guess! The answer is: {answer} Want another one?"
+            return self._apply_style(reply, personality)
+
+        # "Want to hear a funny joke?" / "Want another one?" - "yes"
+        offered = self._offered.pop(user_id, None)
+        kind = "joke" if offered == "joke" else self._last_request.get(user_id) if offered else None
+        if kind and _YES_RE.match(message):
+            content = {}
+            self._requested_content(kind, content, user_id)
+            if content.get("content"):
+                if features is not None:
+                    features["rule"] = "joke_offer_yes"
+                return self._apply_style(f"Okay, here's one: {content['content']}", personality)
+
         # The child is telling a joke: "Why did the chicken cross the road?" ... the punchline
         joke_stage = self._child_joke.pop(user_id, 0)
         if not joke_stage and _KNOCK_KNOCK_RE.match(message):
@@ -1036,7 +1098,13 @@ class ResponseEngine:
         from services.fact_quirk_service import fact_quirk_service
         from services.pun_quirk_service import pun_quirk_service
 
-        if kind in ("joke", "pun", "riddle"):
+        if kind == "riddle":
+            question = self._pick([r[0] for r in RIDDLES], user_id)
+            riddle, answer, accepted = next(r for r in RIDDLES if r[0] == question)
+            slots["content"] = f"{riddle} Take a guess!"
+            self._riddle[user_id] = (answer, accepted)
+            self._last_told[user_id] = "riddle"
+        elif kind in ("joke", "pun"):
             slots["content"] = pun_quirk_service.random_pun(slots.get("message_text", ""))
             self._last_told[user_id] = "joke"
         elif kind == "fact":
@@ -1049,7 +1117,7 @@ class ResponseEngine:
     def rule_flag(self, rule_id: Optional[str], flag: str) -> bool:
         """A rule's boolean option from the knowledge base (e.g. "no_jokes")"""
         # Answers to questions about the world and the child's own joke get no joke added
-        if flag == "no_jokes" and rule_id and (rule_id.startswith("fallback_world") or rule_id == "child_joke"):
+        if flag == "no_jokes" and rule_id and (rule_id.startswith("fallback_world") or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes")):
             return True
         return bool(rule_id and self.rules.get(rule_id, {}).get(flag))
 

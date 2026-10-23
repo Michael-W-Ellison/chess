@@ -72,6 +72,17 @@ class TestNewRules:
         ("what game do you like", "bot_like_which"),
         ("why did the chicken cross the road", "child_joke"),
         ("knock knock", "child_joke"),
+        ("do you like farts", "bot_like_gross"),
+        ("my parents are getting divorced", "parents_divorce"),
+        ("my mom and dad are splitting up", "parents_divorce"),
+        ("will they still love me", "still_love_me"),
+        ("can i tell you a secret", "tell_secret"),
+        ("dont tell anyone", "dont_tell"),
+        ("i like a boy in my class", "crush_boy"),
+        ("he has to go home now", "other_goes_home"),
+        ("i have to go", "gotta_go"),
+        ("whats brown and sticky", "child_joke"),
+        ("tell me another", "request_again_tell"),
         ("coach said I did great", "praise_reported"),
         ("not much you", "not_much"),
         ("yes", "yes_no"),
@@ -330,8 +341,12 @@ class TestReferences:
     def test_it_after_something_made_for_the_child(self, engine):
         rule_of(engine, "my throat hurts")
         rule_of(engine, "my dad made me soup")
-        assert engine.resolve_references("it was yummy", 1) == "Soup was yummy"
-        assert rule_of(engine, "it was yummy")[1].startswith("Yay")
+        assert engine.resolve_references("it was yummy", 1) == "The soup was yummy"
+        assert rule_of(engine, "it was yummy")[1].startswith("Yay, the soup")
+
+    def test_school_subject_keeps_no_article(self, engine):
+        rule_of(engine, "we had math")
+        assert engine.resolve_references("it was boring", 1) == "Math was boring"
 
     def test_naming_the_new_baby(self, engine):
         rule_of(engine, "my mom is having a baby")
@@ -341,6 +356,26 @@ class TestReferences:
     def test_lowercase_friend_name_is_capitalized(self, engine):
         assert "your friend Sam" in rule_of(engine, "my friend sam helped me")[1]
         assert "Group" not in rule_of(engine, "my friend group is big")[1]
+        assert "friend Lucas" in rule_of(engine, "my friend lucas came over")[1]
+
+    def test_riddle_waits_for_a_guess(self, engine):
+        riddle = rule_of(engine, "can you tell me a riddle")[1]
+        assert riddle.endswith("Take a guess!")
+        assert rule_of(engine, "you're funny")[0] == "bot_compliment"  # not a guess
+        rule, reply = rule_of(engine, "i dont know")
+        assert rule == "riddle_answer" and "The answer is" in reply and reply.endswith("Want another one?")
+        rule, reply = rule_of(engine, "yes")
+        assert rule == "joke_offer_yes" and reply.endswith("Take a guess!") and riddle.split(": ")[1] not in reply
+
+    def test_yes_to_a_joke_offer(self, engine):
+        rule_of(engine, "do you like farts")
+        assert rule_of(engine, "yes")[1].startswith("Okay, here's one:")
+
+    def test_creature_in_a_drawing(self, engine):
+        for message in ("i drew a picture", "its a unicorn"):
+            rule_of(engine, message)
+        assert engine.resolve_references("she has a rainbow mane", 1) == "The unicorn has a rainbow mane"
+        assert engine.resolve_references("i gave it to my grandma", 1) == "I gave the picture to my grandma"
 
     def test_knock_knock_joke(self, engine):
         assert rule_of(engine, "knock knock")[1] == "Who's there?"
@@ -800,3 +835,17 @@ class TestConversation:
         send(api, user_id, conversation_id, "lol jk im finn")
         assert memories(api, user_id)[("basic", "name")] == "Finn"
         assert "Finn" in send(api, user_id, conversation_id, "bye")
+
+    def test_no_joke_after_news_about_a_person(self, api):
+        user_id, conversation_id, _ = start(api)
+        with patch("services.conversation_manager.ConversationManager._choose_joke", return_value="pun"), \
+                patch("services.conversation_manager.ConversationManager._invites_answer", return_value=False), \
+                patch("services.conversation_manager.pun_quirk_service.add_pun", side_effect=lambda r, **k: r + " PUN"):
+            assert "PUN" not in send(api, user_id, conversation_id, "my teacher is mrs brown")
+            assert "PUN" in send(api, user_id, conversation_id, "pizza is yummy")
+
+    def test_gentle_dont_know_after_sad_news(self, api):
+        user_id, conversation_id, _ = start(api)
+        send(api, user_id, conversation_id, "my parents are getting divorced")
+        reply = send(api, user_id, conversation_id, "i dont know")
+        assert "a lot to think about" in reply

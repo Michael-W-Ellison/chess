@@ -260,7 +260,17 @@
       "planet": ["Saturn", "Jupiter"],
       "instrument": ["piano", "drums"],
       "holiday": ["birthdays", "the first day of summer"],
-      "shape": ["stars", "circles"]
+      "shape": ["stars", "circles"],
+      "activity": [
+        "drawing",
+        "reading",
+        "telling jokes",
+        "singing",
+        "building things",
+        "dancing",
+        "learning new things",
+        "playing games"
+      ]
     }
   },
 
@@ -293,6 +303,105 @@
   },
 
   "rules": [
+    {
+      "id": "parents_divorce",
+      "priority": 93,
+      "patterns": [
+        [
+          {"RIGHT_ID": "divorce", "RIGHT_ATTRS": {"LEMMA": {"IN": ["divorce", "divorced"]}}}
+        ],
+        [
+          {"RIGHT_ID": "split", "RIGHT_ATTRS": {"LEMMA": {"IN": ["split", "break"]}}},
+          {"LEFT_ID": "split", "REL_OP": ">", "RIGHT_ID": "up", "RIGHT_ATTRS": {"LOWER": "up"}},
+          {"LEFT_ID": "split", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": ["parent", "mom", "dad", "mommy", "daddy", "they"]}}}
+        ]
+      ],
+      "conditions": {"question": false},
+      "no_jokes": true,
+      "mood": "sad",
+      "valence": "negative",
+      "responses": [
+        "That's a really big change, and it's okay to feel however you feel about it. It's not your fault. Do you want to talk about it?"
+      ]
+    },
+    {
+      "id": "still_love_me",
+      "priority": 94,
+      "patterns": [[
+        {"RIGHT_ID": "love", "RIGHT_ATTRS": {"LEMMA": {"IN": ["love", "like", "want"]}}},
+        {"LEFT_ID": "love", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "me"}},
+        {"LEFT_ID": "love", "REL_OP": ">", "RIGHT_ID": "still", "RIGHT_ATTRS": {"LOWER": {"IN": ["still", "always"]}}}
+      ]],
+      "conditions": {"question": true},
+      "no_jokes": true,
+      "mood": "sad",
+      "responses": [
+        "Moms and dads keep loving their kids, even when big things change. You could ask them, too. They'd want to know you're wondering, and hearing it from them can really help."
+      ]
+    },
+    {
+      "id": "tell_secret",
+      "priority": 88,
+      "patterns": [[
+        {"RIGHT_ID": "tell", "RIGHT_ATTRS": {"LEMMA": "tell"}},
+        {"LEFT_ID": "tell", "REL_OP": ">", "RIGHT_ID": "secret", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": "secret"}}
+      ]],
+      "no_jokes": true,
+      "responses": [
+        "Sure, you can tell me! Just remember, if a secret is about someone getting hurt or feeling unsafe, it's important to tell a grown-up you trust too."
+      ]
+    },
+    {
+      "id": "dont_tell",
+      "priority": 88,
+      "patterns": [[
+        {"RIGHT_ID": "tell", "RIGHT_ATTRS": {"LEMMA": "tell"}},
+        {"LEFT_ID": "tell", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}},
+        {"LEFT_ID": "tell", "REL_OP": ">", "RIGHT_ID": "who", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["anyone", "anybody", "nobody", "mom", "dad"]}}}
+      ]],
+      "conditions": {"max_tokens": 6},
+      "no_jokes": true,
+      "responses": [
+        "Thanks for trusting me! I don't chat with anyone at your school, so I can't tell them. And if something ever makes you feel unsafe, it's always okay to tell a grown-up you trust."
+      ]
+    },
+    {
+      "id": "crush_boy",
+      "priority": 72,
+      "patterns": [[
+        {"RIGHT_ID": "like", "RIGHT_ATTRS": {"LEMMA": {"IN": ["like", "love"]}}},
+        {"LEFT_ID": "like", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "like", "REL_OP": ">", "RIGHT_ID": "who", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": "boy"}},
+        {"LEFT_ID": "who", "REL_OP": ">", "RIGHT_ID": "det", "RIGHT_ATTRS": {"DEP": "det", "LOWER": {"IN": ["a", "this", "that"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "like"},
+      "no_jokes": true,
+      "responses": ["Aw, that's sweet! Lots of kids have a crush sometimes. What do you like about him?"]
+    },
+    {
+      "id": "crush_girl",
+      "priority": 72,
+      "patterns": [[
+        {"RIGHT_ID": "like", "RIGHT_ATTRS": {"LEMMA": {"IN": ["like", "love"]}}},
+        {"LEFT_ID": "like", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "like", "REL_OP": ">", "RIGHT_ID": "who", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": "girl"}},
+        {"LEFT_ID": "who", "REL_OP": ">", "RIGHT_ID": "det", "RIGHT_ATTRS": {"DEP": "det", "LOWER": {"IN": ["a", "this", "that"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "like"},
+      "no_jokes": true,
+      "responses": ["Aw, that's sweet! Lots of kids have a crush sometimes. What do you like about her?"]
+    },
+    {
+      "id": "other_goes_home",
+      "priority": 16,
+      "patterns": [[
+        {"RIGHT_ID": "need", "RIGHT_ATTRS": {"LEMMA": {"IN": ["get", "have", "need"]}}},
+        {"LEFT_ID": "need", "REL_OP": ">", "RIGHT_ID": "go", "RIGHT_ATTRS": {"LEMMA": "go", "DEP": "xcomp"}},
+        {"LEFT_ID": "need", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "we"]}}}
+      ]],
+      "conditions": {"question": false},
+      "responses": ["Aw, it sounds like you had a fun time together! What was your favorite part?"]
+    },
     {
       "id": "what_if_liked",
       "priority": 92,
@@ -420,9 +529,30 @@
       "responses": ["I just think {thing} is really fun to talk about! Why do you like it?"]
     },
     {
+      "id": "bot_like_gross",
+      "priority": 86,
+      "suppressed_by": ["comparison_question", "bot_like_which", "bot_hobby_question", "bot_like_food", "bot_why_like"],
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@like_verbs"}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"LOWER": "you", "DEP": "nsubj"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": {"IN": ["dobj", "xcomp"]}, "LEMMA": {"IN": ["fart", "poop", "burp", "booger", "toot", "snot", "puke", "barf", "pee"]}}}
+      ]],
+      "conditions": {"question": true},
+      "slots": {"thing": {"node": "obj", "span": "activity"}},
+      "responses": ["Hehe, {thing}? That's so silly! Everybody has them sometimes. Want to hear a funny joke?"],
+      "no_jokes": true
+    },
+    {
       "id": "bot_like_question",
       "priority": 85,
-      "suppressed_by": ["comparison_question", "bot_like_which", "bot_hobby_question", "bot_like_food", "bot_why_like"],
+      "suppressed_by": [
+        "comparison_question",
+        "bot_like_which",
+        "bot_hobby_question",
+        "bot_like_food",
+        "bot_why_like",
+        "bot_like_gross"
+      ],
       "patterns": [
         [
           {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@like_verbs"}}},
@@ -1841,7 +1971,7 @@
         {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
         {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": {"IN": ["dobj", "xcomp"]}, "LOWER": {"NOT_IN": ["it", "that", "this", "them", "you"]}}}
       ]],
-      "suppressed_by": ["love_person", "like_more"],
+      "suppressed_by": ["love_person", "like_more", "crush_boy", "crush_girl"],
       "conditions": {"not_negated": "verb"},
       "slots": {"thing": {"node": "obj", "span": "activity"}, "verb": {"node": "verb", "span": "lemma"}},
       "compute": ["bot_shares_like"],
@@ -1988,7 +2118,7 @@
       "mood": "happy",
       "valence": "positive",
       "responses": ["{clause}? That's so nice!", "Aw, {clause}? That's so sweet!"],
-      "follow_ups": ["What was your favorite part?", "That's really thoughtful. How did you feel?"]
+      "follow_ups": ["How did it make you feel?", "They must really care about you!"]
     },
     {
       "id": "lots_of_homework",
@@ -2964,8 +3094,12 @@
       ]],
       "conditions": {"max_tokens": 8, "question": false},
       "responses": [
-        "That's okay, you don't have to know! Want to talk about something else?",
-        "No worries! Sometimes it's hard to know. What's on your mind?"
+        {
+          "text": "That's okay. It's a lot to think about. I'm here if you want to talk, or we can just hang out.",
+          "requires": ["sensitive"]
+        },
+        {"text": "That's okay, you don't have to know! Want to talk about something else?", "unless": ["sensitive"]},
+        {"text": "No worries! Sometimes it's hard to know. What's on your mind?", "unless": ["sensitive"]}
       ],
       "suppressed_by": ["know_nobody", "dont_know_how", "dont_know_what"]
     },
@@ -3491,6 +3625,27 @@
       ]
     },
     {
+      "id": "request_again_tell",
+      "priority": 87,
+      "patterns": [
+        [
+          {"RIGHT_ID": "tell", "RIGHT_ATTRS": {"LEMMA": {"IN": ["tell", "do", "say", "give"]}}},
+          {"LEFT_ID": "tell", "REL_OP": ">", "RIGHT_ID": "word", "RIGHT_ATTRS": {"LOWER": {"IN": ["another", "more"]}}}
+        ],
+        [
+          {"RIGHT_ID": "more", "RIGHT_ATTRS": {"LOWER": "more"}},
+          {"LEFT_ID": "more", "REL_OP": "<", "RIGHT_ID": "one", "RIGHT_ATTRS": {"LOWER": "one"}}
+        ]
+      ],
+      "conditions": {"max_tokens": 5},
+      "compute": ["repeat_request"],
+      "no_jokes": true,
+      "responses": [
+        {"text": "Okay, here's another: {content}", "requires": ["content"]},
+        {"text": "Another what? A joke or a fun fact?"}
+      ]
+    },
+    {
       "id": "offer_content",
       "priority": 87,
       "patterns": [
@@ -3711,7 +3866,8 @@
       ]],
       "conditions": {"max_tokens": 6, "question": false},
       "responses": ["Bye, {user_name}! Talk to you soon!", "See you later, {user_name}! I had fun talking with you."],
-      "no_jokes": true
+      "no_jokes": true,
+      "suppressed_by": ["other_goes_home"]
     },
     {
       "id": "farewell_last",

@@ -129,6 +129,14 @@ def gerund(lemma: str) -> str:
     return lemma + "ing"
 
 
+# "My dad made me soup. It was yummy" -> "The soup was yummy"
+# Made-up and drawn creatures the child may call "she" or "he"
+_CREATURES = {"unicorn", "dragon", "dinosaur", "monster", "robot", "mermaid", "fairy", "princess", "prince",
+              "superhero", "bunny", "bear", "teddy", "doll", "alien", "pony", "horse", "puppy", "kitty",
+              "snowman", "giant", "wizard", "witch", "knight", "king", "queen", "ghost", "zombie"}
+_MAKING_VERBS = {"make", "cook", "bake", "buy", "get", "eat", "bring", "give", "drink", "order"}
+
+
 @dataclass
 class Person:
     name: Optional[str] = None
@@ -168,6 +176,10 @@ class Thing:
     order: int = 0  # increases with every recorded mention, so later mentions rank first
     added: bool = False  # a joke or fact the bot added unasked: only "it" in a reaction ("That was funny")
     short: bool = False  # the bot's own answer: only meant by "it" on the next turn
+    made: bool = False  # a bare object someone made, bought or ate ("made me soup"): "the soup" later
+    # Describes or belongs to another thing ("the picture is a unicorn", "the unicorn has a mane"):
+    # "it" means the main thing (the picture) when there is one
+    detail: bool = False
 
 
 @dataclass
@@ -389,6 +401,16 @@ class ReferenceTracker:
                         return self._match_case(self._as_subject(things[0], token), token)
             else:
                 candidates = [p for p in people if not p.plural and p.pronoun in (None, gender, "any")]
+            if not candidates and gender in ("she", "he"):
+                # "It's a unicorn. She has a rainbow mane": a creature the child drew or made up
+                creature = next((t for t in self._recent(state.things, state)
+                                 if not t.plural and not t.added and t.text.split()[-1].lower() in _CREATURES), None)
+                if creature is not None and not (lower in ("his", "her") and token.head.lower_ == "name"):
+                    creature.turn = state.turn
+                    words = [w for w in creature.text.split() if w.lower() not in _DETERMINERS]
+                    phrase = f"the {' '.join(words)}" + ("'s" if lower in _POSSESSIVE_FORMS or (
+                        lower == "her" and token.dep_ == "poss") else "")
+                    return self._match_case(phrase, token)
             if not candidates:
                 # "We built a snowman. His name is Frosty": the thing the child made
                 if lower in ("his", "her") and token.head.lower_ == "name":
@@ -469,6 +491,7 @@ class ReferenceTracker:
             if lower == "it":
                 # "it" is singular: prefer a singular thing ("that" can point at "cats")
                 things = [t for t in things if not t.plural] or things
+                things = [t for t in things if not t.detail] or things
             # Not an event done by someone this message names: "She started it" is not
             # "My sister started my sister and my brother fighting"
             events = [e for e in self._recent(state.events, state) if not e.actor & named]
@@ -571,10 +594,25 @@ class ReferenceTracker:
             return False
         if token.dep_ == "appos" and token.pos_ == "PROPN" and token.head.lemma_.lower() in self.relations:
             return True
-        return (token.pos_ in ("NOUN", "PROPN")
-                and any(c.dep_ == "compound" and c.lemma_.lower() in self.relations for c in token.children)
-                and any(c.dep_ == "poss" and c.lower_ in ("my", "our") for c in token.children)
-                and token.lower_ not in self.parser.known_words())
+        relation = next((c for c in token.children
+                         if c.dep_ == "compound" and c.lemma_.lower() in self.relations), None)
+        # "my" on the name ("my cousin jake") or on the relation ("my friend lucas")
+        return (token.pos_ in ("NOUN", "PROPN") and relation is not None
+                and any(c.dep_ == "poss" and c.lower_ in ("my", "our")
+                        for c in list(token.children) + list(relation.children))
+                and (token.pos_ == "PROPN" or token.lower_ not in self.parser.known_words()))
+
+    def _is_detail(self, noun) -> bool:
+        """
+        "a unicorn" in "the picture is a unicorn", "a mane" in "the unicorn has a mane":
+        a description or part of another thing (the subject), not of the child or a person
+        """
+        verb = noun.head
+        if not ((noun.dep_ == "attr" and verb.lemma_ == "be") or (noun.dep_ == "dobj" and verb.lemma_ == "have")):
+            return False
+        subject = next((c for c in verb.children if c.dep_ == "nsubj"), None)
+        return (subject is not None and subject.pos_ == "NOUN"
+                and subject.lemma_.lower() not in self.relations and subject.lemma_.lower() not in _GROUPS)
 
     @staticmethod
     def _clause_subject_owns(token, gender: str) -> bool:
@@ -747,7 +785,10 @@ class ReferenceTracker:
                 self._remember_thing(f"the new {noun}", state, plural=previous.plural)
 
         for chunk in sorted(chunks, key=lambda c: (c.sent.start, salience[c.root.dep_], c.start)):
-            self._remember_thing(self._thing_text(chunk), state, plural=chunk.root.tag_ == "NNS")
+            made = (chunk.root.dep_ == "dobj" and chunk.root.head.lemma_ in _MAKING_VERBS
+                    and len(chunk) == 1 and chunk.root.tag_ == "NN")
+            self._remember_thing(self._thing_text(chunk), state, plural=chunk.root.tag_ == "NNS", made=made,
+                                 detail=self._is_detail(chunk.root))
 
         event = self._event_phrase(doc)
         if event:
@@ -760,7 +801,7 @@ class ReferenceTracker:
     def _as_subject(item, token) -> str:
         """ "They had sprinkles" -> "The cupcakes had sprinkles", not "Cupcakes had sprinkles" """
         text = item.text
-        if (token.dep_ == "nsubj" and getattr(item, "plural", False)
+        if (token.dep_ == "nsubj" and (getattr(item, "plural", False) or getattr(item, "made", False))
                 and text.split()[0].lower() not in _DETERMINERS and not text[:1].isupper()):
             return f"the {text}"
         return text
@@ -812,10 +853,12 @@ class ReferenceTracker:
         return " ".join(words)
 
     def _remember_thing(self, text: str, state: DiscourseState, plural: bool = False, added: bool = False,
-                        short: bool = False) -> None:
+                        short: bool = False, made: bool = False, detail: bool = False) -> None:
+        # Once a detail of something else ("a unicorn" the picture shows), still a detail when named again
+        detail = detail or any(t.detail for t in state.things if t.text.lower() == text.lower())
         state.things = [t for t in state.things if t.text.lower() != text.lower()]
         state.things.insert(0, Thing(text=text, turn=state.turn, plural=plural, order=state.tick(), added=added,
-                                     short=short))
+                                     short=short, made=made, detail=detail))
         del state.things[6:]
 
     @staticmethod

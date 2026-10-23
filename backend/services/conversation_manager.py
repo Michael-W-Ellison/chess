@@ -480,7 +480,8 @@ class ConversationManager:
             raw_response, personality, user_message, features=reply_features,
             # A requested joke or fact does not get another one added, and advice gets none
             allow_jokes=not response_engine.rule_flag(reply_features.get("rule"), "no_jokes")
-            and not context.get("advice") and not sensitive,
+            and not context.get("advice") and not sensitive
+            and not self._mentions_person(user_id),
             emoji_mood="concerned" if upset else None,
             allow_emojis=upset or not sensitive,
         )
@@ -1130,6 +1131,18 @@ INSTRUCTIONS:
             else:
                 message = re.sub(rf"\b{lower}\b", name, message)
         return message
+
+    @staticmethod
+    def _mentions_person(user_id: int) -> bool:
+        """
+        True if the child's latest message was about someone ("my teacher is Mrs Brown"):
+        news about people gets a reply about them, not a joke or fun fact added on
+        """
+        try:
+            state = response_engine.references.state(user_id)
+            return any(p.turn == state.turn for p in state.people)
+        except Exception:
+            return False
 
     @staticmethod
     def _known_people(user_id: int) -> List[str]:
