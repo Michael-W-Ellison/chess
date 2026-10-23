@@ -415,7 +415,8 @@ class ConversationManager:
 
         # Resolve pronouns to earlier people and things ("she" -> "my best friend Maya")
         # for the rule-based analysis; the stored message and the LLM prompt keep the original
-        analysis_message = self._resolve_references(self._name_introduction(user_message, user_id), user_id)
+        analysis_message = self._resolve_references(
+            self._capitalize_known_names(self._name_introduction(user_message, user_id), user_id, db), user_id)
 
         # 5. Extract and store memories
         memory_manager.extract_and_store_memories(analysis_message, user_id, db)
@@ -1099,6 +1100,30 @@ INSTRUCTIONS:
         self.message_count += 1
         self._set_awaiting_name(user_id, response)
         return {"content": response, "metadata": {"safety_flag": False}}
+
+    @staticmethod
+    def _capitalize_known_names(message: str, user_id: int, db: Session) -> str:
+        """
+        "max learned a new trick" -> "Max learned a new trick", for people and pets the child
+        named before. A name that is also a word ("star") is capitalized only where it starts
+        a sentence, so "I saw a star" stays.
+        """
+        try:
+            names = [m.value for m in db.query(UserProfile).filter(
+                UserProfile.user_id == user_id, UserProfile.category == "person").all()]
+        except Exception:
+            return message
+        words = utterance_parser.known_words()
+        for name in names:
+            if not name or not name.isalpha() or not name[0].isupper():
+                continue
+            lower = re.escape(name.lower())
+            if name.lower() in words:
+                pattern = rf"(^|[.!?]\s+)({lower})\b"
+                message = re.sub(pattern, lambda m: m.group(1) + name, message)
+            else:
+                message = re.sub(rf"\b{lower}\b", name, message)
+        return message
 
     @staticmethod
     def _known_people(user_id: int) -> List[str]:

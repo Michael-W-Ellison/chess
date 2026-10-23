@@ -59,6 +59,10 @@ class TestNewRules:
         ("my mom said we can get a new one", "get_new_later"),
         ("I don't want a new one", "not_want_new"),
         ("I got a new bike", "got_gift"),
+        ("what if it rains", "what_if_weather"),
+        ("what if the sun disappeared", "what_if_question"),
+        ("my brother knocked the snowman over", "wrecked_my_thing"),
+        ("jake broke my pencil", "wrecked_my_thing"),
         ("coach said I did great", "praise_reported"),
         ("not much you", "not_much"),
         ("yes", "yes_no"),
@@ -302,6 +306,17 @@ class TestReferences:
     def test_named_snowman(self, engine):
         rule_of(engine, "I made a snowman named frosty")
         assert engine.resolve_references("he has a carrot nose", 1) == "Frosty has a carrot nose"
+
+    def test_possessive_of_the_clause_subject(self, engine):
+        rule_of(engine, "I made a snowman named frosty")
+        assert "Frosty" not in engine.resolve_references("my brother broke his arm", 1)
+
+    def test_wrecked_by_a_name_is_capitalized(self, engine):
+        _, reply = rule_of(engine, "jake broke my pencil")
+        assert "Did Jake" in reply
+
+    def test_wind_is_not_a_person_wrecking_things(self, engine):
+        assert rule_of(engine, "the wind knocked the tree over")[0] != "wrecked_my_thing"
 
     def test_opening_word_is_not_echoed(self, engine):
         _, reply = rule_of(engine, "fine ill eat broccoli")
@@ -742,3 +757,10 @@ class TestConversation:
             send(api, user_id, conversation_id, message)
         reply = send(api, user_id, conversation_id, "my mom said we can get a new one")
         assert "not ready" in reply and "Yay" not in reply
+
+    def test_known_pet_name_is_capitalized_next_conversation(self, api):
+        user_id, conversation_id, _ = start(api)
+        send(api, user_id, conversation_id, "I have a dog named max")
+        conversation_id = api.post(f"/api/conversation/start?user_id={user_id}").json()["conversation_id"]
+        reply = send(api, user_id, conversation_id, "max learned a new trick")
+        assert "Max learned" in reply

@@ -329,10 +329,12 @@ class ResponseEngine:
             if spec["node"] not in nodes:  # optional node absent from this pattern
                 continue
             raw, reflected = self._extract_slot(nodes[spec["node"]], spec["span"])
-            if spec.get("capitalize") and raw:
-                raw = reflected = raw[:1].upper() + raw[1:]
-            # Lowercase a capitalized common word ("School was boring", "Today was fun"), not a name
             node = nodes[spec["node"]]
+            # "capitalize": "names" capitalizes only a name ("jake" -> "Jake", "my brother" stays)
+            if spec.get("capitalize") and raw and (spec["capitalize"] is True or node.pos_ == "PROPN"):
+                raw = raw[:1].upper() + raw[1:]
+                reflected = reflected[:1].upper() + reflected[1:]
+            # Lowercase a capitalized common word ("School was boring", "Today was fun"), not a name
             if spec.get("lowercase") and raw and (
                     node.pos_ != "PROPN" or node.lower_ in self.kb["lexicons"]["common_capitalized"]):
                 raw = raw[:1].lower() + raw[1:]

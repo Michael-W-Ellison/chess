@@ -993,6 +993,43 @@
       ]
     },
     {
+      "id": "what_if_weather",
+      "priority": 68,
+      "patterns": [
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["rain", "snow", "storm", "pour", "hail"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}}
+        ],
+        [
+          {"RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what", "DEP": "ROOT"}},
+          {"LEFT_ID": "what", "REL_OP": ">", "RIGHT_ID": "verb", "RIGHT_ATTRS": {"DEP": "advcl", "LEMMA": {"IN": ["rain", "snow", "storm", "pour", "hail"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}}
+        ]
+      ],
+      "conditions": {"first_token": "what"},
+      "responses": ["Then maybe you could find something fun to do inside, like a game or a fort! What would you pick?"]
+    },
+    {
+      "id": "what_if_question",
+      "priority": 67,
+      "patterns": [
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"POS": {"IN": ["VERB", "AUX"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}}
+        ],
+        [
+          {"RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what", "DEP": "ROOT"}},
+          {"LEFT_ID": "what", "REL_OP": ">", "RIGHT_ID": "verb", "RIGHT_ATTRS": {"DEP": "advcl", "POS": {"IN": ["VERB", "AUX"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}}
+        ]
+      ],
+      "conditions": {"first_token": "what"},
+      "suppressed_by": ["what_if_worry", "what_if_liked", "what_if_weather"],
+      "responses": ["Ooh, that's a good what-if! What do you think would happen?"]
+    },
+    {
       "id": "what_if_worry",
       "priority": 69,
       "patterns": [
@@ -1099,6 +1136,33 @@
       "mood": "sad"
     },
     {
+      "id": "wrecked_my_thing",
+      "priority": 63,
+      "patterns": [
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["knock", "break", "ruin", "wreck", "smash", "destroy", "rip", "tear", "squish", "crush"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": "@relations"}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"NOT_IN": ["me", "it", "him", "her", "them", "you"]}}}
+        ],
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["knock", "break", "ruin", "wreck", "smash", "destroy", "rip", "tear", "squish", "crush"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "POS": "PROPN"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"NOT_IN": ["me", "it", "him", "her", "them", "you"]}}}
+        ],
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["knock", "break", "ruin", "wreck", "smash", "destroy", "rip", "tear", "squish", "crush"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["he", "she", "they", "somebody", "someone", "kids", "boy", "girl"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"NOT_IN": ["me", "it", "him", "her", "them", "you"]}}}
+        ]
+      ],
+      "conditions": {"question": false, "not_negated": "verb"},
+      "slots": {"subject": {"node": "subj", "span": "subtree", "capitalize": "names"}},
+      "mood": "angry",
+      "valence": "negative",
+      "no_jokes": true,
+      "responses": ["Oh no, that's so frustrating! Did {subject} do it on purpose?"]
+    },
+    {
       "id": "takes_my_stuff",
       "priority": 62,
       "patterns": [[
@@ -1115,7 +1179,8 @@
       "responses": [
         "Ugh, that sounds really frustrating! Have you talked to a grown-up about it?",
         "That's so annoying when {subject} does that! What do you usually do?"
-      ]
+      ],
+      "suppressed_by": ["wrecked_my_thing"]
     },
     {
       "id": "kept_trying",

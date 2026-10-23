@@ -209,6 +209,7 @@ class UtteranceParser:
         self.model_name = model_name
         self._nlp = None
         self._load_failed = False
+        self._known_words = None
 
     def is_available(self) -> bool:
         """Return True if spaCy and the language model can be loaded"""
@@ -288,6 +289,8 @@ class UtteranceParser:
         and irregular forms, from WordNet), its stop words and the child spellings in
         NORMALIZATIONS. Empty if the model is unavailable.
         """
+        if self._known_words is not None:
+            return self._known_words
         nlp = self._get_nlp()
         if nlp is None:
             return set()
@@ -299,6 +302,7 @@ class UtteranceParser:
                     table = lookups.get_table(table_name)
                     for pos in table.keys():
                         words.update(w.lower() for w in table[pos])
+        self._known_words = words
         return words
 
 

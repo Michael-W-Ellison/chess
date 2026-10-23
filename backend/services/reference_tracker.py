@@ -395,6 +395,10 @@ class ReferenceTracker:
                         return self._match_case(f"the {' '.join(words)}'s", token)
                 return None
 
+            # "My brother broke his arm": "his" is the subject of its own clause
+            if lower in ("his", "her") and token.dep_ == "poss" and self._clause_subject_owns(token, gender):
+                return None
+
             # Most recent turn first; within a turn, someone known to be "she"/"he"
             # A new baby ("my aunt had a baby. She is so tiny") is "he" or "she" and comes first
             candidates.sort(key=lambda p: (-p.turn, p.pronoun not in (gender, "any"), p.pronoun != "any"))
@@ -554,6 +558,17 @@ class ReferenceTracker:
     # ------------------------------------------------------------------
     # Recording
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _clause_subject_owns(token, gender: str) -> bool:
+        """True if a "his"/"her" most likely refers to its clause's subject, a noun or name before it"""
+        verb = next((a for a in token.ancestors if a.pos_ in ("VERB", "AUX")), None)
+        if verb is None:
+            return False
+        subject = next((c for c in verb.children if c.dep_ == "nsubj"), None)
+        if subject is None or subject.pos_ not in ("NOUN", "PROPN") or subject.i > token.i:
+            return False
+        return _GENDERED_RELATIONS.get(subject.lemma_.lower()) in (gender, None)
 
     @staticmethod
     def _acl_name(token):
