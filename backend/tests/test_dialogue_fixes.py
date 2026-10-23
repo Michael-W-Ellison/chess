@@ -201,6 +201,13 @@ class TestNewRules:
         ("my aunt had a baby", "new_baby"),
         ("I got to hold my baby cousin", "got_to"),
         ("I don't have one", "fallback_reflection_cant"),
+        ("can we make up a story", "story_together"),
+        ("why", "why_alone"),
+        ("😂", "laugh"),
+        ("😭", "feeling"),
+        ("❤️", "aww"),
+        ("I love it", "love_it"),
+        ("do you like pizza or tacos", "comparison_question"),
     ])
     def test_rule(self, engine, message, rule):
         assert rule_of(engine, message)[0] == rule
@@ -421,6 +428,18 @@ class TestReferences:
     def test_an_before_a_vowel(self, engine):
         assert "an animal" in rule_of(engine, "the animal's name is Mr Bear")[1]
 
+    def test_story_together(self, engine):
+        rule_of(engine, "can we make up a story")
+        assert rule_of(engine, "once upon a time there was a dragon")[0] == "story"
+        assert rule_of(engine, "he was lonely")[0] == "story"
+        rule, reply = rule_of(engine, "the end")
+        assert rule == "story" and reply in engine_module.STORY_ENDINGS
+        assert rule_of(engine, "why is the sky blue")[0] == "fallback_world_answer"
+
+    def test_two_questions_in_one_message(self, engine):
+        reply = rule_of(engine, "whats your name and how old are you")[1]
+        assert "Buddy" in reply and "old" in reply
+
     def test_mine_is_not_a_thing(self, engine):
         rule_of(engine, "my favorite food is sushi")
         assert "mine" not in engine.resolve_references("my mom doesnt like it", 1)
@@ -485,6 +504,15 @@ class TestNormalization:
         ("my teacher mr kim", "my teacher Mr Kim"),
         ("gtg bye", "got to go bye"),
         ("jk", "just kidding"),
+        ("hii", "hi"),
+        ("heyyy", "hey"),
+        ("I GOT A PUPPY TODAY", "I got a puppy today"),
+        ("my cat is fluffy 😻", "my cat is fluffy"),
+        ("i lik minecraft alot", "I like minecraft a lot"),
+        ("its rlly big", "it's really big"),
+        ("whats your name and how old are you", "what's your name? how old are you"),
+        ("I went home and what a day", "I went home and what a day"),
+        ("I love NASA", "I love NASA"),
         ("my moms room", "my mom's room"),
         ("my moms are nice", "my moms are nice"),
     ])
@@ -565,6 +593,17 @@ class TestConversation:
         reply = send(api, user_id, conversation_id, answer)
         assert "Lily" in reply
         assert memories(api, user_id)[("basic", "name")] == "Lily"
+
+    @pytest.mark.parametrize("greeting", ["hii", "HEYYY"])
+    def test_stretched_greeting_is_not_a_name(self, api, greeting):
+        user_id, conversation_id, _ = start(api)
+        send(api, user_id, conversation_id, greeting)
+        assert ("basic", "name") not in memories(api, user_id)
+
+    def test_capital_name(self, api):
+        user_id, conversation_id, _ = start(api)
+        send(api, user_id, conversation_id, "IM SAM")
+        assert memories(api, user_id)[("basic", "name")] == "Sam"
 
     def test_feeling_is_not_a_name(self, api):
         user_id, conversation_id, _ = start(api)

@@ -32,6 +32,7 @@ from services.advice_category_detector import advice_category_detector
 from services.advice_template_service import advice_template_service
 from services.conversation_summary_service import conversation_summary_service
 from services.response_engine import response_engine
+from services.utterance_parser import utterance_parser
 from services.engagement_tracker import engagement_tracker
 from services.gibberish_detector import gibberish_detector
 from utils.config import settings
@@ -1143,8 +1144,11 @@ INSTRUCTIONS:
             name = message.strip(" .!")
         else:
             return message
-        if name.lower() in self._not_names():
+        # "hii" is a greeting; "SAM" is Sam
+        if name.lower() in self._not_names() or utterance_parser.normalize(name).lower() in self._not_names():
             return message
+        if name.isupper():
+            name = name.capitalize()
         return f"My name is {name[:1].upper()}{name[1:]}."
 
     @staticmethod

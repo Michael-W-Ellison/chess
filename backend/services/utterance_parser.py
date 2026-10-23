@@ -63,7 +63,79 @@ NORMALIZATIONS = {
     "ttyl": "talk to you later",
     "brb": "be right back",
     "jk": "just kidding",
+    # Common misspellings and texting shortcuts
+    "lik": "like",
+    "liek": "like",
+    "alot": "a lot",
+    "bilt": "built",
+    "hous": "house",
+    "rlly": "really",
+    "rly": "really",
+    "realy": "really",
+    "becuase": "because",
+    "beacuse": "because",
+    "frend": "friend",
+    "freind": "friend",
+    "frends": "friends",
+    "freinds": "friends",
+    "skool": "school",
+    "wat": "what",
+    "wut": "what",
+    "sumthing": "something",
+    "somthing": "something",
+    "gud": "good",
+    "kool": "cool",
+    "prolly": "probably",
+    "probly": "probably",
+    "tmrw": "tomorrow",
+    "tmr": "tomorrow",
+    "tomorow": "tomorrow",
+    "tommorow": "tomorrow",
+    "2day": "today",
+    "2morrow": "tomorrow",
+    "b4": "before",
+    "gr8": "great",
+    "nvm": "never mind",
+    "ppl": "people",
+    "cya": "bye",
+    "thx": "thanks",
+    "ty": "thank you",
+    "favrite": "favorite",
+    "favorit": "favorite",
+    "pizzza": "pizza",
+    "sooo": "so",
+    "soo": "so",
+    "verry": "very",
+    "vary": "very",
+    "dinosour": "dinosaur",
+    "dinosours": "dinosaurs",
+    "minecraf": "minecraft",
 }
+
+_EMOJI_WORDS = {
+    **dict.fromkeys("😂🤣😆😄😁😹", "haha"),
+    **dict.fromkeys("😊🙂😀😃☺", "I am happy"),
+    **dict.fromkeys("👍👌✅", "ok"),
+    **dict.fromkeys("❤💕💖💗💙💜🥰😍😻", "aww"),
+    **dict.fromkeys("😢😭😞😔☹🙁😿💔", "I am sad"),
+    **dict.fromkeys("😡😠🤬", "I am mad"),
+    **dict.fromkeys("😱😨😰", "I am scared"),
+    **dict.fromkeys("😴🥱", "I am sleepy"),
+    **dict.fromkeys("🤔", "hmm"),
+    **dict.fromkeys("👋", "hi"),
+    **dict.fromkeys("😮😲🤯", "wow"),
+}
+
+# "hiii", "heyyy", "hellooo": a greeting, not a name
+_STRETCHED_GREETINGS = [
+    (re.compile(r"^h+i+$", re.IGNORECASE), "hi"),
+    (re.compile(r"^h+e+y+$", re.IGNORECASE), "hey"),
+    (re.compile(r"^h+e+l+o+$", re.IGNORECASE), "hello"),
+    (re.compile(r"^b+y+e+$", re.IGNORECASE), "bye"),
+    (re.compile(r"^y+o+$", re.IGNORECASE), "yo"),
+]
+# Emoji and other pictographs: not words, so they are not echoed back ("Your cat is fluffy 😻?")
+_EMOJI_RE = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200D\u2B50\u2764]")
 
 # Spellings that are also words, replaced only where the next word shows which is meant:
 # "its so fun" (it's), "ill try" (I'll); "its wings" and "I feel ill" stay
@@ -84,6 +156,10 @@ _CONTEXT_NORMALIZATIONS = [
 _POSSESSIVE_RE = re.compile(
     r"\b(mom|dad|mommy|daddy|sister|brother|grandma|grandpa|friend|cousin|aunt|uncle)s (?=(room|house|car|bed|"
     r"phone|office|work|birthday|friend|dog|cat|toys?|lap|side)\b)", re.IGNORECASE
+)
+_QUESTION_START_RE = re.compile(r"^(what|how|where|when|why|who|do|does|are|is|can|will)\b", re.IGNORECASE)
+_JOINED_QUESTION_RE = re.compile(
+    r",?\s+and\s+(?=(how|what|where|when|why|who|do you|are you|can you|will you)\b)", re.IGNORECASE
 )
 # "mr kim" -> "Mr Kim", so the parser reads a name
 _TITLE_RE = re.compile(r"\b(mr|mrs|ms|dr)\.? ([a-z])", re.IGNORECASE)
@@ -149,17 +225,35 @@ class UtteranceParser:
     @staticmethod
     def normalize(text: str) -> str:
         """Collapse whitespace and replace common child spellings word by word"""
-        text = " ".join(text.split())
-        for pattern, replacement in _CONTEXT_NORMALIZATIONS:
-            text = pattern.sub(replacement, text)
-        text = _POSSESSIVE_RE.sub(r"\1's ", text)
-        text = _TITLE_RE.sub(lambda m: f"{m.group(1).capitalize()} {m.group(2).upper()}", text)
+        # A message of only emoji: the first one in words ("😂" -> "haha", "😢" -> "I am sad")
+        if not any(c.isalnum() for c in text):
+            for char in text:
+                if char in _EMOJI_WORDS:
+                    return _EMOJI_WORDS[char]
+        text = " ".join(_EMOJI_RE.sub(" ", text).split())
+        # ALL CAPS ("I GOT A PUPPY TODAY") parses badly; read it as lowercase
+        letters = [c for c in text if c.isalpha()]
+        if len(letters) >= 4 and sum(c.isupper() for c in letters) >= 0.8 * len(letters):
+            text = re.sub(r"\bi\b", "I", text.lower())
+        text = " ".join(next((r for p, r in _STRETCHED_GREETINGS if p.match(w)), w) for w in text.split())
 
         def replace(match):
             word = match.group(0)
+            if word.lower() == "ur":
+                return word  # "ur weird" (you're) or "ur dog" (your): decided below by the next word
             return NORMALIZATIONS.get(word.lower(), word)
 
-        return _WORD_RE.sub(replace, text)
+        # Spellings first, so "its rlly big" reads "its really big" before "its" -> "it's"
+        text = _WORD_RE.sub(replace, text)
+        for pattern, replacement in _CONTEXT_NORMALIZATIONS:
+            text = pattern.sub(replacement, text)
+        text = re.sub(r"\bur\b", "your", text, flags=re.IGNORECASE)
+        text = _POSSESSIVE_RE.sub(r"\1's ", text)
+        text = _TITLE_RE.sub(lambda m: f"{m.group(1).capitalize()} {m.group(2).upper()}", text)
+        # "what's your name and how old are you": two questions, answered one by one
+        if _QUESTION_START_RE.match(text):
+            text = _JOINED_QUESTION_RE.sub("? ", text)
+        return text
 
     def parse(self, text: str):
         """

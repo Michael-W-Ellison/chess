@@ -88,6 +88,12 @@ _NO_NAME = "\x00"
 # Groups of people that can be a sentence's subject ("Kids chased me")
 _PEOPLE_GROUPS = {"kid", "boy", "girl", "classmate", "student", "people", "everyone", "everybody"}
 
+# Making up a story together
+STORY_MAX_TURNS = 10
+STORY_PROMPTS = ["Ooh! And then what happened?", "Wow! What happened next?", "Oh no! What did they do?",
+                 "That's so cool! Then what?", "I love this story! Keep going!"]
+STORY_ENDINGS = ["The end! What a great story. I loved it!", "What a fun story! You're a great storyteller."]
+
 # Replies to a joke the child tells: to the setup question, then to the punchline
 CHILD_JOKE_GUESSES = ["Hmm, I don't know! What?", "I give up! Tell me!", "Ooh, I'm not sure! Why?"]
 CHILD_JOKE_LAUGHS = ["Haha! That's a good one! You're really funny.", "Hahaha! I didn't see that coming!"]
@@ -135,7 +141,9 @@ class ResponseEngine:
         self._last_mentions: Dict[int, List[str]] = {}  # the bot's own answers in the last reply
         self._last_category: Dict[int, str] = {}
         # 1 after "I have a joke for you" (waiting for the setup), 2 after the bot's guess
-        self._child_joke: Dict[int, int] = {}  # the favorite category last talked about
+        self._child_joke: Dict[int, int] = {}
+        # Turns of a story the child and the bot are making up together
+        self._story_mode: Dict[int, int] = {}  # the favorite category last talked about
         self._load_knowledge_base()
         self.references = ReferenceTracker(
             parser, self.kb["lexicons"]["relations"], self.kb["lexicons"]["common_capitalized"]
@@ -189,6 +197,7 @@ class ResponseEngine:
         self._last_told.pop(user_id, None)
         self._last_mentions.pop(user_id, None)
         self._child_joke.pop(user_id, None)
+        self._story_mode.pop(user_id, None)
 
     def record_bot_reply(self, user_id: int, reply: str, humor: Optional[str] = None) -> None:
         """
@@ -763,6 +772,19 @@ class ResponseEngine:
             "bot_mood": getattr(personality, "mood", None) or "happy",
         }
 
+        # Making up a story together: prompts for the child's lines until "the end"
+        story_turns = self._story_mode.pop(user_id, 0)
+        if story_turns:
+            if re.search(r"\bthe end\b", message, re.IGNORECASE):
+                if features is not None:
+                    features["rule"] = "story"
+                return self._apply_style(self.rng.choice(STORY_ENDINGS), personality)
+            if not analysis.is_question and story_turns < STORY_MAX_TURNS:
+                self._story_mode[user_id] = story_turns + 1
+                if features is not None:
+                    features["rule"] = "story"
+                return self._apply_style(self._pick(STORY_PROMPTS, user_id), personality)
+
         # The child is telling a joke: "Why did the chicken cross the road?" ... the punchline
         joke_stage = self._child_joke.pop(user_id, 0)
         if joke_stage:
@@ -806,6 +828,8 @@ class ResponseEngine:
             features["rule"] = frame.rule_id
             if frame.rule_id == "offer_content" and slots.get("kind") in ("joke", "riddle", "pun"):
                 self._child_joke[user_id] = 1  # the next message is the child's joke
+            if frame.rule_id == "story_together" or (frame.rule_id == "request" and slots.get("kind") == "story"):
+                self._story_mode[user_id] = 1  # the next messages are the child's story
 
             # Multi-sentence messages: also answer the strongest match in another sentence
             # ("I won my game today! Do you like soccer?")

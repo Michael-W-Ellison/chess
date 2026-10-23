@@ -322,7 +322,7 @@
       "slots": {"category": {"node": "cat", "span": "lemma"}},
       "compute": ["bot_favorite"],
       "responses": [
-        {"text": "My favorite {category} is {bot_favorite}! What's yours?", "requires": ["bot_favorite"]},
+        {"text": "I love {bot_favorite}! That's my favorite {category}. What's yours?", "requires": ["bot_favorite"]},
         {"text": "Ooh, I love {bot_favorite}! What's your favorite {category}?", "requires": ["bot_favorite"]},
         {"text": "Hmm, I haven't picked a favorite {category} yet! What's yours?"}
       ]
@@ -372,7 +372,8 @@
           "requires": ["thing_plural"]
         },
         {"text": "I can't eat, since I'm a computer program, but {thing} sounds yummy! Do you like it?"}
-      ]
+      ],
+      "suppressed_by": ["comparison_question"]
     },
     {
       "id": "bot_why_like",
@@ -1492,15 +1493,24 @@
       "no_jokes": true
     },
     {
+      "id": "love_it",
+      "priority": 54,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@like_verbs"}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["it", "that", "this"]}}}
+      ]],
+      "conditions": {"not_negated": "verb", "question": false},
+      "responses": ["Yay, I'm so glad you love it!"]
+    },
+    {
       "id": "like_thing",
       "priority": 50,
-      "patterns": [
-        [
-          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@like_verbs"}}},
-          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
-          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": {"IN": ["dobj", "xcomp"]}}}
-        ]
-      ],
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@like_verbs"}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": {"IN": ["dobj", "xcomp"]}, "LOWER": {"NOT_IN": ["it", "that", "this", "them", "you"]}}}
+      ]],
       "suppressed_by": ["love_person", "like_more"],
       "conditions": {"not_negated": "verb"},
       "slots": {"thing": {"node": "obj", "span": "activity"}, "verb": {"node": "verb", "span": "lemma"}},
@@ -1808,7 +1818,7 @@
         ]
       ],
       "conditions": {"question": true},
-      "suppressed_by": ["which_should_i", "naming_question", "should_apologize", "bored_ideas"],
+      "suppressed_by": ["which_should_i", "naming_question", "should_apologize", "bored_ideas", "story_together"],
       "responses": ["That's a great question to ask your mom or dad!"]
     },
     {
@@ -2932,6 +2942,24 @@
       "responses": ["No {school} today? What are you going to do instead?"]
     },
     {
+      "id": "why_alone",
+      "priority": 44,
+      "patterns": [[
+        {"RIGHT_ID": "why", "RIGHT_ATTRS": {"LOWER": "why"}}
+      ]],
+      "conditions": {"max_tokens": 2, "first_token": "why"},
+      "responses": ["Hmm, I guess I just like it! What do you think?"]
+    },
+    {
+      "id": "aww",
+      "priority": 41,
+      "patterns": [[
+        {"RIGHT_ID": "word", "RIGHT_ATTRS": {"LOWER": {"IN": ["aw", "aww", "awww", "awwww"]}}}
+      ]],
+      "conditions": {"max_tokens": 3, "first_token": "word"},
+      "responses": ["Aww, that's so sweet!"]
+    },
+    {
       "id": "short_answer",
       "priority": 40,
       "patterns": [[{"RIGHT_ID": "word", "RIGHT_ATTRS": {"DEP": "ROOT"}}]],
@@ -2978,6 +3006,24 @@
       "no_jokes": true,
       "responses": ["Okay, here's one: {content}", "Ooh, I've got one! {content}"],
       "follow_ups": ["Want another one?"]
+    },
+    {
+      "id": "story_together",
+      "priority": 89,
+      "patterns": [
+        [
+          {"RIGHT_ID": "make", "RIGHT_ATTRS": {"LEMMA": {"IN": ["make", "write", "tell", "create"]}}},
+          {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "story", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": "story"}},
+          {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "we", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["we", "us"]}}}
+        ],
+        [
+          {"RIGHT_ID": "make", "RIGHT_ATTRS": {"LEMMA": {"IN": ["make", "write", "create"]}}},
+          {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "story", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": "story"}},
+          {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "let", "RIGHT_ATTRS": {"LOWER": {"IN": ["let", "'s"]}}}
+        ]
+      ],
+      "no_jokes": true,
+      "responses": ["Yes, let's! You start: once upon a time, there was a..."]
     },
     {
       "id": "request",
