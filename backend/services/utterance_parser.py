@@ -145,6 +145,7 @@ _EMOJI_WORDS = {
     **dict.fromkeys("🤔", "hmm"),
     **dict.fromkeys("👋", "hi"),
     **dict.fromkeys("😮😲🤯", "wow"),
+    **dict.fromkeys("🎉🥳🙌👏", "yay"),
 }
 
 # "hiii", "heyyy", "hellooo": a greeting, not a name
@@ -182,8 +183,9 @@ _CONTEXT_NORMALIZATIONS = [
 ]
 # "my moms room" -> "my mom's room"
 _POSSESSIVE_RE = re.compile(
-    r"\b(mom|dad|mommy|daddy|sister|brother|grandma|grandpa|friend|cousin|aunt|uncle)s (?=(room|house|car|bed|"
-    r"phone|office|work|birthday|friend|dog|cat|toys?|lap|side)\b)", re.IGNORECASE
+    r"\b(mom|dad|mommy|daddy|sister|brother|grandma|grandpa|friend|cousin|aunt|uncle|cat|dog|puppy|kitten|"
+    r"hamster|fish|bunny|horse)s (?=(room|house|car|bed|phone|office|work|birthday|friend|dog|cat|toys?|lap|side|"
+    r"name|bowl|food|tail|collar|cage|leash)\b)", re.IGNORECASE
 )
 _QUESTION_START_RE = re.compile(r"^(what|how|where|when|why|who|do|does|are|is|can|will)\b", re.IGNORECASE)
 _JOINED_QUESTION_RE = re.compile(
@@ -280,6 +282,16 @@ def _repair_objects(doc) -> None:
     "What game do you like": "you" the object of "do" -> the subject of "like"
     """
     for token in doc:
+        # "knocked over my tower": "my tower" the object of "knocked", not of the particle "over"
+        if token.dep_ == "pobj" and token.head.dep_ == "prt":
+            token.head, token.dep_ = token.head.head, "dobj"
+            continue
+        # "My favorite food is tacos": "tacos" read as punctuation
+        if (token.dep_ == "punct" and token.is_alpha and token.head.lemma_ == "be"
+                and not any(c.dep_ in ("attr", "acomp") for c in token.head.children)):
+            token.dep_, token.pos_ = "attr", "NOUN"
+            token.tag_ = "NNS" if token.lower_.endswith("s") else "NN"
+            continue
         # "Do you like pancakes": "like" read as an interjection on "pancakes"
         if (token.dep_ == "intj" and token.lemma_ in ("like", "love", "want", "hate") and token.head.dep_ == "ROOT"
                 and token.head.pos_ == "NOUN" and token.i < token.head.i

@@ -310,6 +310,61 @@
 
   "rules": [
     {
+      "id": "yay_alone",
+      "priority": 44,
+      "patterns": [[
+        {"RIGHT_ID": "yay", "RIGHT_ATTRS": {"LOWER": {"IN": ["yay", "woohoo", "hooray", "yippee", "yahoo"]}}}
+      ]],
+      "conditions": {"max_tokens": 4},
+      "responses": ["Woohoo! What are we celebrating?"]
+    },
+    {
+      "id": "mixed_feelings",
+      "priority": 80,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": {"IN": ["be", "feel"]}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "a", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["happy", "excited", "glad", "proud"]}}},
+        {"LEFT_ID": "a", "REL_OP": ">", "RIGHT_ID": "b", "RIGHT_ATTRS": {"DEP": "conj", "LOWER": {"IN": ["sad", "nervous", "scared", "worried", "mad", "upset"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "be"},
+      "slots": {"a": {"node": "a", "span": "text"}, "b": {"node": "b", "span": "text"}},
+      "no_jokes": true,
+      "responses": ["Feeling {a} and {b} at the same time is totally normal! What's making you feel each one?"]
+    },
+    {
+      "id": "knocked_over",
+      "priority": 60,
+      "patterns": [[
+        {"RIGHT_ID": "knock", "RIGHT_ATTRS": {"LEMMA": {"IN": ["knock", "spill", "push"]}}},
+        {"LEFT_ID": "knock", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "we", "you"]}}},
+        {"LEFT_ID": "knock", "REL_OP": ">", "RIGHT_ID": "over", "RIGHT_ATTRS": {"DEP": "prt", "LOWER": "over"}},
+        {"LEFT_ID": "knock", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "knock"},
+      "suppressed_by": ["wrecked_my_thing"],
+      "responses": ["Uh oh! Did it make a big mess?"]
+    },
+    {
+      "id": "ask_relation_name",
+      "priority": 92,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": {"IN": ["nsubj", "attr"]}, "LOWER": "name"}},
+        {"LEFT_ID": "name", "REL_OP": ">", "RIGHT_ID": "rel", "RIGHT_ATTRS": {"DEP": "poss", "LEMMA": {"IN": "@relations"}}},
+        {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "my", "RIGHT_ATTRS": {"DEP": "poss", "LOWER": "my"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}}
+      ]],
+      "conditions": {"question": true},
+      "slots": {"thing": {"node": "rel", "span": "lemma"}},
+      "compute": ["recall_thing"],
+      "no_jokes": true,
+      "responses": [
+        {"text": "Your {thing}'s name is {recalled_name}! I remember.", "requires": ["recalled_name"]},
+        {"text": "Hmm, I don't think you've told me your {thing}'s name yet! What is it?"}
+      ]
+    },
+    {
       "id": "what_if_dies",
       "priority": 95,
       "patterns": [
@@ -1516,13 +1571,22 @@
     {
       "id": "ask_my_favorite",
       "priority": 91,
-      "patterns": [[
-        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
-        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "cat", "RIGHT_ATTRS": {"DEP": "nsubj"}},
-        {"LEFT_ID": "cat", "REL_OP": ">", "RIGHT_ID": "my", "RIGHT_ATTRS": {"DEP": "poss", "LOWER": "my"}},
-        {"LEFT_ID": "cat", "REL_OP": ">", "RIGHT_ID": "fav", "RIGHT_ATTRS": {"LOWER": {"IN": ["favorite", "favourite"]}}},
-        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}}
-      ]],
+      "patterns": [
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "cat", "RIGHT_ATTRS": {"DEP": "nsubj"}},
+          {"LEFT_ID": "cat", "REL_OP": ">", "RIGHT_ID": "my", "RIGHT_ATTRS": {"DEP": "poss", "LOWER": "my"}},
+          {"LEFT_ID": "cat", "REL_OP": ">", "RIGHT_ID": "fav", "RIGHT_ATTRS": {"LOWER": {"IN": ["favorite", "favourite"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}}
+        ],
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": {"IN": ["remember", "know"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "cat", "RIGHT_ATTRS": {"DEP": "dobj"}},
+          {"LEFT_ID": "cat", "REL_OP": ">", "RIGHT_ID": "my", "RIGHT_ATTRS": {"DEP": "poss", "LOWER": "my"}},
+          {"LEFT_ID": "cat", "REL_OP": ">", "RIGHT_ID": "fav", "RIGHT_ATTRS": {"LOWER": {"IN": ["favorite", "favourite"]}}}
+        ]
+      ],
       "slots": {"category": {"node": "cat", "span": "lemma"}},
       "compute": ["recall_favorite"],
       "no_jokes": true,
@@ -1566,7 +1630,8 @@
           "unless": ["recalled"]
         },
         {"text": "I remember lots of things you tell me! What should I remember?", "unless": ["thing", "known_name"]}
-      ]
+      ],
+      "suppressed_by": ["ask_my_favorite"]
     },
     {
       "id": "name_is",
@@ -1987,7 +2052,7 @@
           "neutral": ["Want to tell me more?"]
         }
       },
-      "suppressed_by": ["good_at", "feel_stupid"]
+      "suppressed_by": ["good_at", "feel_stupid", "mixed_feelings"]
     },
     {
       "id": "miss_person",
@@ -2829,11 +2894,11 @@
       "valence": "positive",
       "responses": [
         {"text": "{value}? Mine too! Great minds think alike.", "requires": ["same_favorite"]},
-        {"text": "{value} is a great {category}! Mine is {bot_favorite}.", "requires": ["bot_favorite"]},
+        {"text": "{value} {value_is} a great {category}! Mine is {bot_favorite}.", "requires": ["bot_favorite"]},
         {"text": "Ooh, {value}! That's a great favorite {category}."},
         {"text": "{value}? Nice choice!"}
       ],
-      "follow_ups": ["Why is {value} your favorite?", "How long has {value} been your favorite?"],
+      "follow_ups": ["Why {value_is} {value} your favorite?", "How long {value_has} {value} been your favorite?"],
       "conditions": {"question": false}
     },
     {
@@ -3096,13 +3161,22 @@
     {
       "id": "have_named",
       "priority": 59,
-      "patterns": [[
-        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "have"}},
-        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
-        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "rel", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": "@relations"}}},
-        {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "named", "RIGHT_ATTRS": {"LEMMA": {"IN": ["name", "call"]}}},
-        {"LEFT_ID": "named", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"POS": "PROPN"}}
-      ]],
+      "patterns": [
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "have"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "rel", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": "@relations"}}},
+          {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "named", "RIGHT_ATTRS": {"LEMMA": {"IN": ["name", "call"]}}},
+          {"LEFT_ID": "named", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"POS": "PROPN"}}
+        ],
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "have"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "rel", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": "@relations"}}},
+          {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "named", "RIGHT_ATTRS": {"LEMMA": {"IN": ["name", "call"]}}},
+          {"LEFT_ID": "named", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"IS_TITLE": true, "DEP": {"IN": ["oprd", "dobj", "attr"]}}}
+        ]
+      ],
       "conditions": {"not_negated": "verb"},
       "slots": {"relation": {"node": "rel", "span": "noun_phrase"}, "name": {"node": "name", "span": "text", "capitalize": true}},
       "memories": [{"category": "person", "key": "{relation_slug}_{name_slug}", "value": "{name_raw}"}],
@@ -4146,7 +4220,7 @@
         {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "owner", "RIGHT_ATTRS": {"LOWER": {"IN": ["my", "our", "the"]}}},
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": {"IN": ["attr", "acomp", "npadvmod"]}}}
       ]],
-      "conditions": {"not_negated": "be", "no_det": "name"},
+      "conditions": {"not_negated": "be", "no_det": "name", "question": false},
       "slots": {"name": {"node": "name", "span": "text", "capitalize": true}, "relation": {"node": "rel", "span": "lemma"}},
       "memories": [{"category": "person", "key": "{relation_slug}_{name_slug}", "value": "{name_raw}"}],
       "valence": "positive",

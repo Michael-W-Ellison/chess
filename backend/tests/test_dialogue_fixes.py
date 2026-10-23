@@ -159,6 +159,11 @@ class TestNewRules:
         ("i have to go to bed", "go_to_bed"),
         ("see you tomorrow", "see_you"),
         ("lets play pretend", "play_pretend"),
+        ("im happy and sad at the same time", "mixed_feelings"),
+        ("whiskers knocked over a cup", "knocked_over"),
+        ("my brother knocked over my tower", "wrecked_my_thing"),
+        ("🎉🎉", "yay_alone"),
+        ("my favorite food is tacos", "favorite_is"),
         ("coach said I did great", "praise_reported"),
         ("not much you", "not_much"),
         ("yes", "yes_no"),
@@ -581,6 +586,17 @@ class TestReferences:
         rule_of(engine, "i only have one line")
         assert rule_of(engine, "do you want to hear it")[0] == "want_to_hear"
 
+    def test_ask_pet_name_recalls_it(self, engine):
+        rule_of(engine, "i have a cat named whiskers")
+        assert rule_of(engine, "what is my cats name")[1] == "Your cat's name is Whiskers! I remember."
+
+    def test_plural_favorite_takes_are(self, engine):
+        texts = [r["text"] if isinstance(r, dict) else r for r in engine.rules["favorite_is"]["responses"]]
+        assert "{value} {value_is} a great {category}! Mine is {bot_favorite}." in texts
+
+    def test_favorite_and_why(self, engine):
+        assert "really cool" in rule_of(engine, "what is your favorite animal and why")[1]
+
     def test_rule_ids_are_unique(self, engine):
         ids = [r["id"] for r in engine.kb["rules"]]
         assert len(ids) == len(set(ids))
@@ -872,6 +888,7 @@ class TestNormalization:
         ("k", "ok"),
         ("lets play pretend", "let's play pretend"),
         ("he lets me play", "he lets me play"),
+        ("what is my cats name", "what is my cat's name"),
         ("named after my grandpa", "named after my grandpa"),
         ("I feel ill", "I feel ill"),
         ("ur weird", "you're weird"),
@@ -907,6 +924,25 @@ class TestSafetyAndEmojis:
     def test_what_if_worry_is_not_bullying(self):
         assert "bullying" not in safety_filter.check_message("what if nobody likes me")["flags"]
         assert "bullying" in safety_filter.check_message("nobody likes me")["flags"]
+
+    @pytest.mark.parametrize("text,flag", [
+        ("someone touched me in a bad way", "abuse"),
+        ("he told me to keep it a secret", "abuse"),
+        ("a stranger asked me to get in his car", "stranger_danger"),
+        ("a stranger offered me candy", "stranger_danger"),
+        ("a man i dont know wanted me to come with him", "stranger_danger"),
+        ("he asked me to get in his car", "stranger_danger"),
+    ])
+    def test_safety_concerns_are_flagged(self, text, flag):
+        result = safety_filter.check_message(text)
+        assert flag in result["flags"] and not result["safe"]
+
+    @pytest.mark.parametrize("text", [
+        "i talked to a stranger at the park", "we learned about strangers at school",
+        "my mom told me to get in her car", "my uncle asked me to come with him to the store",
+    ])
+    def test_ordinary_mentions_are_not_stranger_danger(self, text):
+        assert "stranger_danger" not in safety_filter.check_message(text)["flags"]
 
     def test_where_do_you_live_is_allowed(self):
         assert safety_filter.check_message("where do you live")["safe"]
@@ -1103,3 +1139,16 @@ class TestConversation:
         for message in ("a kid called me a baby", "it made me sad", "i didnt say anything"):
             send(api, user_id, conversation_id, message)
         assert "Please stop" in send(api, user_id, conversation_id, "what should i say")
+
+    def test_stranger_danger_reply(self, api):
+        user_id, conversation_id, _ = start(api)
+        reply = send(api, user_id, conversation_id, "a stranger asked me to get in his car")
+        assert "Never go anywhere with" in reply
+
+    def test_returning_child_favorite_and_pet_name(self, api):
+        user_id, conversation_id, _ = start(api)
+        for message in ("im rex", "i have a cat named whiskers", "my favorite food is tacos"):
+            send(api, user_id, conversation_id, message)
+        conversation_id = api.post(f"/api/conversation/start?user_id={user_id}").json()["conversation_id"]
+        assert "tacos" in send(api, user_id, conversation_id, "do you remember my favorite food")
+        assert "Whiskers" in send(api, user_id, conversation_id, "what is my cats name")

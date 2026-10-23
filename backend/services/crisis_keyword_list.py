@@ -280,6 +280,14 @@ class CrisisKeywordList:
             "touching my private parts",
             "touched me where",
             "touches me where",
+            "touched me in a bad way",
+            "touches me in a bad way",
+            "touched me in a weird way",
+            "touches me in a weird way",
+            "touched me down there",
+            "touches me down there",
+            "touched my privates",
+            "touches my privates",
 
             # Unwanted contact
             "made me touch",
@@ -317,6 +325,10 @@ class CrisisKeywordList:
             "said not to tell anyone",
             "says not to tell anyone",
             "our little secret",
+            "told me to keep it a secret",
+            "tells me to keep it a secret",
+            "told me to keep it secret",
+            "tells me to keep it secret",
         }
 
         # Fear of a family member or caregiver (emotional abuse indicator)

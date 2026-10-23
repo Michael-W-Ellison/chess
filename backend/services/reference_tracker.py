@@ -144,6 +144,7 @@ _PET_WORDS = {"cute", "fluffy", "adorable", "furry", "soft", "cuddly", "tiny", "
 _FOOD_ADJECTIVES = {"hot", "iced", "fried", "scrambled", "whipped", "mashed", "grilled", "frozen", "baked", "roasted"}
 _BOT_FILLER_NOUNS = {"change", "idea", "question", "thing", "lot", "way", "part", "kind", "sort", "bit", "fun",
                      "feeling", "plan", "goal", "step", "reason", "choice", "minds", "mind", "spirit"}
+_WH_TAGS = {"WP", "WDT", "WRB", "WP$"}
 _MAKING_VERBS = {"make", "cook", "bake", "buy", "get", "eat", "bring", "give", "drink", "order"}
 
 
@@ -687,7 +688,8 @@ class ReferenceTracker:
         """The name in "a dog named Max" / "my cat called Luna", if any"""
         for clause in token.children:
             if clause.dep_ == "acl" and clause.lemma_ in ("name", "call"):
-                return next((c for c in clause.children if c.dep_ in ("oprd", "dobj") and c.pos_ == "PROPN"), None)
+                return next((c for c in clause.children if c.dep_ in ("oprd", "dobj")
+                             and (c.pos_ == "PROPN" or c.text[:1].isupper())), None)
         return None
 
     def _record(self, doc, state: DiscourseState) -> None:
@@ -748,7 +750,8 @@ class ReferenceTracker:
                     and any(c.lower_ in ("my", "our", "the") for c in token.children)):
                 # "The snowman's name is Frosty": Frosty, a he or she the child may talk about
                 name_token = next((c for c in head.head.children if c.dep_ in ("attr", "acomp")), None)
-                if name_token is not None and name_token.is_alpha and not any(c.dep_ == "det" for c in name_token.children):
+                if (name_token is not None and name_token.is_alpha and name_token.tag_ not in _WH_TAGS
+                        and not any(c.dep_ == "det" for c in name_token.children)):
                     named_tokens.add(name_token.i)
                     named_tokens.update(c.i for c in name_token.children if c.dep_ == "compound")
                     name = self._full_name(name_token)
@@ -758,7 +761,8 @@ class ReferenceTracker:
                     and any(c.lower_ in ("my", "our", "the") for c in token.children)):
                 name_token = next((c for c in head.head.children
                                    if c.dep_ in ("attr", "acomp", "npadvmod")), None)
-                if name_token is not None and name_token.is_alpha:
+                # Not "What is my cat's name?"
+                if name_token is not None and name_token.is_alpha and name_token.tag_ not in _WH_TAGS:
                     named_tokens.add(name_token.i)
                     mentioned.append(Person(
                         name=name_token.text[:1].upper() + name_token.text[1:],

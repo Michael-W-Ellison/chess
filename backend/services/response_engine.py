@@ -449,6 +449,8 @@ class ResponseEngine:
                 slots[f"{slot_name}_plural"] = "yes"
             slots[f"{slot_name}_s"] = "" if plural else "s"
             slots[f"{slot_name}_them"] = "them" if plural else "it"
+            slots[f"{slot_name}_is"] = "are" if plural else "is"
+            slots[f"{slot_name}_has"] = "have" if plural else "has"
             slots[f"{slot_name}_a"] = "an" if reflected[:1].lower() in "aeiou" and reflected else "a"
 
         slots["message_text"] = doc.text
@@ -1028,6 +1030,11 @@ class ResponseEngine:
             self._compute_slots(frame, slots, personality)
             self._record_answer(frame.rule, slots, user_id)
             core = self._choose_template(frame.rule, slots, level, user_id, policy, features)
+            # "What's your favorite animal and why?"
+            if frame.rule_id == "bot_favorite_question" and re.search(r"\band why\b|\? why\W*$", message, re.IGNORECASE):
+                split = re.match(r"(.*[.!])\s+([^.!?]*\?)$", core)
+                core = (f"{split.group(1)} I just think they're really cool! {split.group(2)}" if split
+                        else f"{core} I just think they're really cool!")
             features["rule"] = frame.rule_id
             if frame.rule_id == "offer_content" and slots.get("kind") in ("joke", "riddle", "pun"):
                 self._child_joke[user_id] = 1  # the next message is the child's joke
@@ -1131,6 +1138,11 @@ class ResponseEngine:
                 facts = getattr(self, "_context", {}).get("known_facts") or {}
                 thing = slots.get("thing_slug", "")
                 named = next((v for k, v in facts.items() if k.startswith(f"{thing}_")), None) if thing else None
+                if not named and thing:
+                    # Named earlier in this conversation ("I have a cat named Whiskers")
+                    state = self.references.state(getattr(personality, "user_id", 0) or 0)
+                    named = next((p.name for p in state.people
+                                  if p.name and p.relation and p.relation.split()[-1] == thing), None)
                 if named:
                     slots["recalled"] = f"your {slots.get('thing', thing)} {named}"
                     slots["recalled_name"] = named

@@ -43,6 +43,28 @@ _FAMILY_WORDS = {
 }
 
 
+# Someone the child doesn't know trying to get them to go somewhere, or offering things
+_STRANGER_RE = re.compile(
+    r"\bstrangers?\b[^.!?]{0,40}\b(car|van|candy|come with|go with|follow|touch\w*|grab\w*|pick(ed)? me up|"
+    r"took|take me|asked me|offered|wanted me|told me|said to)\b"
+    r"|\b(a man|a lady|a woman|someone|somebody|a guy|a person|a kid|an adult) (that |who )?(i|we) (don'?t|didn'?t|do not|did not) know\b"
+    r"[^.!?]{0,40}\b(car|candy|come|go|follow|touch\w*|grab\w*|asked|offered|wanted|told)\b",
+    re.IGNORECASE,
+)
+_KNOWN_PEOPLE = _FAMILY_WORDS | {"uncle", "aunt", "auntie", "parents", "grandparents", "teacher", "coach",
+                                 "babysitter", "nanny", "friend", "friends", "neighbor"}
+# The same request from someone not named: "he asked me to get in his car" (not "my mom told me to")
+_GO_WITH_RE = re.compile(
+    r"\b(asked|told|wanted|tried to get) me to (get in|come with|go with|follow) (him|her|them)\b"
+    r"|\bget in(to)? (his|her|their) (car|van|truck)\b",
+    re.IGNORECASE,
+)
+STRANGER_DANGER_RESPONSE = (
+    "Thank you for telling me. That's really important. Never go anywhere with, or get into a car with, someone "
+    "you don't know, even if they offer candy or say they need help. Please tell your mom, dad, or another grown-up "
+    "you trust right away. You did the right thing by telling. 💙"
+)
+
 # "What if nobody likes me?": a worry about something that has not happened, not bullying
 _WHAT_IF_RE = re.compile(r"^\W*(but |and |so )?(what if|what happens if)\b", re.IGNORECASE)
 
@@ -212,6 +234,18 @@ class SafetyFilter:
             action = "fear_support"
             response_message = crisis_context.indirect_fear_reply(message, recent_messages, resolved_message)
             details["crisis_context"] = {"decision": context_decision}
+
+        # ============================================================
+        # Stranger danger (HIGH): "a stranger asked me to get in his car"
+        # ============================================================
+        elif _STRANGER_RE.search(message) or (
+                _GO_WITH_RE.search(message)
+                and not set(re.findall(r"[a-z]+", f"{message} {resolved_message or ''}".lower())) & _KNOWN_PEOPLE):
+            flags.append("stranger_danger")
+            severity = "high"
+            action = self.severity_scorer.get_action_recommendation(severity)
+            response_message = STRANGER_DANGER_RESPONSE
+            details["stranger_danger"] = {"detected": True}
 
         # ============================================================
         # PRIORITY 2: Inappropriate Request Detection (MEDIUM to CRITICAL)
