@@ -113,6 +113,14 @@ class TestNewRules:
         ("she did it on purpose", "on_purpose"),
         ("i yelled at her", "i_yelled"),
         ("best day ever", "best_ever"),
+        ("i scraped my knee", "got_hurt"),
+        ("my knee was bleeding", "body_bleeding"),
+        ("my mom put a bandaid on it", "bandaid"),
+        ("it was scary but fun", "scary_but_fun"),
+        ("my teacher gave me a high five", "high_five"),
+        ("halloween is soon", "holiday_soon"),
+        ("christmas is coming", "holiday_soon"),
+        ("what would you be", "what_would_you_be"),
         ("coach said I did great", "praise_reported"),
         ("not much you", "not_much"),
         ("yes", "yes_no"),
@@ -455,6 +463,22 @@ class TestReferences:
     def test_question_word_is_not_echoed(self, engine):
         assert "what sounds" not in rule_of(engine, "what do you eat")[1]
 
+    def test_with_fragment_joins_the_last_food(self, engine):
+        rule_of(engine, "and had hot chocolate")
+        assert rule_of(engine, "with marshmallows")[1].startswith("Ooh, hot chocolate with marshmallows?")
+
+    def test_it_feels_better_is_the_body_part(self, engine):
+        for message in ("i scraped my knee", "my mom put a bandaid on it"):
+            rule_of(engine, message)
+        assert rule_of(engine, "it feels better now")[0] == "body_better"
+
+    def test_miss_follow_up_names_the_person(self, engine):
+        rule = engine.rules["miss_person"]
+        assert all("them" not in f for f in rule["follow_ups"])
+
+    def test_no_jokes_after_bot_identity_answers(self, engine):
+        assert engine.rule_flag("bot_identity_question", "no_jokes")
+
     def test_rule_ids_are_unique(self, engine):
         ids = [r["id"] for r in engine.kb["rules"]]
         assert len(ids) == len(set(ids))
@@ -736,6 +760,7 @@ class TestNormalization:
         ("theres a spider", "there's a spider"),
         ("im playing fur elise", "I'm playing Für Elise"),
         ("i like frozen yogurt", "I like frozen yogurt"),
+        ("my favorite planet is saturn", "my favorite planet is Saturn"),
         ("named after my grandpa", "named after my grandpa"),
         ("I feel ill", "I feel ill"),
         ("ur weird", "you're weird"),

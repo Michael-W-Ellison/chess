@@ -83,7 +83,7 @@ _GROUPS = {"kid", "boy", "girl", "classmate", "student", "bully", "teenager", "p
 _NOT_ANSWERS = {"no", "nope", "nah", "yes", "yeah", "ok", "okay", "idk", "nothing", "dunno", "why", "what", "lol",
                 "haha", "same", "cool", "nice", "wow", "maybe", "um", "hmm"}
 # What "it" does when it is a body part: "it stopped bleeding", "it still hurts"
-_BODY_VERBS = {"bleed", "hurt", "ache", "heal", "swell", "itch", "sting", "stop"}
+_BODY_VERBS = {"bleed", "hurt", "ache", "heal", "swell", "itch", "sting", "stop", "feel"}
 _BODY_PARTS = {"arm", "leg", "knee", "foot", "hand", "finger", "toe", "head", "tummy", "stomach", "elbow",
                "wrist", "ankle", "nose", "lip", "tooth", "ear", "eye", "back", "neck", "chin", "cut", "scrape"}
 # Words of a reaction to a joke, fact or answer: "That was funny", not "it was even bigger"
@@ -141,6 +141,7 @@ _PETS = {"dog", "puppy", "cat", "kitten", "kitty", "hamster", "bunny", "rabbit",
          "guinea", "pig", "turtle", "lizard", "baby", "parrot", "gerbil"}
 _PET_WORDS = {"cute", "fluffy", "adorable", "furry", "soft", "cuddly", "tiny", "playful", "naughty"}
 
+_FOOD_ADJECTIVES = {"hot", "iced", "fried", "scrambled", "whipped", "mashed", "grilled", "frozen", "baked", "roasted"}
 _MAKING_VERBS = {"make", "cook", "bake", "buy", "get", "eat", "bring", "give", "drink", "order"}
 
 
@@ -880,7 +881,9 @@ class ReferenceTracker:
         # not adjectives other than "favorite"/"best" ("the test", not "the hard test")
         words = [t.text for t in chunk
                  if t == root or t.dep_ in ("det", "poss", "compound", "nummod", "case")
-                 or (t.dep_ == "amod" and t.lower_ in ("favorite", "favourite", "best"))]
+                 or (t.dep_ == "amod" and t.lower_ in ("favorite", "favourite", "best"))
+                 # "hot chocolate", "mashed potatoes": part of the food's name
+                 or (t.dep_ == "amod" and t.lower_ in _FOOD_ADJECTIVES)]
         for index in range(len(words) - 1, 0, -1):
             if words[index] in ("'s", "'"):
                 words[index - 1] += words.pop(index)

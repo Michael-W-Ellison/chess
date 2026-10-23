@@ -1147,7 +1147,7 @@ class ResponseEngine:
         # Answers to questions about the world and the child's own joke get no joke added
         # and replies repeating back the child's news ("The present was a book about sharks?")
         if flag == "no_jokes" and rule_id and (
-                rule_id.startswith(("fallback_world", "fallback_reflection", "fallback_long_reflection"))
+                rule_id.startswith(("fallback_world", "fallback_reflection", "fallback_long_reflection", "fallback_fragment"))
                 or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes", "spelling")):
             return True
         return bool(rule_id and self.rules.get(rule_id, {}).get(flag))
@@ -1248,6 +1248,18 @@ class ResponseEngine:
                     if any(t.tag_ in ("WRB", "WP", "WDT") for t in doc):
                         return pick("world_question"), "neutral", "world_question"
             return pick("question"), "neutral", "question"
+
+        # "with marshmallows" right after "and had hot chocolate": part of that thing
+        words = [t for t in doc if not t.is_punct]
+        if allow_reflection and 2 <= len(words) <= 4 and words[0].lower_ == "with":
+            state = self.references.state(user_id)
+            # The thing from an earlier message, not this one's own "marshmallows"
+            thing = next((t for t in state.things if not t.added and not t.short and t.turn < state.turn), None)
+            _, extra = self._extract_slot(words[0], "subtree")
+            if thing is not None and thing.text.split()[-1].lower() in self.kb["lexicons"].get("foods", []):
+                name = " ".join(w for w in thing.text.split() if w.lower() not in ("the", "a", "an"))
+                return f"Ooh, {name} {extra}? Yum, that sounds so good!", "positive", "fragment"
+            return f"{extra[:1].upper()}{extra[1:]}? That sounds fun!", "positive", "fragment"
 
         # Reflect the last sentence that is short and about the child
         if allow_reflection:

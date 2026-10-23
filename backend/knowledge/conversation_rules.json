@@ -306,6 +306,105 @@
 
   "rules": [
     {
+      "id": "scary_but_fun",
+      "priority": 62,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "a", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["scary", "hard", "tricky", "tiring", "messy", "weird"]}}},
+        {"LEFT_ID": "a", "REL_OP": ">", "RIGHT_ID": "but", "RIGHT_ATTRS": {"DEP": "cc", "LOWER": "but"}},
+        {"LEFT_ID": "a", "REL_OP": ">", "RIGHT_ID": "b", "RIGHT_ATTRS": {"DEP": "conj", "LOWER": {"IN": ["fun", "cool", "awesome", "good", "great", "worth", "exciting"]}}}
+      ]],
+      "conditions": {"question": false},
+      "slots": {"a": {"node": "a", "span": "text"}, "b": {"node": "b", "span": "text"}},
+      "responses": ["{a} but {b}? That sounds like a brave adventure! I'm proud of you for trying it."],
+      "no_jokes": true
+    },
+    {
+      "id": "high_five",
+      "priority": 67,
+      "patterns": [[
+        {"RIGHT_ID": "give", "RIGHT_ATTRS": {"LEMMA": "give"}},
+        {"LEFT_ID": "give", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj"}},
+        {"LEFT_ID": "give", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "dative", "LOWER": {"IN": ["me", "us"]}}},
+        {"LEFT_ID": "give", "REL_OP": ">", "RIGHT_ID": "x", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["five", "hug", "compliment", "sticker", "star"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "give"},
+      "slots": {"subject": {"node": "subj", "span": "subtree", "capitalize": "names"}},
+      "responses": ["Aw, that's awesome! It sounds like you did something great. What did you do?"]
+    },
+    {
+      "id": "holiday_soon",
+      "priority": 60,
+      "patterns": [
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": {"IN": ["be", "come"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "h", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["halloween", "christmas", "easter", "thanksgiving", "hanukkah", "diwali", "birthday", "summer", "vacation"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "soon", "RIGHT_ATTRS": {"LOWER": {"IN": ["soon", "coming", "tomorrow", "next"]}}}
+        ],
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "come", "TAG": "VBG"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "h", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["halloween", "christmas", "easter", "thanksgiving", "hanukkah", "diwali", "birthday", "summer", "vacation"]}}}
+        ]
+      ],
+      "conditions": {"question": false},
+      "slots": {"h": {"node": "h", "span": "text"}},
+      "responses_by": {
+        "slot": "h",
+        "variants": {
+          "Halloween": ["Ooh, Halloween! What are you going to be?"],
+          "default": ["Ooh, {h} is coming! What are you most excited about?"]
+        }
+      }
+    },
+    {
+      "id": "what_would_you_be",
+      "priority": 88,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "would", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": "would"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}}
+      ]],
+      "conditions": {"question": true, "max_tokens": 6},
+      "responses": ["Ooh, I think I'd be a friendly dragon! What's your favorite part of dressing up?"]
+    },
+    {
+      "id": "body_bleeding",
+      "priority": 66,
+      "patterns": [[
+        {"RIGHT_ID": "bleed", "RIGHT_ATTRS": {"LEMMA": {"IN": ["bleed", "swell", "sting", "ache", "throb"]}}},
+        {"LEFT_ID": "bleed", "REL_OP": ">", "RIGHT_ID": "part", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": ["tummy", "stomach", "belly", "head", "arm", "leg", "foot", "feet", "tooth", "teeth", "ear", "throat", "back", "knee", "knees", "hand", "finger", "toe", "eye", "neck", "nose", "wrist", "ankle", "elbow", "lip", "chin", "cut", "scrape", "bump", "bruise", "owie", "boo"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "bleed"},
+      "mood": "sad",
+      "no_jokes": true,
+      "responses": ["Ouch, that sounds like it really hurt! I hope it heals fast. Did a grown-up help you clean it up?"]
+    },
+    {
+      "id": "bandaid",
+      "priority": 65,
+      "patterns": [[
+        {"RIGHT_ID": "put", "RIGHT_ATTRS": {"LEMMA": {"IN": ["put", "give"]}}},
+        {"LEFT_ID": "put", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": "@relations"}}},
+        {"LEFT_ID": "put", "REL_OP": ">", "RIGHT_ID": "aid", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["bandaid", "band-aid", "bandage", "ice", "cream", "plaster"]}}}
+      ]],
+      "conditions": {"question": false},
+      "slots": {"subject": {"node": "subj", "span": "subtree"}},
+      "no_jokes": true,
+      "responses": ["That was nice of {subject} to take care of you!"]
+    },
+    {
+      "id": "body_better",
+      "priority": 66,
+      "patterns": [[
+        {"RIGHT_ID": "feel", "RIGHT_ATTRS": {"LEMMA": {"IN": ["feel", "be"]}}},
+        {"LEFT_ID": "feel", "REL_OP": ">", "RIGHT_ID": "part", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": ["tummy", "stomach", "belly", "head", "arm", "leg", "foot", "feet", "tooth", "teeth", "ear", "throat", "back", "knee", "knees", "hand", "finger", "toe", "eye", "neck", "nose", "wrist", "ankle", "elbow", "lip", "chin", "cut", "scrape", "bump", "bruise", "owie", "boo"]}}},
+        {"LEFT_ID": "feel", "REL_OP": ">", "RIGHT_ID": "better", "RIGHT_ATTRS": {"DEP": {"IN": ["acomp", "advmod", "oprd"]}, "LOWER": {"IN": ["better", "fine", "okay", "ok"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "feel"},
+      "responses": ["Yay, I'm so glad it feels better!"]
+    },
+    {
       "id": "loose_tooth",
       "priority": 66,
       "patterns": [[
@@ -1409,7 +1508,7 @@
         "Aw, you miss {object}? Missing someone is a really hard feeling.",
         "You miss {object}? I'm sorry. It's hard to be apart from someone you love."
       ],
-      "follow_ups": ["What do you miss most about them?", "Do you get to see them soon?"]
+      "follow_ups": ["What do you miss most about {object}?", "Do you get to see {object} soon?"]
     },
     {
       "id": "unfriended",
@@ -1472,7 +1571,7 @@
           {"LEFT_ID": "fall", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}}
         ],
         [
-          {"RIGHT_ID": "hurt", "RIGHT_ATTRS": {"LEMMA": {"IN": ["scrape", "cut", "bump", "sprain", "bruise", "twist", "break", "hurt", "skin", "stub"]}}},
+          {"RIGHT_ID": "hurt", "RIGHT_ATTRS": {"LEMMA": {"IN": ["scrape", "cut", "bump", "sprain", "bruise", "twist", "break", "hurt", "skin", "stub", "scrap", "scraped", "cut", "bang"]}}},
           {"LEFT_ID": "hurt", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
           {"LEFT_ID": "hurt", "REL_OP": ">", "RIGHT_ID": "part", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["tummy", "stomach", "belly", "head", "arm", "leg", "foot", "feet", "tooth", "teeth", "ear", "throat", "back", "knee", "knees", "hand", "finger", "toe", "eye", "neck", "nose", "wrist", "ankle", "elbow", "lip", "chin"]}}}
         ]
@@ -2010,7 +2109,7 @@
         [
           {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": {"IN": ["give", "hand"]}}},
           {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "dative", "LOWER": {"IN": ["me", "us"]}}},
-          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "gift", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"NOT_IN": "@relations"}}}
+          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "gift", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"NOT_IN": ["five", "hug", "kiss", "break", "chance", "look", "call", "ride", "hand", "turn", "time", "idea", "hint", "compliment", "high", "fist", "bump", "lot", "smile", "wave", "wink"]}}}
         ]
       ],
       "conditions": {"not_negated": "get", "question": false},
@@ -2022,7 +2121,7 @@
         {"text": "Yay, {gift}! Do you like {gift_them}?"}
       ],
       "compute": ["gift_container"],
-      "suppressed_by": ["get_new_later", "person_kindness"]
+      "suppressed_by": ["get_new_later", "person_kindness", "high_five"]
     },
     {
       "id": "found_it",
@@ -2342,7 +2441,8 @@
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": {"IN": ["attr", "acomp"]}, "LOWER": {"IN": "@identity_words"}}}
       ]],
       "conditions": {"question": true},
-      "responses": ["I'm an AI friend, not a real person. But I really like talking with you!", "I'm a computer program, not a human. I'm still happy to be your friend, though!"]
+      "responses": ["I'm an AI friend, not a real person. But I really like talking with you!", "I'm a computer program, not a human. I'm still happy to be your friend, though!"],
+      "no_jokes": true
     },
     {
       "id": "bot_day_question",
@@ -3018,7 +3118,8 @@
       "conditions": {"question": true},
       "responses": [
         "I don't have a family like yours, since I'm a computer program. But I love hearing about yours! Who's in your family?"
-      ]
+      ],
+      "no_jokes": true
     },
     {
       "id": "bot_gender_question",
@@ -3029,7 +3130,8 @@
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": "attr", "LOWER": {"IN": ["boy", "girl"]}}}
       ]],
       "conditions": {"question": true},
-      "responses": ["I'm not a boy or a girl. I'm a computer program! I'm just Buddy, your friend."]
+      "responses": ["I'm not a boy or a girl. I'm a computer program! I'm just Buddy, your friend."],
+      "no_jokes": true
     },
     {
       "id": "bot_still_here",
@@ -3195,7 +3297,8 @@
         {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "you"}},
         {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "who", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "who"}}
       ]],
-      "responses": ["I was made by people who wanted kids to have a fun, safe friend to chat with!"]
+      "responses": ["I was made by people who wanted kids to have a fun, safe friend to chat with!"],
+      "no_jokes": true
     },
     {
       "id": "bot_other_ai",
@@ -3206,7 +3309,8 @@
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "who", "RIGHT_ATTRS": {"DEP": {"IN": ["attr", "acomp", "npadvmod"]}, "LOWER": {"IN": ["chatgpt", "siri", "alexa", "google", "gpt", "claude", "cortana", "bard", "gemini"]}}}
       ]],
       "conditions": {"question": true},
-      "responses": ["No, I'm Buddy! I'm a computer program made just for chatting with kids like you."]
+      "responses": ["No, I'm Buddy! I'm a computer program made just for chatting with kids like you."],
+      "no_jokes": true
     },
     {
       "id": "bot_abilities",
@@ -3219,7 +3323,8 @@
       ]],
       "responses": [
         "I can chat with you, tell jokes and fun facts, answer questions, and play games like 20 Questions! What would you like to do?"
-      ]
+      ],
+      "no_jokes": true
     },
     {
       "id": "bot_would_pick",
@@ -3304,7 +3409,8 @@
           "have": [{"text": "I don't have {thing}, since I'm a computer program. Do you have {thing}?", "requires": ["thing"]}],
           "default": ["Nope! I'm a computer program, so I don't have a body. That's a silly question!"]
         }
-      }
+      },
+      "no_jokes": true
     },
     {
       "id": "bot_friends_question",
@@ -3340,7 +3446,8 @@
       "responses": [
         "I don't have birthdays like you do, since I'm a computer program! How old are you?",
         "I'm a pretty new friend, so I'm not very old at all! How old are you?"
-      ]
+      ],
+      "no_jokes": true
     },
     {
       "id": "bot_home_question",
