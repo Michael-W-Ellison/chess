@@ -665,7 +665,7 @@
       "conditions": {"question": false, "not_negated": "have", "max_tokens": 7},
       "slots": {"q": {"node": "q", "span": "lemma"}},
       "no_jokes": true,
-      "responses": ["Ooh, a {q}? Tell me!"]
+      "responses": ["Ooh, {q_a} {q}? Tell me!"]
     },
     {
       "id": "show_bot",
@@ -1345,7 +1345,7 @@
       ],
       "conditions": {"question": false, "not_negated": "be"},
       "slots": {"pet": {"node": "pet", "span": "subtree", "capitalize": "names"}, "cute": {"node": "cute", "span": "text"}},
-      "responses": ["Aww, {pet} sounds so {cute}! What's your favorite thing to do together?"]
+      "responses": ["Aww, {pet} sound{pet_s} so {cute}! What's your favorite thing to do together?"]
     },
     {
       "id": "no_cavities_det",
@@ -5269,6 +5269,53 @@
       "follow_ups": ["Want another one?"]
     },
     {
+      "id": "rhymes_with",
+      "priority": 86,
+      "patterns": [[
+        {"RIGHT_ID": "rhyme", "RIGHT_ATTRS": {"LEMMA": "rhyme"}},
+        {"LEFT_ID": "rhyme", "REL_OP": ">", "RIGHT_ID": "with", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": "with"}},
+        {"LEFT_ID": "with", "REL_OP": ">", "RIGHT_ID": "word", "RIGHT_ATTRS": {"DEP": "pobj"}}
+      ]],
+      "conditions": {"max_tokens": 8},
+      "slots": {"word": {"node": "word", "span": "text"}},
+      "compute": ["rhymes"],
+      "no_jokes": true,
+      "responses": [
+        {"text": "Ooh! {word} rhymes with {rhymes}! Can you think of another one?", "requires": ["rhymes"]},
+        {"text": "Hmm, {word} is a tricky one! Can you think of a word that rhymes with it?"}
+      ]
+    },
+    {
+      "id": "child_can_count",
+      "priority": 87,
+      "patterns": [[
+        {"RIGHT_ID": "count", "RIGHT_ATTRS": {"LEMMA": "count"}},
+        {"LEFT_ID": "count", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+        {"LEFT_ID": "count", "REL_OP": ">", "RIGHT_ID": "to", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": "to"}},
+        {"LEFT_ID": "to", "REL_OP": ">", "RIGHT_ID": "n", "RIGHT_ATTRS": {"DEP": "pobj"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "count"},
+      "slots": {"n": {"node": "n", "span": "text"}},
+      "responses": ["Wow, you can count to {n}? That's awesome! What's the biggest number you know?"]
+    },
+    {
+      "id": "count_to",
+      "priority": 86,
+      "patterns": [[
+        {"RIGHT_ID": "count", "RIGHT_ATTRS": {"LEMMA": "count"}},
+        {"LEFT_ID": "count", "REL_OP": ">", "RIGHT_ID": "to", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": "to"}},
+        {"LEFT_ID": "to", "REL_OP": ">", "RIGHT_ID": "n", "RIGHT_ATTRS": {"DEP": "pobj", "POS": "NUM"}}
+      ]],
+      "conditions": {"max_tokens": 8},
+      "slots": {"n": {"node": "n", "span": "text"}},
+      "compute": ["count_to"],
+      "no_jokes": true,
+      "responses": [
+        {"text": "Okay! {counting}! Can you count higher than that?", "requires": ["counting"]},
+        {"text": "Wow, that's a lot of counting! Let's start: 1, 2, 3... can you keep going?"}
+      ]
+    },
+    {
       "id": "request_again",
       "priority": 87,
       "patterns": [[{"RIGHT_ID": "word", "RIGHT_ATTRS": {"LOWER": {"IN": ["another", "again"]}}}]],
@@ -5890,5 +5937,188 @@
       "laundromat",
       "grocery"
     ]
-  }
+  },
+
+  "phrases": [
+    {
+      "id": "me_too",
+      "pattern": "(me too|me 2|same|same here|samesies|me as well)",
+      "responses": ["Yay, we have that in common!"]
+    },
+    {
+      "id": "me_neither",
+      "pattern": "(me neither|me either|neither do i|nor me|same neither)",
+      "responses": ["Same here! We're alike that way."]
+    },
+    {
+      "id": "surprised",
+      "pattern": "(no way|for real|really|seriously|whoa|omg really|are you serious)",
+      "responses": ["Yep, really! Pretty surprising, huh?"]
+    },
+    {
+      "id": "are_you_sure",
+      "pattern": "(are you sure|you sure|r u sure)",
+      "responses": ["Pretty sure! But I can make mistakes sometimes. What do you think?"]
+    },
+    {
+      "id": "confused",
+      "pattern": "(what do you mean|huh|i don't get it|i dont get it|i don't understand|i dont understand|what are you talking about|that doesn't make sense|that makes no sense|that doesnt make sense)",
+      "responses": ["Oops, sorry if I was confusing! What would you like me to explain?"]
+    },
+    {
+      "id": "never_mind",
+      "pattern": "(never mind|nevermind|nvm|forget it|forget about it)",
+      "responses": ["Okay! What else would you like to talk about?"]
+    },
+    {
+      "id": "dont_care",
+      "pattern": "(idc|i don't care|i dont care|whatever)",
+      "responses": ["That's okay! Want to talk about something else?"]
+    },
+    {
+      "id": "ily",
+      "pattern": "(ily|ilysm|i love you so much|love you)",
+      "responses": ["Aw, thank you! I really like talking with you too!"]
+    },
+    {
+      "id": "good_game",
+      "pattern": "(gg|good game|ggs)",
+      "responses": ["Good game! That was fun!"]
+    },
+    {
+      "id": "smh",
+      "pattern": "(smh|sigh)",
+      "responses": ["Hmm, what's up? You can tell me."]
+    },
+    {
+      "id": "be_right_back",
+      "pattern": "(brb|afk|be right back|one sec|one second|1 sec|hold on|hang on|wait|one minute|1 min|gimme a sec|give me a second)",
+      "responses": ["Okay! I'll be right here."]
+    },
+    {
+      "id": "agree",
+      "pattern": "(ikr|i know right|exactly|true|so true|that's true|thats true|totally)",
+      "responses": ["Right? I totally agree!"]
+    },
+    {
+      "id": "no_problem",
+      "pattern": "(np|no problem|no prob|no worries)",
+      "responses": ["Thanks! You're the best."]
+    },
+    {
+      "id": "agree_soft",
+      "pattern": "(i think so|i guess so|i think yes|yeah i think so)",
+      "responses": ["Okay, cool! Thanks for telling me."]
+    },
+    {
+      "id": "disagree_soft",
+      "pattern": "(i don't think so|i dont think so|not really|nah|nope not really)",
+      "responses": ["Okay, thanks for telling me! What do you think instead?"]
+    },
+    {
+      "id": "remember",
+      "pattern": "(i remember|oh i remember|now i remember)",
+      "responses": ["Ooh, what do you remember?"]
+    },
+    {
+      "id": "forgot",
+      "pattern": "(i don't remember|i dont remember|i forgot|i forget|i can't remember|i cant remember)",
+      "responses": ["That's okay! Everybody forgets things sometimes."]
+    },
+    {
+      "id": "bot_wrong",
+      "pattern": "(you're wrong|youre wrong|you are wrong|that's not true|thats not true|that's wrong|thats wrong|not true|no it's not|no its not)",
+      "responses": ["Oops, I might have gotten that wrong! Thanks for telling me. What's the right answer?"]
+    },
+    {
+      "id": "bot_right",
+      "pattern": "(you're right|youre right|you are right|that's right|thats right|correct|yep that's right)",
+      "responses": ["Yay! Thanks for telling me!"]
+    },
+    {
+      "id": "good_idea",
+      "pattern": "(good idea|great idea|cool idea|that's a good idea|thats a good idea|that's a great idea|nice idea)",
+      "responses": ["Thanks! I'm glad you like it!"]
+    },
+    {
+      "id": "bad_idea",
+      "pattern": "(bad idea|that's a bad idea|thats a bad idea|no thanks that's a bad idea)",
+      "responses": ["Okay, let's think of something else! Got any ideas?"]
+    },
+    {
+      "id": "thinking",
+      "pattern": "(let me think|hmm+|hm+|um+|uhh*|thinking)",
+      "responses": ["Take your time!"]
+    },
+    {
+      "id": "back",
+      "pattern": "(i'm back|im back|i'm here|im here|i am back|i am here)",
+      "responses": ["Welcome back! What's up?"]
+    },
+    {
+      "id": "are_you_there",
+      "pattern": "(are you there|anyone there|anybody there|you there|r u there|can you hear me|are you still there)",
+      "responses": ["I'm here! What's up?"]
+    },
+    {
+      "id": "not_answered",
+      "pattern": "(you didn't answer( my question)?|you didnt answer( my question)?|answer me|answer the question|why aren't you answering|why arent you answering)",
+      "responses": ["Sorry about that! Can you ask me again?"]
+    },
+    {
+      "id": "repeating",
+      "pattern": "(you already said that|you said that already|you said that|stop repeating( yourself)?|you keep saying that|you're repeating yourself)",
+      "responses": ["Oops, you're right! Let's talk about something new. What's something fun you did today?"]
+    },
+    {
+      "id": "boring",
+      "pattern": "(you're boring|youre boring|you are boring|this is boring|i'm bored of this|im bored of this)",
+      "responses": ["Sorry! Let's do something more fun. Want to hear a joke, a riddle, or a fun fact?"]
+    },
+    {
+      "id": "change_subject",
+      "pattern": "(change the subject|new topic|something else|talk about something else)",
+      "responses": ["Of course! What's something fun you like?"]
+    },
+    {
+      "id": "go_away",
+      "pattern": "(go away|bye go away|stop talking|stop talking to me)",
+      "responses": ["Okay. I'll give you some space. I'm here whenever you want to talk."]
+    },
+    {
+      "id": "bot_best",
+      "pattern": "(you're the best|youre the best|you are the best|you're my best friend|youre my best friend|you are my best friend|you're awesome|youre awesome|you rock)",
+      "responses": ["Aw, thank you! You're awesome too!"]
+    },
+    {
+      "id": "helped",
+      "pattern": "(that helped|that helps|that helped a lot|thanks that helped)",
+      "responses": ["Yay, I'm so glad it helped!"]
+    },
+    {
+      "id": "didnt_help",
+      "pattern": "(that didn't help|that didnt help|that doesn't help|that doesnt help|not helpful)",
+      "responses": ["I'm sorry it didn't help. Do you want to try something else, or talk to a grown-up you trust?"]
+    },
+    {
+      "id": "not_okay",
+      "pattern": "(i'm not okay|im not okay|i am not okay|i'm not ok|im not ok|not okay|i'm not fine|im not fine)",
+      "responses": ["I'm sorry you're not okay. Do you want to tell me what's going on? A grown-up you trust can help too."]
+    },
+    {
+      "id": "a_little",
+      "pattern": "(kind of|kinda|a little|a little bit|sort of|sorta|a bit|a tiny bit)",
+      "responses": ["Okay, a little! Tell me more?"]
+    },
+    {
+      "id": "a_lot",
+      "pattern": "(a lot|so much|very much|soooo much|lots)",
+      "responses": ["Wow, a lot! Tell me more!"]
+    },
+    {
+      "id": "no_thanks",
+      "pattern": "(no thanks|no thank you|nah thanks|no thx)",
+      "responses": ["Okay! What would you like to do instead?"]
+    }
+  ]
 }

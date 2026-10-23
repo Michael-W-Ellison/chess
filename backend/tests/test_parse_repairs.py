@@ -490,3 +490,83 @@ class TestRoundSixReplies:
     def test_body_reply_uses_the_childs_verb(self, engine):
         from tests.test_dialogue_fixes import rule_of
         assert "your nose is runny?" in rule_of(engine, "my nose is runny")[1]
+
+
+@pytest.mark.parametrize("text,thing,verb", [("i have lots of homework", "homework", "have"),
+                                             ("i have a lot of friends", "friends", "have"),
+                                             ("we ate tons of candy", "candy", "ate")])
+def test_amount_of_thing_is_the_object(text, thing, verb):
+    noun = token(parser.parse(text), thing)
+    assert noun.dep_ == "dobj" and noun.head.lower_ == verb
+
+
+class TestRoundSeven:
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    @pytest.mark.parametrize("text,rule,reply", [
+        ("count to ten", "count_to", "Okay! 1, 2, 3, 4, 5, 6, 7, 8, 9, 10! Can you count higher than that?"),
+        ("what rhymes with cat", "rhymes_with", "Ooh! Cat rhymes with hat, bat, rat and mat! Can you think of another one?"),
+        ("is santa real", "fallback_world_answer", "That's a great question to talk about with your family! What do you think?"),
+        ("dogs are cute aren't they", "pet_cute", "Aww, dogs sound so cute! What's your favorite thing to do together?"),
+    ])
+    def test_reply(self, engine, text, rule, reply):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text) == (rule, reply)
+
+    @pytest.mark.parametrize("text,rule", [("i have lots of homework", "lots_of_homework"),
+                                           ("who invented candy", "fallback_world_answer"),
+                                           ("what rhymes with orange", "rhymes_with")])
+    def test_rule(self, engine, text, rule):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text)[0] == rule
+
+
+class TestPhrases:
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    @pytest.mark.parametrize("text,phrase", [
+        ("me too", "me_too"), ("same here", "me_too"), ("me neither", "me_neither"), ("no way", "surprised"),
+        ("nvm", "never_mind"), ("brb", "be_right_back"), ("hold on", "be_right_back"), ("ikr", "agree"),
+        ("you're wrong", "bot_wrong"), ("you're right", "bot_right"), ("are you there", "are_you_there"),
+        ("you already said that", "repeating"), ("you didn't answer my question", "not_answered"),
+        ("you're boring", "boring"), ("go away", "go_away"), ("you're the best", "bot_best"),
+        ("that didn't help", "didnt_help"), ("i'm not okay", "not_okay"), ("a little", "a_little"),
+        ("no thanks", "no_thanks"), ("ily buddy", "ily"), ("i forgot", "forgot"), ("i think so", "agree_soft"),
+    ])
+    def test_phrase(self, engine, text, phrase):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text)[0] == f"phrase_{phrase}"
+
+    @pytest.mark.parametrize("text", ["back", "boring", "super", "right", "wrong"])
+    def test_single_words_that_can_be_answers_are_not_phrases(self, engine, text):
+        from tests.test_dialogue_fixes import rule_of
+        assert not (rule_of(engine, text)[0] or "").startswith("phrase_")
+
+    def test_an_offer_is_answered_before_phrases(self, engine):
+        from tests.test_dialogue_fixes import rule_of
+        engine.record_bot_reply(1, "Want to hear a funny joke?")
+        assert not rule_of(engine, "yes please")[0].startswith("phrase_")
+
+    @pytest.mark.parametrize("text,rule", [
+        ("i wonder why the sky is blue", "fallback_world_answer"),
+        ("why can't i stay up late", "fallback_world_answer"),
+        ("i have an idea", "have_question"),
+    ])
+    def test_rule(self, engine, text, rule):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text)[0] == rule
+
+
+def test_child_counting_is_not_a_request():
+    import random
+    from services.response_engine import ResponseEngine
+    from tests.test_dialogue_fixes import rule_of
+    assert rule_of(ResponseEngine(rng=random.Random(0)), "i can count to 100")[0] == "child_can_count"

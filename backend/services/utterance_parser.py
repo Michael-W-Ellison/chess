@@ -357,6 +357,8 @@ _NAMED_KINDS = {"friend", "bff", "brother", "sister", "cousin", "teacher", "coac
                 "guinea", "lizard", "snake", "parrot", "goldfish"}
 _NOUNS: set = set()  # filled from the lemmatizer's tables
 _DETERMINERS = {"the", "a", "an", "my", "your", "his", "her", "their", "our", "this", "that"}
+_AMOUNT_NOUNS = {"lots", "lot", "ton", "tons", "bunch", "bunches", "pile", "piles", "couple", "load", "loads", "bit"}
+# Verbs that take a receiver and a thing: "make me a card", "read us a story"
 _GIVING_VERBS = {"make", "give", "get", "buy", "bake", "draw", "send", "bring", "write", "show", "build", "cook",
                  "paint", "sing", "read", "tell", "find", "save", "knit", "sew", "pick"}
 _OBJECT_PRONOUNS = {"me", "him", "her", "us", "them"}
@@ -526,6 +528,16 @@ def _repair_tags(doc) -> None:
                 c.dep_ == "nsubj" for c in token.children):
             token.pos_, token.tag_ = "VERB", "VBP"
     for token in doc:
+        # "I have lots of homework", "a lot of friends": the thing is the object, the amount describes it
+        if token.lower_ in _AMOUNT_NOUNS and token.dep_ in ("dobj", "nsubj", "attr", "pobj"):
+            of = next((c for c in token.children if c.dep_ == "prep" and c.lower_ == "of"), None)
+            thing = next((g for g in of.children if g.dep_ == "pobj"), None) if of is not None else None
+            if thing is not None and thing.pos_ in ("NOUN", "PROPN"):
+                thing.head, thing.dep_ = token.head, token.dep_
+                token.head, token.dep_ = thing, "nmod"
+                for child in list(token.children):
+                    if child.dep_ == "det":
+                        child.head = thing
         # "do you like pizza?": a verb's object read as the object of a preposition
         if token.dep_ == "pobj" and token.head.pos_ == "VERB" and token.head.i < token.i:
             token.dep_ = "dobj"
@@ -650,7 +662,6 @@ _IRREGULAR_PAST = {"bit": "bite", "hit": "hit", "fell": "fall", "broke": "break"
 # Verbs after "help/watch/let someone": "helped my mom bake cookies"
 _BARE_VERBS = {"bake", "cook", "make", "clean", "build", "fix", "wash", "paint", "plant", "fold", "carry", "find",
                "pick", "set", "feed", "walk", "decorate", "wrap", "dig", "draw", "play", "read", "write"}
-_GIVING_VERBS = {"make", "get", "buy", "give", "bring", "send", "show", "cook", "bake", "read", "sing", "draw"}
 
 
 def _repair_objects(doc) -> None:
@@ -954,6 +965,11 @@ class UtteranceParser:
                       r"(?=\s*(?:[.!?,]|$)|\s+(?:and|with|today|yesterday|again|last|at|on|tonight|so|too|two|2)\b)",
                       lambda m: f"{m.group(1)}{m.group(2) or ''} {m.group(3).title().replace(' And ', ' and ')}", text,
                       flags=re.IGNORECASE)
+        # "i wonder why the sky is blue": the question itself ("why is the sky blue?")
+        text = re.sub(r"^i (?:wonder|want to know|wanna know|wish i knew) (why|how|where|what|when|if) "
+                      r"((?:the |a |my |your )?\w+) (is|are|was|were|can|do|does) (.+?)[.!?]*$",
+                      lambda m: f"{m.group(1) if m.group(1) != 'if' else ''} {m.group(3)} {m.group(2)} {m.group(4)}?".strip(),
+                      text, flags=re.IGNORECASE)
         # "y is the sky blue", "y not": "why"
         text = re.sub(r"^y(?= (is|are|do|does|did|not|can|can't|would|wouldn't|should|won't|cant|dont|don't|was|were)\b)|^y(?=\W*$)",
                       "why", text, flags=re.IGNORECASE)

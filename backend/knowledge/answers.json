@@ -176,6 +176,9 @@
     {"pattern": "\\bwhat (day|date) is (it|today)\\b|\\bwhat'?s today'?s date\\b", "answer": "I don't have a calendar, but a grown-up or your device can tell you what day it is!"},
     {"pattern": "\\bwhat colou?r (is|are) (a |an |the )?bananas?\\b", "answer": "Bananas are yellow when they're ripe! They start out green."},
     {"pattern": "\\bwhat colou?r (is|are) (a |an |the )?(grass|leaves|trees?)\\b", "answer": "Grass and leaves are green, because of something inside them called chlorophyll that helps them make food from sunlight!"},
-    {"pattern": "\\bwhat colou?r is the sun\\b", "answer": "The Sun is actually white, but it looks yellow or orange from Earth because of the air!"}
+    {"pattern": "\\bwhat colou?r is the sun\\b", "answer": "The Sun is actually white, but it looks yellow or orange from Earth because of the air!"},
+    {"pattern": "\\bis (santa|santa claus|the easter bunny|the tooth fairy)( really)? real\\b", "answer": "That's a great question to talk about with your family! What do you think?"},
+    {"pattern": "\\bwho (invented|made) candy\\b|\\bwho (invented|made) the first candy\\b", "answer": "Nobody knows who made the very first candy! Long ago, people made sweets with honey, and later with sugar."},
+    {"pattern": "\\bwhy (can't|cant|can not|do) i (have to )?(stay up( late)?|go to bed|go to sleep)\\b|\\bhow come i (have to|gotta|must) go to (bed|sleep)\\b|\\bwhy do (i|kids) need (to )?sleep\\b", "answer": "Sleep helps your body grow and gets your brain ready for a new day! That's why grown-ups set bedtimes."}
   ]
 }

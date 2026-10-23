@@ -231,6 +231,38 @@ class _BlankDict(dict):
         return ""
 
 
+_NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+                 "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16,
+                 "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20, "thirty": 30}
+
+# Rhyme families for common words children ask about
+_RHYME_FAMILIES = [
+    ["cat", "hat", "bat", "rat", "mat", "sat", "flat", "that"], ["dog", "log", "frog", "fog", "jog", "hog"],
+    ["bee", "tree", "see", "three", "free", "me", "knee", "sea"], ["car", "star", "far", "jar", "guitar"],
+    ["sun", "fun", "run", "bun", "one", "done"], ["cake", "lake", "snake", "bake", "make", "shake"],
+    ["night", "light", "kite", "bite", "white", "bright", "right"], ["king", "ring", "sing", "wing", "swing", "thing"],
+    ["box", "fox", "socks", "rocks", "blocks"], ["fish", "dish", "wish", "swish"], ["bed", "red", "sled", "head", "bread"],
+    ["bell", "shell", "well", "smell", "yell"], ["clock", "sock", "rock", "block", "lock"],
+    ["bug", "hug", "rug", "mug", "slug"], ["ball", "wall", "tall", "fall", "call", "small"],
+    ["day", "play", "say", "way", "hay", "stay", "gray"], ["rain", "train", "brain", "chain", "plane"],
+    ["house", "mouse", "blouse"], ["hair", "chair", "bear", "pear", "air", "stair"], ["moon", "spoon", "soon", "balloon"],
+    ["boat", "goat", "coat", "float"], ["book", "cook", "look", "hook"], ["pig", "big", "dig", "wig", "twig"],
+    ["pen", "hen", "ten", "men", "when"], ["cow", "now", "how", "wow"], ["bear", "chair", "hair", "pear"],
+    ["blue", "shoe", "two", "zoo", "glue", "moo"], ["mice", "rice", "nice", "ice", "dice"],
+    ["cookie", "rookie", "bookie"], ["kitten", "mitten", "bitten"], ["toy", "boy", "joy", "enjoy"],
+    ["cheese", "please", "trees", "knees", "bees"], ["duck", "truck", "luck", "stuck"], ["mom", "bomb", "calm"],
+    ["dad", "sad", "glad", "mad", "bad"], ["snow", "go", "slow", "grow", "show", "bow"], ["frog", "dog", "log"],
+]
+
+
+def _number_value(text: str) -> Optional[int]:
+    """ "10" or "ten" -> 10; None if it is not a number up to thirty"""
+    text = text.strip().lower()
+    if text.isdigit():
+        return int(text)
+    return _NUMBER_WORDS.get(text)
+
+
 def _same_thing(a: str, b: str) -> bool:
     """ "a dolphin" and "dolphins", "The Moon" and "moon": the same thing, named differently"""
     def base(text):
@@ -289,6 +321,8 @@ class ResponseEngine:
                 self.answers = [(re.compile(a["pattern"], re.IGNORECASE), a["answer"]) for a in json.load(f)["answers"]]
         else:
             self.answers = []
+        # Whole-message set phrases: (id, pattern, replies)
+        self._phrases = [(p["id"], re.compile(p["pattern"]), p["responses"]) for p in self.kb.get("phrases", [])]
         lexicons = self.kb.get("lexicons", {})
 
         def resolve(value):
@@ -1089,6 +1123,14 @@ class ResponseEngine:
                 features["rule"] = rule_id
             return self._apply_style(reply, personality)
 
+        # Set phrases that are the whole message ("me too", "nvm", "you're right")
+        phrase = self._phrase_reply(message, user_id)
+        if phrase is not None:
+            rule_id, reply = phrase
+            if features is not None:
+                features["rule"] = rule_id
+            return self._apply_style(reply, personality)
+
         # The child is telling a joke: "Why did the chicken cross the road?" ... the punchline
         joke_stage = self._child_joke.pop(user_id, 0)
         if not joke_stage and _KNOCK_KNOCK_RE.match(message):
@@ -1308,6 +1350,18 @@ class ResponseEngine:
             elif name == "joke_content":
                 # "Tell me something funny"
                 self._requested_content("joke", slots, user_id=getattr(personality, "user_id", 0))
+            elif name == "count_to":
+                # "Count to ten": the numbers, up to 30
+                target = _number_value(slots.get("n_raw", ""))
+                if target is not None and 1 <= target <= 30:
+                    slots["counting"] = ", ".join(str(k) for k in range(1, target + 1))
+            elif name == "rhymes":
+                # "What rhymes with cat?": words from the same rhyme family
+                word = slots.get("word_raw", "").lower()
+                family = next((f for f in _RHYME_FAMILIES if word in f), None)
+                if family:
+                    others = [w for w in family if w != word][:4]
+                    slots["rhymes"] = ", ".join(others[:-1]) + (" and " if len(others) > 1 else "") + others[-1]
             elif name == "fact_content":
                 # "Tell me something cool"
                 self._requested_content("fact", slots, user_id=getattr(personality, "user_id", 0))
@@ -1655,6 +1709,17 @@ class ResponseEngine:
         if modality != "negated" and modality != appraisal_module.REAL:
             candidates += [f"*.{modality}.{a.actor}>", f"*.{modality}.{a.valence}", f"*.{modality}"]
         return next((c for c in candidates if c in templates), None)
+
+    def _phrase_reply(self, message: str, user_id: int) -> Optional[Tuple[str, str]]:
+        """(phrase id, reply) when the whole message is a set phrase from the knowledge base, else None"""
+        text = re.sub(r"[^\w' ]+", " ", message.lower()).replace("\u2019", "'")
+        text = re.sub(r"\s+(buddy|bud)$", "", " ".join(text.split()))
+        if not text or len(text.split()) > 7:
+            return None
+        for phrase_id, pattern, replies in self._phrases:
+            if pattern.fullmatch(text):
+                return f"phrase_{phrase_id}", self._pick(replies, user_id, f"phrase:{phrase_id}")
+        return None
 
     def _answer_expectation(self, expectation: "Expectation", message: str, analysis: Analysis,
                             user_id: int) -> Optional[Tuple[str, str]]:
