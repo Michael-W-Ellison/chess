@@ -304,6 +304,109 @@
 
   "rules": [
     {
+      "id": "keeps_bugging_me",
+      "priority": 63,
+      "patterns": [[
+        {"RIGHT_ID": "keep", "RIGHT_ATTRS": {"LEMMA": "keep"}},
+        {"LEFT_ID": "keep", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": "@relations"}}},
+        {"LEFT_ID": "keep", "REL_OP": ">", "RIGHT_ID": "verb", "RIGHT_ATTRS": {"DEP": "xcomp", "LEMMA": {"IN": ["copy", "bug", "annoy", "poke", "tease", "follow", "touch", "bother", "kick", "yell", "interrupt"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "keep"},
+      "slots": {"subject": {"node": "subj", "span": "subtree"}},
+      "mood": "angry",
+      "no_jokes": true,
+      "responses": ["Ugh, that sounds so annoying! Have you told {subject} how it makes you feel?"]
+    },
+    {
+      "id": "told_to_stop",
+      "priority": 64,
+      "patterns": [[
+        {"RIGHT_ID": "tell", "RIGHT_ATTRS": {"LEMMA": {"IN": ["tell", "ask"]}}},
+        {"LEFT_ID": "tell", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "tell", "REL_OP": ">", "RIGHT_ID": "stop", "RIGHT_ATTRS": {"DEP": {"IN": ["xcomp", "ccomp"]}, "LEMMA": {"IN": ["stop", "quit"]}}}
+      ]],
+      "conditions": {"question": false},
+      "responses": ["Good job using your words! Did it work?"]
+    },
+    {
+      "id": "didnt_stop",
+      "priority": 64,
+      "patterns": [[
+        {"RIGHT_ID": "stop", "RIGHT_ATTRS": {"LEMMA": {"IN": ["stop", "listen", "quit"]}}},
+        {"LEFT_ID": "stop", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "we", "it", "you"]}}},
+        {"LEFT_ID": "stop", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}}
+      ]],
+      "conditions": {"question": false, "max_tokens": 6},
+      "mood": "angry",
+      "no_jokes": true,
+      "responses": ["Ugh, that's so frustrating. If it keeps happening, a grown-up like your mom or dad can help."]
+    },
+    {
+      "id": "advice_ignore",
+      "priority": 64,
+      "patterns": [[
+        {"RIGHT_ID": "say", "RIGHT_ATTRS": {"LEMMA": {"IN": ["say", "tell"]}}},
+        {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "ignore", "RIGHT_ATTRS": {"DEP": {"IN": ["xcomp", "ccomp"]}, "LEMMA": "ignore"}}
+      ]],
+      "conditions": {"question": false},
+      "responses": [
+        "That can really work! When someone's trying to bug you and you don't react, they often get bored and stop. Want to try it?"
+      ]
+    },
+    {
+      "id": "already_did",
+      "priority": 60,
+      "patterns": [[
+        {"RIGHT_ID": "do", "RIGHT_ATTRS": {"LEMMA": {"IN": ["do", "try", "play"]}}},
+        {"LEFT_ID": "do", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "do", "REL_OP": ">", "RIGHT_ID": "already", "RIGHT_ATTRS": {"LOWER": "already"}}
+      ]],
+      "conditions": {"question": false, "max_tokens": 6},
+      "responses": ["Oh, okay! Want to hear a joke, a riddle, or a fun fact?"]
+    },
+    {
+      "id": "what_else",
+      "priority": 46,
+      "patterns": [
+        [
+          {"RIGHT_ID": "else", "RIGHT_ATTRS": {"LOWER": "else"}},
+          {"LEFT_ID": "else", "REL_OP": "<", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}}
+        ],
+        [
+          {"RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}},
+          {"LEFT_ID": "what", "REL_OP": ">", "RIGHT_ID": "else", "RIGHT_ATTRS": {"LOWER": "else"}}
+        ]
+      ],
+      "conditions": {"max_tokens": 5},
+      "responses": ["We could tell jokes, solve riddles, or share fun facts! Which one sounds fun?"]
+    },
+    {
+      "id": "did_you_know",
+      "priority": 86,
+      "patterns": [[
+        {"RIGHT_ID": "know", "RIGHT_ATTRS": {"LEMMA": "know"}},
+        {"LEFT_ID": "know", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+        {"LEFT_ID": "know", "REL_OP": ">", "RIGHT_ID": "did", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": "did"}},
+        {"LEFT_ID": "know", "REL_OP": ">", "RIGHT_ID": "fact", "RIGHT_ATTRS": {"DEP": "ccomp"}}
+      ]],
+      "no_jokes": true,
+      "responses": ["Ooh, that's a cool fact! Thanks for teaching me something. Where did you learn it?"],
+      "unless_world_answer": true
+    },
+    {
+      "id": "names_are",
+      "priority": 80,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "names", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "names"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "a", "RIGHT_ATTRS": {"DEP": "attr"}},
+        {"LEFT_ID": "a", "REL_OP": ">", "RIGHT_ID": "b", "RIGHT_ATTRS": {"DEP": "conj"}}
+      ]],
+      "conditions": {"question": false},
+      "slots": {"a": {"node": "a", "span": "text", "capitalize": true}, "b": {"node": "b", "span": "text", "capitalize": true}},
+      "responses": ["{a} and {b}! Those are great names. Tell me about them!"]
+    },
+    {
       "id": "parents_divorce",
       "priority": 93,
       "patterns": [
@@ -964,7 +1067,7 @@
         "slot": "emotion_variant",
         "variants": {
           "bored": [
-            {"text": "Bored, huh? Want to play a game? Try the Games button, or tell me about something you like!"},
+            {"text": "Bored, huh? Want to hear a joke, a riddle, or a fun fact? Or you could try the Games button!"},
             {"text": "Let's fix that! What's something you've always wanted to try?"}
           ],
           "tired": [
@@ -1028,7 +1131,7 @@
         "slot": "emotion_variant",
         "variants": {
           "bored": [
-            {"text": "Bored, huh? Want to play a game? Try the Games button, or tell me about something you like!"},
+            {"text": "Bored, huh? Want to hear a joke, a riddle, or a fun fact? Or you could try the Games button!"},
             {"text": "Let's fix that! What's something you've always wanted to try?"}
           ],
           "tired": [
@@ -2106,6 +2209,17 @@
       "follow_ups": ["Do you know what went wrong?", "Is there someone who can help you with it?"]
     },
     {
+      "id": "looked_everywhere",
+      "priority": 64,
+      "patterns": [[
+        {"RIGHT_ID": "look", "RIGHT_ATTRS": {"LEMMA": {"IN": ["look", "search", "check"]}}},
+        {"LEFT_ID": "look", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+        {"LEFT_ID": "look", "REL_OP": ">", "RIGHT_ID": "where", "RIGHT_ATTRS": {"LOWER": {"IN": ["everywhere", "all"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "look"},
+      "responses": ["It's so frustrating when something is hiding! Did anyone help you look?"]
+    },
+    {
       "id": "person_kindness",
       "priority": 66,
       "patterns": [[
@@ -2114,11 +2228,11 @@
         {"LEFT_ID": "person", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "my"}}
       ]],
       "conditions": {"not_negated": "verb"},
-      "slots": {"clause": {"node": "verb", "span": "clause"}},
+      "slots": {"clause": {"node": "verb", "span": "clause"}, "person": {"node": "person", "span": "subtree"}},
       "mood": "happy",
       "valence": "positive",
       "responses": ["{clause}? That's so nice!", "Aw, {clause}? That's so sweet!"],
-      "follow_ups": ["How did it make you feel?", "They must really care about you!"]
+      "follow_ups": ["How did it make you feel?", "I bet {person} really care{person_s} about you!"]
     },
     {
       "id": "lots_of_homework",
@@ -3370,6 +3484,25 @@
       "responses": ["Ugh is right! Want to talk about it, or should we talk about something fun?"]
     },
     {
+      "id": "weather_past",
+      "priority": 48,
+      "patterns": [
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["rain", "snow", "storm", "thunder", "pour", "hail"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "it", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "it"}}
+        ],
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["rain", "snow", "storm", "thunder", "pour", "hail"]}, "POS": "VERB", "TAG": "VBG"}}
+        ]
+      ],
+      "conditions": {"question": false, "not_negated": "verb", "max_tokens": 8, "past": "verb"},
+      "slots": {"verb": {"node": "verb", "span": "lemma"}},
+      "responses_by": {
+        "slot": "verb",
+        "variants": {"snow": ["It snowed? Did you get to play in it?"], "default": ["Oh wow, a lot of rain! Did you stay dry?"]}
+      }
+    },
+    {
       "id": "weather",
       "priority": 48,
       "patterns": [
@@ -3381,7 +3514,7 @@
           {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["rain", "snow", "storm", "thunder", "pour", "hail"]}, "POS": "VERB", "TAG": "VBG"}}
         ]
       ],
-      "conditions": {"question": false, "not_negated": "verb", "max_tokens": 6},
+      "conditions": {"question": false, "not_negated": "verb", "max_tokens": 6, "not_past": "verb"},
       "slots": {"verb": {"node": "verb", "span": "lemma"}},
       "responses_by": {
         "slot": "verb",

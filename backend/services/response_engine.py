@@ -111,6 +111,8 @@ _JOKE_SETUP_RE = re.compile(
 )
 # "Want to hear a funny joke?" - "yes": tell one
 _JOKE_OFFER_RE = re.compile(r"\bwant to hear a (funny |silly )?joke\?", re.IGNORECASE)
+# "a joke, a riddle, or a fun fact?" - "a riddle"
+_CHOICE_OFFER_RE = re.compile(r"\bjokes?, (a |solve )?riddles?,? or (a |share )?fun facts?\b", re.IGNORECASE)
 _YES_RE = re.compile(r"^\W*(yes|yeah|yea|yep|yup|sure|ok|okay|please|yes please|ya|uh huh|of course)\W*$", re.IGNORECASE)
 # Riddles the bot asks and waits for a guess: (riddle, answer, words that count as the answer)
 RIDDLES = [
@@ -126,6 +128,9 @@ RIDDLES = [
     ("What is full of holes but still holds water?", "A sponge!", "sponge"),
 ]
 _KNOCK_KNOCK_RE = re.compile(r"^\W*knock,? knock\W*$", re.IGNORECASE)
+
+# "How do you spell because?"
+_SPELL_RE = re.compile(r"\b(?:how (?:do|would|can) (?:you|i|we) spell|can you spell|spell) ([a-z]{2,20})\b", re.IGNORECASE)
 
 _ARITHMETIC_RE = re.compile(
     r"\b(\d{1,4}) ?(plus|\+|minus|-|times|x|\*|divided by|/) ?(\d{1,4})\b", re.IGNORECASE
@@ -180,7 +185,8 @@ class ResponseEngine:
         self._offered: Dict[int, str] = {}
         self._load_knowledge_base()
         self.references = ReferenceTracker(
-            parser, self.kb["lexicons"]["relations"], self.kb["lexicons"]["common_capitalized"]
+            parser, self.kb["lexicons"]["relations"], self.kb["lexicons"]["common_capitalized"],
+            self.kb["lexicons"].get("foods", []),
         )
 
     # ------------------------------------------------------------------
@@ -249,7 +255,9 @@ class ResponseEngine:
         """
         if not self.is_available():
             return
-        if _JOKE_OFFER_RE.search(reply):
+        if _CHOICE_OFFER_RE.search(reply):
+            self._offered[user_id] = "choice"
+        elif _JOKE_OFFER_RE.search(reply):
             self._offered[user_id] = "joke"
         elif re.search(r"\bwant another( one)?\?", reply, re.IGNORECASE):
             self._offered[user_id] = "again"
@@ -873,8 +881,11 @@ class ResponseEngine:
 
         # "Want to hear a funny joke?" / "Want another one?" - "yes"
         offered = self._offered.pop(user_id, None)
-        kind = "joke" if offered == "joke" else self._last_request.get(user_id) if offered else None
-        if kind and _YES_RE.match(message):
+        kind = "joke" if offered in ("joke", "choice") else self._last_request.get(user_id) if offered else None
+        chosen = re.search(r"\b(joke|riddle|fact)s?\b", message, re.IGNORECASE) if offered == "choice" else None
+        if chosen and len(message.split()) <= 6:
+            kind = {"fact": "fact"}.get(chosen.group(1).lower(), chosen.group(1).lower())
+        if kind and (_YES_RE.match(message) or chosen):
             content = {}
             self._requested_content(kind, content, user_id)
             if content.get("content"):
@@ -919,6 +930,13 @@ class ResponseEngine:
                 features["rule"] = "arithmetic"
             return self._apply_style(f"{part.capitalize()} of {whole} is {value_text}! Do you like math?", personality)
 
+        spell_match = _SPELL_RE.search(message)
+        if spell_match and spell_match.group(1).lower() in self.parser.known_words():
+            word = spell_match.group(1).lower()
+            if features is not None:
+                features["rule"] = "spelling"
+            return self._apply_style(f"{'-'.join(word.upper())}. That spells \"{word}\"! Great job asking.", personality)
+
         sum_match = _ARITHMETIC_RE.search(message)
         if sum_match and not analysis.frames:
             if features is not None:
@@ -926,7 +944,9 @@ class ResponseEngine:
             return self._apply_style(self._arithmetic(sum_match), personality)
 
         responding = [f for f in analysis.frames
-                      if f.rule.get("responses") or f.rule.get("responses_by")]
+                      if (f.rule.get("responses") or f.rule.get("responses_by"))
+                      # "Did you know how the knight moves?" asks; "Did you know sharks..." tells
+                      and not (f.rule.get("unless_world_answer") and self._world_answer(message))]
         if not allow_reflection:
             # Only rules whose replies use no words taken from the message
             responding = [f for f in responding if not f.rule.get("slots")]
@@ -1117,7 +1137,7 @@ class ResponseEngine:
     def rule_flag(self, rule_id: Optional[str], flag: str) -> bool:
         """A rule's boolean option from the knowledge base (e.g. "no_jokes")"""
         # Answers to questions about the world and the child's own joke get no joke added
-        if flag == "no_jokes" and rule_id and (rule_id.startswith("fallback_world") or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes")):
+        if flag == "no_jokes" and rule_id and (rule_id.startswith("fallback_world") or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes", "spelling")):
             return True
         return bool(rule_id and self.rules.get(rule_id, {}).get(flag))
 

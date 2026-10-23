@@ -165,6 +165,19 @@ _JOINED_QUESTION_RE = re.compile(
 )
 # "a snowman named frosty" -> "a snowman named Frosty"
 _NAMED_RE = re.compile(r"\b(named|called) (?!(after|it|him|her|them|me|you|us|that|this|what|a|an|the|my)\b)([a-z])")
+# "their names are luna and milo" -> "their names are Luna and Milo"
+_NAMES_ARE_RE = re.compile(r"\b(names are) ([a-z]+) and ([a-z]+)\b")
+# Places a child may name in lowercase
+_PLACES = ["alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut", "delaware",
+           "florida", "georgia", "hawaii", "idaho", "illinois", "indiana", "iowa", "kansas", "kentucky",
+           "louisiana", "maine", "maryland", "massachusetts", "michigan", "minnesota", "mississippi", "missouri",
+           "montana", "nebraska", "nevada", "ohio", "oklahoma", "oregon", "pennsylvania", "tennessee", "texas",
+           "utah", "vermont", "virginia", "washington", "wisconsin", "wyoming", "canada", "mexico", "england",
+           "france", "spain", "italy", "germany", "china", "japan", "india", "australia", "brazil", "africa",
+           "europe", "disneyland", "disney world", "new york", "chicago", "paris", "london", "hawaii"]
+_PLACES_RE = re.compile(r"\b(" + "|".join(sorted(set(_PLACES), key=len, reverse=True)) + r")\b")
+# "its math" (a whole message): "it's math"
+_ITS_ALONE_RE = re.compile(r"^its (?=[a-z]*[a-rt-z][.!]*$)", re.IGNORECASE)  # not "its wings"
 # "mr kim" -> "Mr Kim", so the parser reads a name
 _TITLE_RE = re.compile(r"\b(mr|mrs|ms|dr)\.? ([a-z])", re.IGNORECASE)
 
@@ -214,6 +227,10 @@ def _repair_objects(doc) -> None:
     "What game do you like": "you" the object of "do" -> the subject of "like"
     """
     for token in doc:
+        # "brought me a present": "present" read as an adjective
+        if token.dep_ == "dobj" and token.pos_ == "ADJ" and any(c.dep_ == "det" for c in token.children):
+            token.pos_ = "NOUN"
+            token.tag_ = "NN"
         if (token.dep_ == "ccomp" and token.pos_ == "NOUN" and token.head.lemma_ in _GIVING_VERBS
                 and token.head.i < token.i):
             pronoun = next((c for c in token.children if c.dep_ == "nsubj"
@@ -290,6 +307,9 @@ class UtteranceParser:
         text = re.sub(r"\bur\b", "your", text, flags=re.IGNORECASE)
         text = _POSSESSIVE_RE.sub(r"\1's ", text)
         text = _NAMED_RE.sub(lambda m: f"{m.group(1)} {m.group(3).upper()}", text)
+        text = _NAMES_ARE_RE.sub(lambda m: f"{m.group(1)} {m.group(2).capitalize()} and {m.group(3).capitalize()}", text)
+        text = _PLACES_RE.sub(lambda m: m.group(1).title(), text)
+        text = _ITS_ALONE_RE.sub("it's ", text)
         text = _TITLE_RE.sub(lambda m: f"{m.group(1).capitalize()} {m.group(2).upper()}", text)
         # "what's your name and how old are you": two questions, answered one by one
         if _QUESTION_START_RE.match(text):

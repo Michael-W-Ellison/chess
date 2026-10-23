@@ -137,6 +137,21 @@ _CREATURES = {"unicorn", "dragon", "dinosaur", "monster", "robot", "mermaid", "f
 _MAKING_VERBS = {"make", "cook", "bake", "buy", "get", "eat", "bring", "give", "drink", "order"}
 
 
+def _plural(noun: str) -> str:
+    """ "cat" -> "cats", "fish" -> "fish", "puppy" -> "puppies" (relations are stored as lemmas)"""
+    irregular = {"child": "children", "fish": "fish", "sheep": "sheep", "mouse": "mice", "person": "people",
+                 "grandchild": "grandchildren"}
+    if noun in irregular:
+        return irregular[noun]
+    if noun in irregular.values() or noun.endswith("s"):
+        return noun  # already plural ("my puppies")
+    if noun.endswith(("sh", "ch", "x")):
+        return noun + "es"
+    if noun.endswith("y") and noun[-2:-1] not in "aeiou":
+        return noun[:-1] + "ies"
+    return noun + "s"
+
+
 @dataclass
 class Person:
     name: Optional[str] = None
@@ -151,7 +166,8 @@ class Person:
         if self.relation and self.name:
             base = f"my {self.relation} {self.name}"
         elif self.relation:
-            base = f"my {self.relation}"
+            # "I have two cats. Their names are..." -> "my cats'"
+            base = f"my {_plural(self.relation) if self.plural else self.relation}"
         else:
             base = self.name or ""
         if possessive:
@@ -217,10 +233,12 @@ class DiscourseState:
 class ReferenceTracker:
     """Per-user record of recent people, things and events, used to resolve pronouns"""
 
-    def __init__(self, parser, relations: Iterable[str], common_capitalized: Iterable[str] = ()):
+    def __init__(self, parser, relations: Iterable[str], common_capitalized: Iterable[str] = (),
+                 foods: Iterable[str] = ()):
         self.parser = parser
         self.relations = set(relations)
         self.common_capitalized = set(common_capitalized)
+        self.foods = set(foods)  # "we had pizza": something eaten, so "it" is "the pizza"
         self._states: Dict[int, DiscourseState] = {}
 
     def reset(self, user_id: int) -> None:
@@ -272,6 +290,8 @@ class ReferenceTracker:
         parts = []
         resolved_people = set()
         named = {t.lower_ for t in doc}  # words naming who is in this message, for events
+        # One-word names the child already used ("Milo"), for "milo is orange"
+        known_names = {p.name for p in state.people if p.name and p.name.isalpha() and p.name[:1].isupper()}
         drop = set()  # indexes of words made redundant by a replacement
         replaced_previous = False
         for token in doc:
@@ -284,7 +304,8 @@ class ReferenceTracker:
                 # "That's cool" -> "Your fun fact is cool", not the possessive "fact's"
                 parts[-1] = parts[-1].rstrip() + " "
                 replacement = "are" if state.last_plural else "is"
-            if replacement is None and token.is_lower and self._is_relation_name(token):
+            if replacement is None and token.is_lower and (
+                    self._is_relation_name(token) or token.text.capitalize() in known_names):
                 replacement = token.text.capitalize()  # "my friend sam" -> "my friend Sam"
             parts.append((replacement if replacement is not None else token.text) + token.whitespace_)
             replaced_previous = replacement is not None
@@ -343,7 +364,8 @@ class ReferenceTracker:
         if asked is None and re.search(r"\bWhat's yours\?", reply):
             asked = re.search(r"\bfavorite (\w+)\b", reply, re.IGNORECASE)
         state.asked_favorite = asked.group(1).lower() if asked else None
-        if doc is not None:
+        # "Who do you mean, Luna or Milo?" names people, not things "it" could mean
+        if doc is not None and state.ambiguity is None:
             for chunk in doc.noun_chunks:
                 root = chunk.root
                 # Only new things the bot brought up, not echoes of the child's words or
@@ -785,8 +807,9 @@ class ReferenceTracker:
                 self._remember_thing(f"the new {noun}", state, plural=previous.plural)
 
         for chunk in sorted(chunks, key=lambda c: (c.sent.start, salience[c.root.dep_], c.start)):
-            made = (chunk.root.dep_ == "dobj" and chunk.root.head.lemma_ in _MAKING_VERBS
-                    and len(chunk) == 1 and chunk.root.tag_ == "NN")
+            made = (chunk.root.dep_ == "dobj" and len(chunk) == 1 and chunk.root.tag_ == "NN"
+                    and (chunk.root.head.lemma_ in _MAKING_VERBS
+                         or (chunk.root.head.lemma_ == "have" and chunk.root.lemma_.lower() in self.foods)))
             self._remember_thing(self._thing_text(chunk), state, plural=chunk.root.tag_ == "NNS", made=made,
                                  detail=self._is_detail(chunk.root))
 

@@ -57,6 +57,8 @@ def reply(engine, message):
     ("how does the rook move", "A rook moves"),
     ("whats the best opening", "A good start"),
     ("what is checkmate", "Checkmate is"),
+    ("do cats like milk", "Lots of cats like the taste of milk"),
+    ("how long do dogs live", "Most dogs live"),
 ])
 def test_known_questions(engine, question, start):
     text, rule = reply(engine, question)

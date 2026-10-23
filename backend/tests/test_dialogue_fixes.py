@@ -83,6 +83,17 @@ class TestNewRules:
         ("i have to go", "gotta_go"),
         ("whats brown and sticky", "child_joke"),
         ("tell me another", "request_again_tell"),
+        ("i looked everywhere", "looked_everywhere"),
+        ("their names are luna and milo", "names_are"),
+        ("it rained all night", "weather_past"),
+        ("its raining", "weather"),
+        ("i told him to stop", "told_to_stop"),
+        ("he didnt stop", "didnt_stop"),
+        ("she said to ignore him", "advice_ignore"),
+        ("i already did that", "already_did"),
+        ("ok what else", "what_else"),
+        ("did you know sharks dont have bones", "did_you_know"),
+        ("how do you spell because", "spelling"),
         ("coach said I did great", "praise_reported"),
         ("not much you", "not_much"),
         ("yes", "yes_no"),
@@ -377,6 +388,40 @@ class TestReferences:
         assert engine.resolve_references("she has a rainbow mane", 1) == "The unicorn has a rainbow mane"
         assert engine.resolve_references("i gave it to my grandma", 1) == "I gave the picture to my grandma"
 
+    def test_kindness_follow_up_names_the_person(self, engine):
+        rule = engine.rules["person_kindness"]
+        assert "I bet {person} really care{person_s} about you!" in rule["follow_ups"]
+
+    def test_food_that_was_had_takes_the(self, engine):
+        rule_of(engine, "then we had pizza")
+        assert engine.resolve_references("it was so good", 1) == "The pizza was so good"
+
+    def test_present_is_a_thing(self, engine):
+        rule_of(engine, "my grandpa brought me a present")
+        assert engine.resolve_references("it was a book about sharks", 1) == "The present was a book about sharks"
+
+    def test_plural_pets_names(self, engine):
+        rule_of(engine, "i have two cats")
+        assert engine.resolve_references("their names are luna and milo", 1) == "My cats' names are Luna and Milo"
+        rule_of(engine, "their names are luna and milo")
+        assert "Milo is" in rule_of(engine, "milo is orange")[1]
+
+    def test_it_after_asking_who_is_not_a_name(self, engine):
+        for message in ("i have two cats", "their names are luna and milo", "he scratched me"):
+            rule_of(engine, message)
+        assert "Milo hurt" not in rule_of(engine, "it hurt a little")[1]
+
+    def test_choosing_from_the_offer(self, engine):
+        rule_of(engine, "ok what else")
+        rule, reply = rule_of(engine, "a riddle")
+        assert rule == "joke_offer_yes" and reply.endswith("Take a guess!")
+
+    def test_spelling_only_real_words(self, engine):
+        assert rule_of(engine, "how do you spell asdfgh")[0] != "spelling"
+
+    def test_did_you_know_with_a_known_answer(self, engine):
+        assert rule_of(engine, "did you know how the knight moves")[0] == "fallback_world_answer"
+
     def test_knock_knock_joke(self, engine):
         assert rule_of(engine, "knock knock")[1] == "Who's there?"
         assert rule_of(engine, "boo")[1] == "Boo who?"
@@ -627,6 +672,9 @@ class TestNormalization:
         ("ok ill try that", "ok I'll try that"),
         ("fine ill eat broccoli", "fine I'll eat broccoli"),
         ("a snowman named frosty", "a snowman named Frosty"),
+        ("their names are luna and milo", "their names are Luna and Milo"),
+        ("he lives in florida", "he lives in Florida"),
+        ("its math", "it's math"),
         ("named after my grandpa", "named after my grandpa"),
         ("I feel ill", "I feel ill"),
         ("ur weird", "you're weird"),
