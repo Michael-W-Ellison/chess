@@ -466,6 +466,13 @@ class ResponseEngine:
             if ancestor.lemma_ in ("want", "wanna") and token.dep_ in ("xcomp", "ccomp") or (
                     ancestor.lemma_ in ("want", "wanna") and ancestor.i == token.head.i):
                 return appraisal_module.WANT
+        # "If I'm good I get a treat", "I would've won": imagined, not what happened
+        if any(c.dep_ == "mark" and c.lower_ in ("if", "unless") for c in (*token.children, *token.head.children)
+               if c.head.dep_ == "advcl"):
+            return appraisal_module.HYPOTHETICAL
+        auxes = [c.lower_ for c in token.children if c.dep_ == "aux"]
+        if any(a in ("would", "could", "should", "might", "'d") for a in auxes) and any(a in ("have", "'ve", "of") for a in auxes):
+            return appraisal_module.HYPOTHETICAL
         if any(c.dep_ == "aux" and c.lower_ in ("might", "may", "could") for c in token.children):
             return appraisal_module.POSSIBLE
         # "I will score a goal tomorrow": not happened yet
@@ -481,7 +488,13 @@ class ResponseEngine:
     def _is_question(span) -> bool:
         """Question if the sentence ends with "?" or starts with a question word"""
         text = span.text.strip()
-        return text.endswith("?") or (len(span) > 0 and span[0].lower_ in _QUESTION_STARTERS)
+        if text.endswith("?"):
+            return True
+        # "when I'm sad I hug my dog": a time clause, not a question
+        if len(span) > 2 and span[0].lower_ in ("when", "where", "while", "whenever") and span[0].head.dep_ == "advcl" \
+                and span[1].lower_ in ("i", "we", "he", "she", "they", "it", "my", "our", "you", "the"):
+            return False
+        return len(span) > 0 and span[0].lower_ in _QUESTION_STARTERS
 
     def _build_frame(self, rule: Dict[str, Any], nodes: Dict[str, Any], doc) -> Optional[Frame]:
         conditions = rule.get("conditions", {})
@@ -517,6 +530,16 @@ class ResponseEngine:
             elif embedded in (appraisal_module.HOPE, appraisal_module.WANT, appraisal_module.POSSIBLE,
                               appraisal_module.HYPOTHETICAL, appraisal_module.FUTURE):
                 return None
+        # "If I'm good I get a treat": words inside an if-clause did not happen
+        first = next(iter(nodes.values()))
+        if not rule.get("modality_ok") and appraisal_module.HYPOTHETICAL not in rule.get("modality_ok_for", []) \
+                and [t.lower_ for t in sentence[:2]] != ["what", "if"] \
+                and (any(c.dep_ == "mark" and c.lower_ in ("if", "unless") and c.head.dep_ == "advcl"
+                         for t in (first, *list(first.ancestors)[:2]) for c in t.children)
+                     # the main clause of "if I'm good, I get a treat" depends on it too
+                     or any(c.dep_ == "advcl" and any(m.dep_ == "mark" and m.lower_ in ("if", "unless") for m in c.children)
+                            for c in (first if first.dep_ == "ROOT" else first.head).children)):
+            return None
         if "max_tokens" in conditions and \
                 sum(1 for t in doc if not t.is_punct) > conditions["max_tokens"]:
             return None
@@ -771,7 +794,8 @@ class ResponseEngine:
         elif span == "clause":
             tokens = [t for t in token.subtree if not _skipped(t)]
             # "because", and "when"/"while" (read as adverbs): "I cried when my fish died"
-            while tokens and (tokens[0].dep_ == "mark" or (tokens[0].tag_ == "WRB" and tokens[0].head.i == token.i
+            while tokens and ((tokens[0].dep_ == "mark" and tokens[0].head.i == token.i)
+                              or (tokens[0].tag_ == "WRB" and tokens[0].head.i == token.i
                                                              and tokens[0].lower_ in ("when", "while", "whenever"))):
                 tokens = tokens[1:]
         elif span == "predicate":
@@ -889,6 +913,8 @@ class ResponseEngine:
         linked = [token.head, *token.children]
         if token.dep_ == "conj" or any(t.dep_ == "conj" for t in token.children):
             return any(t.lower_ in people for t in linked)
+        if token.dep_ == "poss" and token.i + 1 < len(token.doc) and token.doc[token.i + 1].lower_ == "'s":
+            return True  # "jake's house"
         if token.dep_ == "attr" and token.head.lemma_ == "be" and any(
                 c.dep_ == "nsubj" and c.lower_ == "i" for c in token.head.children):
             return True  # "I'm ted"
@@ -1696,6 +1722,10 @@ class ResponseEngine:
         """The most specific template key for an appraisal, or None"""
         modality = "negated" if a.modality == appraisal_module.REAL and a.negated else a.modality
         candidates = []
+        if a.notes.get("refuse"):
+            candidates += [f"{a.action}.refuse", "*.refuse"]
+        if a.notes.get("counterfactual"):
+            candidates += [f"{a.action}.counterfactual", "*.counterfactual"]
         if a.notes.get("accident") and modality == appraisal_module.REAL:
             candidates += [f"{a.action}.accident", "*.accident"]
         if a.notes.get("habit") and modality == "negated":

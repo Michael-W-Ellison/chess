@@ -69,6 +69,8 @@ NORMALIZATIONS = {
     "gimme": "give me",
     "lemme": "let me",
     "dunno": "don't know",
+    "yall": "you all",
+    "y'all": "you all",
     "wheres": "where's",
     # Past tenses children make regular: "I goed", "we runned"
     "goed": "went", "runned": "ran", "eated": "ate", "hitted": "hit", "drawed": "drew", "throwed": "threw",
@@ -429,6 +431,10 @@ def _repair_compound_subject(sentence) -> None:
         if child.dep_ in ("poss", "det") and child.i < subject.i:
             child.head = subject
     subject.dep_, subject.pos_ = "nsubj", ("PROPN" if subject.pos_ == "PROPN" else "NOUN")
+    for child in list(root.children):
+        # "our new puppy cries": "new" belongs to the subject
+        if child.dep_ == "amod" and child.i < subject.i:
+            child.head = subject
     tag = "VBD" if root.lower_ in _IRREGULAR_VERBS and not root.lower_.endswith("s") else "VBZ"
     root.pos_, root.tag_, root.lemma_ = "VERB", tag, base
 
@@ -528,6 +534,13 @@ def _repair_tags(doc) -> None:
                 c.dep_ == "nsubj" for c in token.children):
             token.pos_, token.tag_ = "VERB", "VBP"
     for token in doc:
+        # "I don't want to": the "to" of a verb left unsaid, not punctuation
+        if token.lower_ == "to" and token.dep_ == "punct" and token.head.pos_ in ("VERB", "AUX"):
+            token.dep_, token.pos_ = "aux", "PART"
+        # "our new puppy cries": "new" describes the noun after it, not the verb
+        if token.dep_ == "amod" and token.head.pos_ in ("VERB", "AUX") and token.i + 1 < len(doc) \
+                and doc[token.i + 1].pos_ in ("NOUN", "PROPN"):
+            token.head = doc[token.i + 1]
         # "I have lots of homework", "a lot of friends": the thing is the object, the amount describes it
         if token.lower_ in _AMOUNT_NOUNS and token.dep_ in ("dobj", "nsubj", "attr", "pobj"):
             of = next((c for c in token.children if c.dep_ == "prep" and c.lower_ == "of"), None)
@@ -795,6 +808,12 @@ _PLACE_VERBS = {"go", "come", "be", "live", "stay", "sit", "put", "leave", "get"
                 "stand", "play", "wait", "keep", "hide", "sleep", "fly", "swim", "travel", "visit", "meet", "find"}
 
 
+def _verb_base_ing(word: str) -> bool:
+    """True if the -ing word is a verb's form ("cooking", "running", "making")"""
+    stem = word[:-3]
+    return stem in _VERBS or stem + "e" in _VERBS or (len(stem) > 2 and stem[-1] == stem[-2] and stem[:-1] in _VERBS)
+
+
 def _resplit(doc) -> str:
     """
     Text for a second parse when the first shows a misreading only the text can fix:
@@ -833,6 +852,12 @@ def _resplit(doc) -> str:
                 title = " ".join(w.capitalize() if k == 0 or w.lower() not in ("of", "the", "and", "a", "an", "in", "on")
                                  else w.lower() for k, w in enumerate(doc.text[start:end].split()))
                 edits.append((start, end, title))
+        # "dad's cooking dinner": "is", not a possessive
+        if token.tag_ == "POS" and token.lower_ == "'s" and token.i + 1 < len(doc) and token.i > 0:
+            following = doc[token.i + 1]
+            if (following.lower_.endswith("ing") and _verb_base_ing(following.lower_)) or \
+                    following.lower_ in ("not", "so", "really", "very", "going", "gonna", "here", "home", "sick", "mad", "sad"):
+                edits.append((token.idx, token.idx + 2, " is"))
         # "my dog is bigger then your dog"
         if token.lower_ == "then" and token.i > 0 and (doc[token.i - 1].tag_ in ("JJR", "RBR")
                                                          or doc[token.i - 1].lower_ in ("more", "less")):
@@ -955,6 +980,11 @@ class UtteranceParser:
         text = re.sub(r"^i (?:dare|double dare|triple dare) you to ", "", text, flags=re.IGNORECASE)
         # "I'm a dinosaur rawr": the growl is its own sentence
         text = re.sub(r"(?<=[a-z])\s+((?:rawr+|roa+r+|grr+|meow+|woof+|moo+|oink+)\W*)$", r"! \1", text, flags=re.IGNORECASE)
+        text = re.sub(r"\by'?all\b", "you all", text, flags=re.IGNORECASE)
+        # Quotes around what someone said: 'my mom said "no way"'
+        text = re.sub(r"[\"“”]", "", text)
+        # "what do i do": asking for advice
+        text = re.sub(r"^what do i do\b", "what should I do", text, flags=re.IGNORECASE)
         # "what does gravity mean": the question the world answers know as "what is gravity"
         text = re.sub(r"^what does (?!(?:that|it|this|he|she|they|you|mine)\b)([\w ]+?) mean\b", r"what is \1", text,
                       flags=re.IGNORECASE)

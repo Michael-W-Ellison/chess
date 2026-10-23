@@ -1106,6 +1106,52 @@
       "no_jokes": true
     },
     {
+      "id": "made_up",
+      "priority": 72,
+      "patterns": [
+        [
+          {"RIGHT_ID": "make", "RIGHT_ATTRS": {"LEMMA": "make"}},
+          {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["we", "i", "they"]}}},
+          {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "up", "RIGHT_ATTRS": {"DEP": "prt", "LOWER": "up"}}
+        ],
+        [
+          {"RIGHT_ID": "make", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["we", "they"]}}},
+          {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "friends", "RIGHT_ATTRS": {"DEP": "attr", "LEMMA": "friend"}},
+          {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "again", "RIGHT_ATTRS": {"LOWER": "again"}}
+        ]
+      ],
+      "conditions": {"question": false, "not_negated": "make", "max_tokens": 12},
+      "no_jokes": true,
+      "responses": ["Yay, I'm so glad you made up! It takes courage to fix things after a fight."]
+    },
+    {
+      "id": "dont_want_to",
+      "priority": 60,
+      "patterns": [[
+        {"RIGHT_ID": "want", "RIGHT_ATTRS": {"LEMMA": {"IN": ["want", "wanna"]}}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "to", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": "to"}}
+      ]],
+      "conditions": {"question": false, "max_tokens": 7},
+      "no_jokes": true,
+      "responses": ["That's okay! You don't have to. What would you rather do?"]
+    },
+    {
+      "id": "made_up_thing",
+      "priority": 73,
+      "patterns": [[
+        {"RIGHT_ID": "make", "RIGHT_ATTRS": {"LEMMA": "make"}},
+        {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["we", "i"]}}},
+        {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "up", "RIGHT_ATTRS": {"DEP": "prt", "LOWER": "up"}},
+        {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "thing", "RIGHT_ATTRS": {"DEP": "dobj"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "make"},
+      "slots": {"thing": {"node": "thing", "span": "subtree"}},
+      "responses": ["Ooh, you made up {thing}? That's so creative! Can you tell me about it?"]
+    },
+    {
       "id": "smarter_than_me",
       "priority": 90,
       "patterns": [[
@@ -3043,12 +3089,24 @@
       "patterns": [[
         {"RIGHT_ID": "have", "RIGHT_ATTRS": {"LEMMA": "have"}},
         {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
-        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "thing", "RIGHT_ATTRS": {"DEP": "dobj", "TAG": "NNS", "LEMMA": {"NOT_IN": "@relations"}}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "thing", "RIGHT_ATTRS": {"DEP": "dobj", "TAG": "NNS", "LEMMA": {"NOT_IN": ["friend", "bff", "brother", "sister", "mom", "mother", "mum", "mommy", "dad", "father", "daddy", "grandma", "grandpa", "grandmother", "grandfather", "nana", "aunt", "uncle", "cousin", "teacher", "coach", "neighbor", "classmate", "stepmom", "stepdad", "stepbrother", "stepsister", "parent", "parents", "family", "baby", "dog", "cat", "puppy", "kitten", "hamster", "pet", "fish", "bird", "bunny", "rabbit", "turtle", "guinea", "horse", "dollar", "cent", "buck", "penny", "nickel", "dime", "quarter", "minute", "hour", "day", "week", "month", "year", "second", "point", "mile", "inch", "foot", "feet", "pound"]}}},
         {"LEFT_ID": "thing", "REL_OP": ">", "RIGHT_ID": "num", "RIGHT_ATTRS": {"DEP": "nummod"}}
       ]],
       "conditions": {"not_negated": "have", "question": false},
       "slots": {"thing": {"node": "thing", "span": "subtree"}},
       "responses": ["{thing}? Wow, that's a lot! Which one is your favorite?"]
+    },
+    {
+      "id": "have_money",
+      "priority": 66,
+      "patterns": [[
+        {"RIGHT_ID": "have", "RIGHT_ATTRS": {"LEMMA": {"IN": ["have", "get", "save", "earn", "find"]}}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "money", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["dollar", "buck", "cent", "money", "allowance"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "have"},
+      "slots": {"money": {"node": "money", "span": "subtree"}},
+      "responses": ["Ooh, {money}! Are you saving up for something special?"]
     },
     {
       "id": "animal_scary",
@@ -4067,6 +4125,35 @@
       }
     },
     {
+      "id": "future_evaluation",
+      "priority": 50,
+      "patterns": [
+        [
+          {"RIGHT_ID": "go", "RIGHT_ATTRS": {"LOWER": "going"}},
+          {"LEFT_ID": "go", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": {"IN": ["nsubj", "npadvmod"]}, "LOWER": {"IN": ["it", "this", "that", "tomorrow", "today"]}}},
+          {"LEFT_ID": "go", "REL_OP": ">", "RIGHT_ID": "be", "RIGHT_ATTRS": {"DEP": "xcomp", "LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "acomp"}}
+        ],
+        [
+          {"RIGHT_ID": "go", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "go", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["it", "this", "that", "tomorrow", "today"]}}},
+          {"LEFT_ID": "go", "REL_OP": ">", "RIGHT_ID": "will", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": {"IN": ["will", "'ll"]}}},
+          {"LEFT_ID": "go", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "acomp"}}
+        ]
+      ],
+      "conditions": {"question": false, "evaluation": "adj", "not_negated": "go"},
+      "modality_ok": true,
+      "slots": {"adj": {"node": "adj", "span": "text"}},
+      "responses_by": {
+        "slot": "evaluation_valence",
+        "variants": {
+          "positive": ["Ooh, I bet it will be {adj}! I hope you have a great time."],
+          "negative": ["Hmm, that sounds hard. You can do it, and I'm here if you want to talk about it."],
+          "default": ["Ooh, what do you think it will be like?"]
+        }
+      }
+    },
+    {
       "id": "age_short",
       "priority": 79,
       "patterns": [
@@ -4435,7 +4522,8 @@
       "responses": [
         {"text": "Ooh, fun question! I think I'd pick {bot_favorite}! What would you be?", "requires": ["bot_favorite"]},
         {"text": "Ooh, fun question! I'd have to think about that. What would you be?"}
-      ]
+      ],
+      "modality_ok_for": ["hypothetical"]
     },
     {
       "id": "bot_creator",
@@ -4508,6 +4596,20 @@
       ],
       "conditions": {"max_tokens": 8},
       "responses": ["Of course! What do you need advice about?"]
+    },
+    {
+      "id": "bot_who_with",
+      "priority": 89,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"POS": "VERB"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"LOWER": "you", "DEP": "nsubj"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "prep", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": {"IN": ["with", "to"]}}},
+        {"LEFT_ID": "prep", "REL_OP": ">", "RIGHT_ID": "who", "RIGHT_ATTRS": {"LOWER": {"IN": ["who", "whom"]}}}
+      ]],
+      "conditions": {"question": true},
+      "slots": {"verb": {"node": "verb", "span": "lemma"}, "prep": {"node": "prep", "span": "text"}},
+      "no_jokes": true,
+      "responses": ["I mostly {verb} {prep} you, since I live in this app! Who do you like to {verb} {prep}?"]
     },
     {
       "id": "bot_do_question",
@@ -5917,7 +6019,10 @@
       "*.never": ["{clause}? That sounds frustrating. Want to think of a plan together?"],
       "*.want.person>": ["It sounds like that really matters to you. Have you told them how you feel?"],
       "*.want.other": ["{clause}? How do you feel about that?"],
-      "*.hope.other": ["{clause}? How do you feel about that?"]
+      "*.hope.other": ["{clause}? How do you feel about that?"],
+      "achieve.counterfactual": ["{clause}? Aw, so close! You'll get it next time."],
+      "*.counterfactual": ["{clause}? That's okay. Everybody wishes things went differently sometimes. Next time you'll know!"],
+      "*.refuse": ["{clause}? That's okay. How come?"]
     },
     "chore_places": [
       "dentist",
@@ -6047,7 +6152,7 @@
     },
     {
       "id": "thinking",
-      "pattern": "(let me think|hmm+|hm+|um+|uhh*|thinking)",
+      "pattern": "(let me think|hmm+|hm+|um+|uhh*|thinking|let me see|lemme see|let me think about it)",
       "responses": ["Take your time!"]
     },
     {
@@ -6079,6 +6184,16 @@
       "id": "change_subject",
       "pattern": "(change the subject|new topic|something else|talk about something else)",
       "responses": ["Of course! What's something fun you like?"]
+    },
+    {
+      "id": "no_talking",
+      "pattern": "(i don't|i dont|i do not) (want|wanna) (to )?talk( anymore| right now| now| today)?",
+      "responses": ["That's okay. I'll be right here if you want to talk later."]
+    },
+    {
+      "id": "talking_to_bot",
+      "pattern": "(i'm|im|i am) talking to you( buddy)?",
+      "responses": ["I'm listening! What would you like to tell me?"]
     },
     {
       "id": "go_away",

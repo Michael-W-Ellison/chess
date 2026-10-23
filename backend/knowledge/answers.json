@@ -179,6 +179,12 @@
     {"pattern": "\\bwhat colou?r is the sun\\b", "answer": "The Sun is actually white, but it looks yellow or orange from Earth because of the air!"},
     {"pattern": "\\bis (santa|santa claus|the easter bunny|the tooth fairy)( really)? real\\b", "answer": "That's a great question to talk about with your family! What do you think?"},
     {"pattern": "\\bwho (invented|made) candy\\b|\\bwho (invented|made) the first candy\\b", "answer": "Nobody knows who made the very first candy! Long ago, people made sweets with honey, and later with sugar."},
-    {"pattern": "\\bwhy (can't|cant|can not|do) i (have to )?(stay up( late)?|go to bed|go to sleep)\\b|\\bhow come i (have to|gotta|must) go to (bed|sleep)\\b|\\bwhy do (i|kids) need (to )?sleep\\b", "answer": "Sleep helps your body grow and gets your brain ready for a new day! That's why grown-ups set bedtimes."}
+    {"pattern": "\\bwhy (can't|cant|can not|do) i (have to )?(stay up( late)?|go to bed|go to sleep)\\b|\\bhow come i (have to|gotta|must) go to (bed|sleep)\\b|\\bwhy do (i|kids) need (to )?sleep\\b", "answer": "Sleep helps your body grow and gets your brain ready for a new day! That's why grown-ups set bedtimes."},
+    {"pattern": "\\bcan (dogs|a dog|puppies) swim\\b", "answer": "Yes! Most dogs can swim by paddling their legs. That's why it's called the doggy paddle!"},
+    {"pattern": "\\bcan (cats|a cat|kittens) swim\\b", "answer": "Yes, cats can swim, but most of them don't like getting wet!"},
+    {"pattern": "\\bcan (horses|a horse|elephants|an elephant|bears|a bear|tigers|a tiger|pigs|a pig|cows|a cow) swim\\b", "answer": "Yes! Lots of big animals can swim. Elephants even use their trunks like a snorkel!"},
+    {"pattern": "\\bcan (penguins|a penguin) (fly|swim)\\b", "answer": "Penguins can't fly, but they're amazing swimmers! They use their wings like flippers."},
+    {"pattern": "\\bcan (chickens|a chicken|ostriches|an ostrich) fly\\b", "answer": "Ostriches can't fly at all, and chickens can only flap up for a short hop. Ostriches are super fast runners, though!"},
+    {"pattern": "\\bcan (fish|a fish|sharks|a shark|whales|a whale|dolphins|a dolphin) swim\\b", "answer": "Yes! They're amazing swimmers. Fish wiggle their tails and use their fins to steer."}
   ]
 }

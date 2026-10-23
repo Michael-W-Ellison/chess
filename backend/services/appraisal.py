@@ -132,7 +132,10 @@ class Appraiser:
         if any(t.lower_ in ("accidentally", "accident", "oops") for t in event.subtree) or \
                 any(t.lower_ == "accident" for t in sentence):
             appraisal.notes["accident"] = "yes"
+        self._counterfactual = False
         appraisal.modality = self._modality(event, root, sentence)
+        if self._counterfactual:
+            appraisal.notes["counterfactual"] = "yes"
         if appraisal.modality in (WANT, HOPE):
             # "my mom wants to talk about my grades": someone else's wish, not the child's
             chain = [event] + [a for a in event.ancestors if a.sent == sentence][:3]
@@ -140,6 +143,9 @@ class Appraiser:
             wisher = next((c for c in wish.children if c.dep_ == "nsubj"), None) if wish is not None else None
             if wisher is not None and wisher.lower_ not in ("i", "we", "me"):
                 appraisal.notes["wanter"] = "other"
+            # "I don't want to go": not wanting something, rather than a sad wish
+            if wish is not None and wish.lemma_ in ("want", "wanna") and wish.i != event.i and self._negated(wish):
+                appraisal.notes["refuse"] = "yes"
         appraisal.negated = self._negated(event) or (event.i != root.i and self._negated(root))
         appraisal.tense = self._tense(event, appraisal.modality)
         appraisal.valence = self._valence(appraisal)
@@ -294,6 +300,11 @@ class Appraiser:
             if verb.lemma_ in ("have", "need", "got") and verb.i != event.i and \
                     any(c.dep_ == "aux" and c.lower_ == "to" for c in event.children):
                 return OBLIGATION
+        # "I would've won", "I should've studied": what did not happen
+        own = {c.lower_ for c in event.children if c.dep_ == "aux"}
+        if own & {"would", "could", "should", "might", "'d"} and own & {"have", "'ve", "of"}:
+            self._counterfactual = True
+            return HYPOTHETICAL
         for verb in chain[:2]:
             auxes = {c.lower_ for c in verb.children if c.dep_ == "aux"}
             if auxes & _FUTURE_AUX and not self._negated(verb):

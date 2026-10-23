@@ -570,3 +570,72 @@ def test_child_counting_is_not_a_request():
     from services.response_engine import ResponseEngine
     from tests.test_dialogue_fixes import rule_of
     assert rule_of(ResponseEngine(rng=random.Random(0)), "i can count to 100")[0] == "child_can_count"
+
+
+@pytest.mark.parametrize("text,normalized", [
+    ("dad's cooking dinner", "dad is cooking dinner"),
+    ("my dad's car is red", "my dad's car is red"),
+    ('my mom said "no way"', "my mom said no way"),
+    ("y'all are funny", "you all are funny"),
+    ("what do i do if i'm scared", "what should I do if I'm scared"),
+])
+def test_round_eight_text(text, normalized):
+    assert parser.parse(text).text == normalized
+
+
+def test_adjective_before_subject_belongs_to_it():
+    assert token(parser.parse("our new puppy cries at night"), "new").head.lower_ == "puppy"
+
+
+def test_trailing_to_is_kept():
+    assert token(parser.parse("but i don't want to"), "to").dep_ == "aux"
+
+
+class TestRoundEight:
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    @pytest.mark.parametrize("text,rule", [
+        ("who did you play with", "bot_who_with"),
+        ("i'm talking to you", "phrase_talking_to_bot"),
+        ("i don't want to talk", "phrase_no_talking"),
+        ("i don't want to talk about it", "dont_want_to_talk"),
+        ("i wonder if dogs can swim", "fallback_world_answer"),
+        ("can fish swim", "fallback_world_answer"),
+        ("i have 20 dollars", "have_money"),
+        ("we made up", "made_up"),
+        ("we're friends again", "made_up"),
+        ("i made up a song", "made_up_thing"),
+        ("but i don't want to", "dont_want_to"),
+        ("it's gonna be fun", "future_evaluation"),
+        ("tomorrow is going to be hard", "future_evaluation"),
+        ("lemme see", "phrase_thinking"),
+        ("if you could be any animal what would you be", "bot_would_be"),
+    ])
+    def test_rule(self, engine, text, rule):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text)[0] == rule
+
+    @pytest.mark.parametrize("text,not_rule", [
+        ("if i'm good i get a treat", "feeling"),
+        ("if i'm good i get a treat", "got_gift"),
+        ("i would've won", "we_won"),
+        ("when i'm sad i hug my dog", "fallback_question"),
+    ])
+    def test_rule_does_not_fire(self, engine, text, not_rule):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text)[0] != not_rule
+
+    @pytest.mark.parametrize("text,words", [
+        ("if it rains we'll stay home", "if it rains you'll stay home"),
+        ("our new puppy cries at night", "your new puppy cries"),
+        ("i went to jake's house", "Jake's house"),
+        ("i would've won", "so close"),
+        ("i don't want to go", "That's okay. How come?"),
+    ])
+    def test_wording(self, engine, text, words):
+        from tests.test_dialogue_fixes import rule_of
+        assert words in rule_of(engine, text)[1]
