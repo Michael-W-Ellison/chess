@@ -222,7 +222,7 @@ class TestEngineUsesPolicy:
 
     def test_fallback_features_are_recorded(self, engine):
         features = {}
-        engine.generate_response("We went to the zoo", self.personality(0.5), features=features)
+        engine.generate_response("We sat on the porch", self.personality(0.5), features=features)
         assert features["rule"] == "fallback_reflection"
         assert "template:fallback_reflection" in features
 
@@ -246,7 +246,7 @@ class TestEngineUsesPolicy:
         chosen = []
         for _ in range(30):
             features = {}
-            engine.generate_response("We went to the zoo", self.personality(0.0), policy=policy, features=features)
+            engine.generate_response("We sat on the porch", self.personality(0.0), policy=policy, features=features)
             chosen.append(features["template:fallback_reflection"])
         # Never repeated back to back, and the favorite is used whenever it was not just used
         assert all(a != b for a, b in zip(chosen, chosen[1:]))
@@ -372,7 +372,7 @@ class TestPersonalTiming:
 class TestLeaving:
     def test_conversation_end_after_reply_scores_left(self, tracker, db):
         from services.engagement_tracker import LEFT_SCORE
-        tracker.set_pending(1, "What was the best part?", {"follow_up": "yes"}, "We went to the zoo")
+        tracker.set_pending(1, "What was the best part?", {"follow_up": "yes"}, "We sat on the porch")
         assert tracker.record_conversation_end(1, db) == LEFT_SCORE
         assert db.query(EngagementStat).one().score_sum == pytest.approx(LEFT_SCORE)
 

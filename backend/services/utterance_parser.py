@@ -268,6 +268,9 @@ def repair_parse(doc):
     return doc
 
 
+# Past forms the parser sometimes reads as nouns
+_IRREGULAR_PAST = {"bit": "bite", "hit": "hit", "fell": "fall", "broke": "break", "tore": "tear", "threw": "throw",
+                   "left": "leave", "lost": "lose", "won": "win", "found": "find", "made": "make", "drew": "draw"}
 # Verbs after "help/watch/let someone": "helped my mom bake cookies"
 _BARE_VERBS = {"bake", "cook", "make", "clean", "build", "fix", "wash", "paint", "plant", "fold", "carry", "find",
                "pick", "set", "feed", "walk", "decorate", "wrap", "dig", "draw", "play", "read", "write"}
@@ -282,6 +285,16 @@ def _repair_objects(doc) -> None:
     "What game do you like": "you" the object of "do" -> the subject of "like"
     """
     for token in doc:
+        # "knitted me a scarf": two objects, the first (a person) is who it was for
+        objects = [c for c in token.children if c.dep_ == "dobj"]
+        if len(objects) == 2 and objects[0].lower_ in ("me", "us", "him", "her", "them") and objects[0].i < objects[1].i:
+            objects[0].dep_ = "dative"
+        # "The dog bit my sister": "bit" read as a noun with a subject and an object
+        if (token.dep_ == "ROOT" and token.pos_ == "NOUN" and any(c.dep_ == "nsubj" for c in token.children)
+                and any(c.dep_ == "dobj" for c in token.children)):
+            token.pos_, token.tag_ = "VERB", "VBD"
+            token.lemma_ = _IRREGULAR_PAST.get(token.lower_, token.lemma_)
+            continue
         # "knocked over my tower": "my tower" the object of "knocked", not of the particle "over"
         if token.dep_ == "pobj" and token.head.dep_ == "prt":
             token.head, token.dep_ = token.head.head, "dobj"

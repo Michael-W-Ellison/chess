@@ -55,12 +55,12 @@ class TestNewRules:
         ("can you give me advice", "ask_for_advice"),
         ("what if nobody likes me", "what_if_liked"),
         ("what if no one wants to play with me", "what_if_liked"),
-        ("what if I fail the test", "what_if_worry"),
+        ("what if I fail the test", "fallback_appraisal_setback_hypothetical"),
         ("my mom said we can get a new one", "get_new_later"),
         ("I don't want a new one", "not_want_new"),
         ("I got a new bike", "got_gift"),
         ("what if it rains", "what_if_weather"),
-        ("what if the sun disappeared", "what_if_question"),
+        ("what if the sun disappeared", "fallback_appraisal_any_hypothetical"),
         ("my brother knocked the snowman over", "wrecked_my_thing"),
         ("jake broke my pencil", "wrecked_my_thing"),
         ("i cant sleep", "cant_sleep"),
@@ -98,7 +98,7 @@ class TestNewRules:
         ("i had no cavities", "no_cavities_det"),
         ("i dont have any cavities", "no_cavities"),
         ("we lost our soccer game", "lost_game"),
-        ("next time we will win", "will_win"),
+        ("next time we will win", "fallback_appraisal_achieve_future"),
         ("we won", "we_won"),
         ("i helped my mom bake cookies", "helped_someone"),
         ("theres a spider in my room", "creepy_crawly"),
@@ -228,7 +228,7 @@ class TestNewRules:
         ("my cat bit me", "pet_bite"),
         ("at soccer a boy pushed me", "pushed_me"),
         ("I fell and scraped my knee", "got_hurt"),
-        ("what if I fail", "what_if_worry"),
+        ("what if I fail", "fallback_appraisal_setback_hypothetical"),
         ("I don't know what to do", "dont_know_what"),
         ("I lost a tooth today", "lost_tooth"),
         ("my best friend said I was mean", "person_says_about_me"),
@@ -384,7 +384,7 @@ class TestReflectionTense:
         features = {}
         reply = engine.generate_response("I made him a card", make_personality(), {"sensitive": True},
                                          features=features)
-        assert features["rule"] == "fallback_reflection_gentle"
+        assert features["rule"] in ("fallback_reflection_gentle", "fallback_appraisal_kindness_real")
         assert "What happened next" not in reply
 
     def test_reported_future(self, engine):
@@ -542,7 +542,7 @@ class TestReferences:
 
     def test_role_in_the_play(self, engine):
         rule_of(engine, "im in the school play")
-        assert rule_of(engine, "i am a tree") == ("play_role", "A tree! That sounds like a fun part. You're going to be great!")
+        assert rule_of(engine, "i am a tree") == ("answer_item", "A tree! That sounds like a fun part!")
 
     def test_fraction_comparison(self, engine):
         assert rule_of(engine, "is 1/4 bigger than 1/2")[1].startswith("Nope! 1/4 is smaller than 1/2.")
@@ -606,7 +606,8 @@ class TestReferences:
         for message in ("i have two cats", "their names are luna and milo", "luna is black", "milo is orange"):
             rule_of(engine, message)
         assert rule_of(engine, "he scratched me")[1].startswith("Oh no, are you okay?")
-        assert rule_of(engine, "milo")[0] == "fallback_reflection_sad"
+        rule, reply = rule_of(engine, "milo")
+        assert rule in ("fallback_reflection_sad", "fallback_appraisal_harm_real") and "Milo scratched you" in reply
 
     def test_named_pet_chewing(self, engine):
         for message in ("we got a puppy", "her name is honey"):

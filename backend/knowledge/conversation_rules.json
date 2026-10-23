@@ -766,7 +766,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "be"},
       "slots": {"subject": {"node": "subj", "span": "subtree"}, "thing": {"node": "thing", "span": "subtree"}},
-      "responses": ["Lots of people feel scared of {thing}. Maybe you can help {subject} feel brave!"]
+      "responses": ["Lots of people feel scared of {thing}. Maybe you can help {subject} feel brave!"],
+      "modality_ok_for": ["future"]
     },
     {
       "id": "not_scared",
@@ -779,7 +780,8 @@
       ]],
       "conditions": {"question": false, "max_tokens": 6},
       "responses": ["Wow, you're brave! That's awesome."],
-      "no_jokes": true
+      "no_jokes": true,
+      "modality_ok_for": ["future"]
     },
     {
       "id": "want_to_hear",
@@ -1083,18 +1085,6 @@
       "mood": "sad",
       "no_jokes": true,
       "responses": ["Aw, losing is tough. It's okay to feel disappointed. What was the best part of the game?"]
-    },
-    {
-      "id": "will_win",
-      "priority": 66,
-      "patterns": [[
-        {"RIGHT_ID": "win", "RIGHT_ATTRS": {"LEMMA": "win"}},
-        {"LEFT_ID": "win", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
-        {"LEFT_ID": "win", "REL_OP": ">", "RIGHT_ID": "will", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": {"IN": ["will", "'ll", "gonna"]}}}
-      ]],
-      "conditions": {"question": false, "not_negated": "win"},
-      "responses": ["That's the spirit! Keep practicing and you'll get there!"],
-      "no_jokes": true
     },
     {
       "id": "helped_someone",
@@ -1697,7 +1687,8 @@
           "uncle": ["A new baby cousin? How exciting! Have you met the baby yet?"],
           "default": ["A new baby? How exciting! Have you met the baby yet?"]
         }
-      }
+      },
+      "modality_ok_for": ["future"]
     },
     {
       "id": "person_event",
@@ -1917,7 +1908,8 @@
           "happy": ["Aw, I'm so glad it made you feel {emotion}!"],
           "default": ["Thanks for telling me how it made you feel."]
         }
-      }
+      },
+      "modality_ok_for": ["future"]
     },
     {
       "id": "feel_stupid",
@@ -1992,7 +1984,8 @@
           "fine": [{"text": "Good, I'm glad you're {emotion}!"}, {"text": "Glad to hear you're {emotion}!"}]
         }
       },
-      "suppressed_by": ["short_answer"]
+      "suppressed_by": ["short_answer"],
+      "modality_ok_for": ["future"]
     },
     {
       "id": "cant_sleep",
@@ -2064,7 +2057,8 @@
           "neutral": ["Want to tell me more?"]
         }
       },
-      "suppressed_by": ["good_at", "feel_stupid", "mixed_feelings"]
+      "suppressed_by": ["good_at", "feel_stupid", "mixed_feelings"],
+      "modality_ok_for": ["future"]
     },
     {
       "id": "miss_person",
@@ -2090,7 +2084,8 @@
         "Aw, you miss {object}? Missing someone is a really hard feeling.",
         "You miss {object}? I'm sorry. It's hard to be apart from someone you love."
       ],
-      "follow_ups": ["What do you miss most about {object}?", "Do you get to see {object} soon?"]
+      "follow_ups": ["What do you miss most about {object}?", "Do you get to see {object} soon?"],
+      "modality_ok_for": ["future"]
     },
     {
       "id": "unfriended",
@@ -2186,12 +2181,14 @@
         [
           {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["forget", "ignore", "replace", "leave", "stop"]}}},
           {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}},
-          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}}
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "who", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "we"]}}}
         ],
         [
           {"RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what", "DEP": "ROOT"}},
           {"LEFT_ID": "what", "REL_OP": ">", "RIGHT_ID": "verb", "RIGHT_ATTRS": {"DEP": "advcl", "LEMMA": {"IN": ["forget", "ignore", "replace", "leave", "stop"]}}},
-          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}}
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "who", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "we"]}}}
         ]
       ],
       "conditions": {"first_token": "what"},
@@ -2220,49 +2217,6 @@
       "responses": ["Then maybe you could find something fun to do inside, like a game or a fort! What would you pick?"]
     },
     {
-      "id": "what_if_question",
-      "priority": 67,
-      "patterns": [
-        [
-          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"POS": {"IN": ["VERB", "AUX"]}}},
-          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}},
-          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}}
-        ],
-        [
-          {"RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what", "DEP": "ROOT"}},
-          {"LEFT_ID": "what", "REL_OP": ">", "RIGHT_ID": "verb", "RIGHT_ATTRS": {"DEP": "advcl", "POS": {"IN": ["VERB", "AUX"]}}},
-          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}}
-        ]
-      ],
-      "conditions": {"first_token": "what"},
-      "suppressed_by": ["what_if_worry", "what_if_liked", "what_if_weather", "what_if_forgotten", "what_if_dies"],
-      "responses": ["Ooh, that's a good what-if! What do you think would happen?"]
-    },
-    {
-      "id": "what_if_worry",
-      "priority": 69,
-      "patterns": [
-        [
-          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"POS": {"IN": ["VERB", "AUX"]}}},
-          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}},
-          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}},
-          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}}
-        ],
-        [
-          {"RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what", "DEP": "ROOT"}},
-          {"LEFT_ID": "what", "REL_OP": ">", "RIGHT_ID": "verb", "RIGHT_ATTRS": {"POS": {"IN": ["VERB", "AUX"]}, "DEP": "advcl"}},
-          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}},
-          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}}
-        ]
-      ],
-      "mood": "anxious",
-      "no_jokes": true,
-      "responses": [
-        "It's normal to worry about that. Even if it doesn't go perfectly, that's okay. You can always try again. What part feels hardest?"
-      ],
-      "suppressed_by": ["what_if_forgotten", "what_if_dies"]
-    },
-    {
       "id": "setback",
       "priority": 65,
       "patterns": [[
@@ -2276,7 +2230,7 @@
       "opener": true,
       "responses": ["{clause}? That's really frustrating.", "{clause}? I'm sorry, that's no fun."],
       "follow_ups": ["What do you think you'll try next time?", "Do you want to talk about it?"],
-      "suppressed_by": ["miss_person", "got_hurt", "lost_tooth", "what_if_worry", "what_if_worry", "what_if_liked", "lost_game"]
+      "suppressed_by": ["miss_person", "got_hurt", "lost_tooth", "what_if_liked", "lost_game"]
     },
     {
       "id": "reassured",
@@ -2352,7 +2306,7 @@
       "patterns": [
         [
           {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["knock", "break", "ruin", "wreck", "smash", "destroy", "rip", "tear", "squish", "crush"]}}},
-          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": "@relations"}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": ["friend", "bff", "brother", "sister", "mom", "mother", "mum", "mommy", "dad", "father", "daddy", "grandma", "grandpa", "grandmother", "grandfather", "nana", "aunt", "uncle", "cousin", "teacher", "coach", "neighbor", "classmate", "stepmom", "stepdad", "stepbrother", "stepsister", "parent", "parents", "family", "baby", "pet"]}}},
           {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"NOT_IN": ["me", "it", "him", "her", "them", "you"]}}}
         ],
         [
@@ -2466,7 +2420,7 @@
         {"RIGHT_ID": "win", "RIGHT_ATTRS": {"LEMMA": "win"}},
         {"LEFT_ID": "win", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}}
       ]],
-      "suppressed_by": ["achievement", "will_win"],
+      "suppressed_by": ["achievement"],
       "conditions": {"question": false, "not_negated": "win", "max_tokens": 8, "not_future": true},
       "valence": "positive",
       "mood": "happy",
@@ -2511,7 +2465,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "move", "not_past": "move"},
       "responses": ["Moving is a big change! How do you feel about it?"],
-      "follow_ups": ["What are you most excited about?"]
+      "follow_ups": ["What are you most excited about?"],
+      "modality_ok_for": ["future"]
     },
     {
       "id": "taken_away",
@@ -3169,7 +3124,8 @@
       "conditions": {"not_negated": "verb", "not_past": "verb"},
       "slots": {"clause": {"node": "verb", "span": "clause"}},
       "responses": ["{clause}? Good luck, you've got this!", "Ooh, {clause}. Do you feel ready for it?", "{clause}? I bet you'll do great!"],
-      "follow_ups": ["How are you getting ready for it?", "Is there a part you're worried about?"]
+      "follow_ups": ["How are you getting ready for it?", "Is there a part you're worried about?"],
+      "modality_ok_for": ["future"]
     },
     {
       "id": "have_named",
@@ -3373,7 +3329,8 @@
       "slots": {"clause": {"node": "verb", "span": "clause"}},
       "valence": "positive",
       "responses": ["{clause}? That sounds exciting!", "Ooh, {clause}? That sounds like fun!"],
-      "follow_ups": ["What are you most excited about?", "Who's going with you?"]
+      "follow_ups": ["What are you most excited about?", "Who's going with you?"],
+      "modality_ok_for": ["future"]
     },
     {
       "id": "bot_thing_evaluation",
@@ -3613,7 +3570,8 @@
           "upcoming": ["Ooh, your birthday is coming up! How are you going to celebrate?"],
           "default": ["Birthdays are the best! How do you like to celebrate yours?"]
         }
-      }
+      },
+      "modality_ok_for": ["future"]
     },
     {
       "id": "bot_been_question",
@@ -4858,7 +4816,8 @@
           "default": ["{person} {be} {emotion}? Thanks for telling me. Do you know why?"]
         }
       },
-      "suppressed_by": ["good_at", "person_better", "person_scared_of"]
+      "suppressed_by": ["good_at", "person_better", "person_scared_of"],
+      "modality_ok_for": ["future"]
     },
     {
       "id": "comparison_better",
@@ -4983,5 +4942,305 @@
       "conditions": {"first_token": "g"},
       "responses": ["Hi {user_name}! What's up?", "Hey {user_name}! How's your day going?", "Hello {user_name}! It's good to see you!"]
     }
-  ]
+  ],
+
+  "appraisal": {
+    "_comment": "General appraisal of what a message says happened (services/appraisal.py). actions: verb lemmas by kind of event. phrasal: verb + particle or object that changes the kind. valence: how each kind feels for the child, by 'actor>target' (actor or target may be left out), with a default. templates: replies by 'action.modality.actor>target', tried from most to least specific (see ResponseEngine._appraisal_reply).",
+    "actions": {
+      "harm": [
+        "hit",
+        "kick",
+        "punch",
+        "push",
+        "shove",
+        "bite",
+        "scratch",
+        "pinch",
+        "slap",
+        "hurt",
+        "smack",
+        "throw",
+        "attack",
+        "bully",
+        "choke"
+      ],
+      "tease": ["tease", "mock", "insult", "embarrass", "exclude", "ignore"],
+      "break": ["break", "ruin", "wreck", "destroy", "smash", "rip", "tear", "spill", "crush", "squish", "stain", "scribble"],
+      "kindness": [
+        "help",
+        "hug",
+        "share",
+        "comfort",
+        "give",
+        "bring",
+        "buy",
+        "cook",
+        "bake",
+        "surprise",
+        "invite",
+        "rescue",
+        "thank",
+        "praise",
+        "cheer"
+      ],
+      "achieve": [
+        "win",
+        "score",
+        "finish",
+        "pass",
+        "learn",
+        "build",
+        "create",
+        "invent",
+        "earn",
+        "complete",
+        "solve",
+        "beat",
+        "master",
+        "practice",
+        "draw",
+        "paint",
+        "write",
+        "make"
+      ],
+      "setback": ["fail", "miss", "drop", "forget", "crash", "fall", "trip", "flunk", "mess"],
+      "loss": ["die", "pass", "sick"],
+      "recover": ["recover", "heal"],
+      "receive": ["get", "receive", "adopt", "find", "win"],
+      "lost_item": ["lose", "escape"],
+      "fun": [
+        "go",
+        "visit",
+        "play",
+        "swim",
+        "camp",
+        "travel",
+        "ride",
+        "celebrate",
+        "dance",
+        "sing",
+        "watch",
+        "explore",
+        "hike",
+        "skate",
+        "ski",
+        "sled",
+        "fly",
+        "jump",
+        "climb",
+        "race",
+        "plant"
+      ],
+      "eat": ["eat", "drink", "taste", "snack"],
+      "fear": ["scare", "frighten", "terrify", "startle"],
+      "conflict": ["yell", "scream", "shout", "fight", "argue", "punish", "ground", "blame", "scold"]
+    },
+    "phrasal": {
+      "knock over": "break",
+      "knock down": "break",
+      "mess up": "setback",
+      "fall off": "setback",
+      "fall down": "setback",
+      "get hurt": "harm",
+      "lose game": "setback",
+      "lose match": "setback",
+      "lose race": "setback",
+      "pass away": "loss",
+      "move away": "loss",
+      "get sick": "loss",
+      "make fun": "tease",
+      "laugh at": "tease",
+      "pick on": "tease",
+      "get better": "recover",
+      "cheer up": "kindness",
+      "clean up": "kindness",
+      "give up": "setback",
+      "beat up": "harm",
+      "get lost": "fear",
+      "get stuck": "setback",
+      "fall out": "",
+      "blow away": "lost_item",
+      "fly away": "lost_item",
+      "run away": "loss",
+      "get invite": "kindness",
+      "get invited": "kindness",
+      "leave out": "tease",
+      "get left": "tease",
+      "yell at": "conflict",
+      "scream at": "conflict",
+      "throw at": "harm",
+      "knock off": "break",
+      "push off": "harm"
+    },
+    "pets": [
+      "dog",
+      "puppy",
+      "cat",
+      "kitten",
+      "kitty",
+      "hamster",
+      "bunny",
+      "rabbit",
+      "fish",
+      "bird",
+      "horse",
+      "pony",
+      "turtle",
+      "lizard",
+      "parrot",
+      "gerbil",
+      "guinea"
+    ],
+    "valence": {
+      "harm": {"child>person": "negative", "default": "negative"},
+      "tease": {"default": "negative"},
+      "break": {"default": "negative"},
+      "kindness": {"default": "positive"},
+      "achieve": {"default": "positive"},
+      "setback": {"default": "negative"},
+      "loss": {"default": "negative"},
+      "recover": {"default": "positive"},
+      "receive": {"default": "positive"},
+      "lost_item": {"default": "negative"},
+      "fun": {"default": "positive"},
+      "eat": {"default": "positive"},
+      "fear": {"default": "negative"},
+      "conflict": {"default": "negative"}
+    },
+    "templates": {
+      "harm.real.person>child": [
+        "Oh no, {clause}? That's not okay, and I'm sorry it happened. Are you okay? It's a good idea to tell a grown-up you trust."
+      ],
+      "harm.real.unknown>child": [
+        "Oh no, {clause}? That's not okay, and I'm sorry it happened. Are you okay? It's a good idea to tell a grown-up you trust."
+      ],
+      "harm.real.pet>child": ["Ouch, {clause}? Are you okay? Make sure a grown-up looks at it."],
+      "harm.real.child>": [
+        "{clause}? It's easy to do that when you're upset. Next time, you could take a deep breath or walk away. How are you feeling now?"
+      ],
+      "harm.real": ["Oh no, {clause}? Is everyone okay?", "{clause}? Oh no! I hope everyone is okay."],
+      "tease.real": ["{clause}? That wasn't kind, and you didn't deserve it. How did it make you feel?"],
+      "tease.real.child>": ["{clause}? Hmm, that might have hurt their feelings. What could you do to make it right?"],
+      "break.real.pet>": ["Uh oh, {clause}? Pets can be so silly! Did it make a big mess?"],
+      "break.real.child>": ["Oops, {clause}? Accidents happen! Did someone help you fix it?"],
+      "break.real.person>child_thing": [
+        "Oh no, {clause}? That's so frustrating! How do you feel about it?",
+        "{clause}? Ugh, that's really frustrating!"
+      ],
+      "break.real": ["Oh no, {clause}? That's frustrating!", "{clause}? Oh no, what a bummer!"],
+      "kindness.real.child>": [
+        "{clause}? That's so kind of you! I bet that made them happy.",
+        "Aw, {clause}? You're so thoughtful!"
+      ],
+      "kindness.real": [
+        "Aw, {clause}? That's so kind! I bet that felt nice.",
+        "{clause}? That's so sweet!",
+        "Aw, {clause}? That's really nice."
+      ],
+      "achieve.real.child>": [
+        "{clause}? That's awesome! You should be proud!",
+        "Wow, {clause}? Great job! How did it feel?",
+        "{clause}? You must be so proud!"
+      ],
+      "achieve.real.person>": ["{clause}? That's so cool! Good for them!", "Wow, {clause}? That's awesome!"],
+      "achieve.real": ["{clause}? That's so cool!", "Wow, {clause}? Cool!"],
+      "achieve.negated.child>": ["Aw, {clause}? That's disappointing. You'll get it next time!"],
+      "setback.real.child>": [
+        "Aw, {clause}? That's frustrating. It happens to everyone sometimes, and you can try again.",
+        "Oh no, {clause}? That's a bummer. It's okay, everyone has days like that.",
+        "{clause}? Aw, I'm sorry. You'll get it next time!"
+      ],
+      "setback.real": ["Aw, {clause}? That's too bad.", "{clause}? Oh no, that's a bummer."],
+      "loss.real": [
+        "Oh no, {clause}? I'm so sorry. That's really hard. Do you want to talk about it?",
+        "{clause}? Oh no, I'm really sorry. I'm here if you want to talk."
+      ],
+      "recover.real": ["{clause}? That's great news! I'm so glad."],
+      "receive.real.child>": ["Ooh, {clause}? That's exciting!", "{clause}? Ooh, lucky you!"],
+      "receive.real": ["{clause}? That's nice!"],
+      "receive.negated.child>": ["Aw, that's disappointing. It's okay to feel that way."],
+      "lost_item.real.child>": [
+        "Oh no, {clause}? That's frustrating. Where did you last see it?",
+        "Oh no, {clause}? I hope you find it soon!"
+      ],
+      "lost_item.real": ["Oh no, {clause}? I hope it turns up!"],
+      "fun.real": [
+        "{clause}? That sounds like so much fun! What was the best part?",
+        "Ooh, {clause}? That sounds awesome! What did you like most?",
+        "{clause}? Fun! Tell me about it!"
+      ],
+      "fun.real.present": ["{clause}? That sounds fun!", "Ooh, {clause}? That sounds like a blast!"],
+      "eat.real": ["{clause}? Yum! Was it good?", "Yum, {clause}? Sounds tasty!", "{clause}? Mmm, that sounds good!"],
+      "fear.real": [
+        "{clause}? That sounds scary. It's okay to feel scared. Do you want to talk about it?",
+        "{clause}? That sounds really scary. I'm glad you told me."
+      ],
+      "conflict.real": [
+        "{clause}? That sounds hard. How do you feel about it?",
+        "{clause}? That sounds really hard. I'm here if you want to talk about it."
+      ],
+      "achieve.future": ["That's the spirit! You can do it!"],
+      "fun.future": ["Ooh, that sounds exciting! I hope it's lots of fun."],
+      "receive.future": ["Ooh, that sounds exciting!"],
+      "loss.future": ["That sounds hard. It's okay to feel sad about it. Do you want to talk about it?"],
+      "*.future.positive": ["Ooh, that sounds exciting!", "That sounds like so much fun! Are you excited?"],
+      "*.future.negative": ["That sounds hard. It's okay to feel worried about it. Want to talk about it?"],
+      "*.future": ["{clause}? How do you feel about it?"],
+      "recover.hope": ["I hope so too! Sending lots of good wishes."],
+      "*.hope.positive": ["I hope so too!", "Me too! Fingers crossed!"],
+      "*.hope": ["I hope so too!"],
+      "achieve.want": ["That's a great goal! Keep practicing and you'll get there."],
+      "*.want.negative": [
+        "That's a really big feeling, and it shows how much you care. Talking to a grown-up you trust can help."
+      ],
+      "*.want.positive": ["Ooh, that would be so fun! I hope you get to!", "That would be so cool! I hope you get to someday."],
+      "*.hypothetical.negative": [
+        "That's a big worry. Lots of kids worry about things like that, and things often turn out better than we think. Talking to a grown-up you trust can help too."
+      ],
+      "*.hypothetical.positive": ["Ooh, that would be amazing! What do you think would happen?"],
+      "*.hypothetical": [
+        "Ooh, that's a good what-if! What do you think would happen?",
+        "Hmm, fun question! What do you think would happen?"
+      ],
+      "*.possible.positive": ["Ooh, maybe! That would be exciting.", "Ooh, that would be fun! I hope it happens."],
+      "*.possible.negative": ["Hmm, that might be hard. How do you feel about it?"],
+      "*.obligation.negative": ["{clause}? That doesn't sound fun, but you can do it!"],
+      "*.obligation": ["{clause}? How do you feel about it?"],
+      "*.want": ["Ooh, that would be so cool! I hope it happens someday.", "I hope that happens for you someday!"],
+      "*.hope.negative": ["I hope everything turns out okay. I'm here for you."],
+      "eat.future": ["{clause}? How do you think it'll taste?"],
+      "setback.hypothetical.child>": [
+        "It's normal to worry about that. Even if it doesn't go perfectly, that's okay. You can always try again!"
+      ],
+      "*.accident": ["Oops, {clause}? Accidents happen! Is everyone okay?"],
+      "break.accident": ["Oops, {clause}? Accidents happen! Did someone help you clean it up?"],
+      "kindness.negated": ["{clause}? Aw, that doesn't feel very nice."],
+      "kindness.negated.unknown>child": [
+        "Aw, {clause}? That must have felt really disappointing. I'm sorry. It's okay to feel left out sometimes."
+      ],
+      "kindness.real.unknown>child": ["Ooh, {clause}? That's so exciting!"],
+      "lost_item.real.thing>child_thing": ["Oh no, {clause}? I hope you can find it!"],
+      "kindness.future": ["That's so thoughtful! I bet they'll love it."],
+      "*.never": ["{clause}? That sounds frustrating. Want to think of a plan together?"],
+      "*.want.person>": ["It sounds like that really matters to you. Have you told them how you feel?"]
+    },
+    "chore_places": [
+      "dentist",
+      "doctor",
+      "hospital",
+      "school",
+      "vet",
+      "store",
+      "office",
+      "funeral",
+      "work",
+      "bed",
+      "class",
+      "principal",
+      "nurse",
+      "bank",
+      "laundromat",
+      "grocery"
+    ]
+  }
 }

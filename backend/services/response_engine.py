@@ -24,6 +24,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from services import appraisal as appraisal_module
+from services.appraisal import Appraisal, Appraiser
 from services.emoji_quirk_service import emoji_quirk_service
 from services.reference_tracker import ReferenceTracker, gerund
 from services.utterance_parser import utterance_parser
@@ -109,6 +111,53 @@ STORY_ENDINGS = ["The end! What a great story. I loved it!", "What a fun story! 
 # Replies to a joke the child tells: to the setup question, then to the punchline
 CHILD_JOKE_GUESSES = ["Hmm, I don't know! What?", "I give up! Tell me!", "Ooh, I'm not sure! What?"]
 CHILD_JOKE_LAUGHS = ["Haha! That's a good one! You're really funny.", "Hahaha! I didn't see that coming!"]
+
+# Fragments that continue the previous message: "and stay up late", "to the zoo", "next week"
+_CONTINUATION_WORDS = {"and", "then", "also", "but", "or", "with", "to", "at", "in", "on", "for", "after", "before",
+                       "next", "last", "this", "tomorrow", "yesterday", "tonight", "today", "so"}
+
+
+@dataclass
+class Expectation:
+    """What the bot's last reply asked for"""
+    kind: str                       # offer, choice, listen, reason, item
+    offer: Optional[str] = None     # for "offer": "joke", or "again" (the same kind as last time)
+    options: List[str] = field(default_factory=list)  # for "choice"
+    noun: Optional[str] = None      # for "item": "part" in "What part are you playing?"
+
+
+# "What part are you playing?", "What costume are you wearing?", "What kind of cake?"
+_ITEM_QUESTION_RE = re.compile(
+    r"\bwhat (?:kind of )?(part|costume|game|song|book|movie|show|animal|sport|color|colour|flavor|cake|pet|name|"
+    r"instrument|character|team|toy)\b[^?]*\byou(?:'re)?\b[^?]*\?$"
+    r"|\bwhat (?:are|were) you (?:going to be|gonna be|being|dressing up as)\b",
+    re.IGNORECASE)
+
+
+def expectation_from_reply(reply: str) -> Optional[Expectation]:
+    """What a bot reply asks the child for, from its closing question or request"""
+    if "I'd love to hear it" in reply:
+        return Expectation("listen")
+    questions = re.findall(r"[^.!?]*\?", reply)
+    if not questions:
+        return None
+    question = questions[-1].strip()
+    # The options may come before the question: "We could tell jokes, solve riddles, or share fun facts! Which one?"
+    if _CHOICE_OFFER_RE.search(question) or (_CHOICE_OFFER_RE.search(reply) and re.match(r"which\b", question,
+                                                                                          re.IGNORECASE)):
+        return Expectation("choice", options=["joke", "riddle", "fact"])
+    if _JOKE_OFFER_RE.search(question):
+        return Expectation("offer", offer="joke")
+    if re.search(r"\bwant another( one)?\?", question, re.IGNORECASE):
+        return Expectation("offer", offer="again")
+    if re.match(r"why\b", question, re.IGNORECASE) and not re.search(r"\bwhy not\b", question, re.IGNORECASE):
+        return Expectation("reason")
+    item = _ITEM_QUESTION_RE.search(question)
+    if item:
+        noun = item.group(1)
+        return Expectation("item", noun=(noun.lower() if noun else "costume"))
+    return None
+
 
 # A joke the child starts without saying so: "Why did the chicken cross the road?", "Knock knock"
 _JOKE_SETUP_RE = re.compile(
@@ -206,9 +255,11 @@ class ResponseEngine:
         self._pretend: Dict[int, int] = {}
         # The answer to a riddle the bot asked, while the child guesses
         self._riddle: Dict[int, Tuple[str, str]] = {}
-        # What the bot's last reply offered: "joke" ("Want to hear a funny joke?") or
-        # "again" ("Want another one?", the same kind as the last joke, riddle or fact)
-        self._offered: Dict[int, str] = {}
+        # What the bot's last reply asked for, so a short next message can be read as its answer
+        self._expect: Dict[int, Expectation] = {}
+        # The child's previous message (resolved), for fragments that continue it ("next week")
+        self._previous_message: Dict[int, str] = {}
+        self._current_message: Dict[int, str] = {}
         self._load_knowledge_base()
         self.references = ReferenceTracker(
             parser, self.kb["lexicons"]["relations"], self.kb["lexicons"]["common_capitalized"],
@@ -242,6 +293,7 @@ class ResponseEngine:
         for rule in self.kb.get("rules", []):
             rule["patterns"] = resolve(rule["patterns"])
             self.rules[rule["id"]] = rule
+        self.appraiser = Appraiser(self.kb)
 
     def is_available(self) -> bool:
         """True if the parser (spaCy and its model) is available"""
@@ -262,7 +314,11 @@ class ResponseEngine:
         """
         if not self.is_available():
             return message
-        return self.references.resolve(message, user_id)
+        resolved = self.references.resolve(message, user_id)
+        if user_id in self._current_message:
+            self._previous_message[user_id] = self._current_message[user_id]
+        self._current_message[user_id] = resolved
+        return resolved
 
     def reset_references(self, user_id: int) -> None:
         """Forget earlier people and things (new conversation)"""
@@ -273,7 +329,9 @@ class ResponseEngine:
         self._story_mode.pop(user_id, None)
         self._riddle.pop(user_id, None)
         self._pretend.pop(user_id, None)
-        self._offered.pop(user_id, None)
+        self._expect.pop(user_id, None)
+        self._previous_message.pop(user_id, None)
+        self._current_message.pop(user_id, None)
 
     def record_bot_reply(self, user_id: int, reply: str, humor: Optional[str] = None) -> None:
         """
@@ -282,18 +340,11 @@ class ResponseEngine:
         """
         if not self.is_available():
             return
-        if "I'd love to hear it" in reply:
-            self._offered[user_id] = "listen"  # the child's next message is the line, song or poem
-        elif "What part are you playing?" in reply:
-            self._offered[user_id] = "role"  # "I'm a tree"
-        elif _CHOICE_OFFER_RE.search(reply):
-            self._offered[user_id] = "choice"
-        elif _JOKE_OFFER_RE.search(reply):
-            self._offered[user_id] = "joke"
-        elif re.search(r"\bwant another( one)?\?", reply, re.IGNORECASE):
-            self._offered[user_id] = "again"
+        expectation = expectation_from_reply(reply)
+        if expectation is None:
+            self._expect.pop(user_id, None)
         else:
-            self._offered.pop(user_id, None)
+            self._expect[user_id] = expectation
         told = self._last_told.pop(user_id, None)
         added = {"pun": "joke", "fact": "fun fact"}.get(humor or "") if told is None else None
         mentions = self._last_mentions.pop(user_id, [])
@@ -355,6 +406,34 @@ class ResponseEngine:
         return Analysis(frames=frames, is_question=is_question, mood=mood, doc=doc)
 
     @staticmethod
+    def _embedded_modality(token) -> str:
+        """
+        The modality the matched words sit under, from outside them: "win" in "I want to win"
+        is wanted, in "what if we win" imagined, in "we might win" possible; "want" in
+        "I want a dog" is itself real
+        """
+        sentence = token.sent
+        words = [t.lower_ for t in sentence]
+        if words[:2] == ["what", "if"] and token.lower_ != "what":
+            return appraisal_module.HYPOTHETICAL
+        for ancestor in list(token.ancestors)[:3]:
+            if ancestor.lemma_ in ("hope", "wish", "pray"):
+                return appraisal_module.HOPE
+            if ancestor.lemma_ in ("want", "wanna") and token.dep_ in ("xcomp", "ccomp") or (
+                    ancestor.lemma_ in ("want", "wanna") and ancestor.i == token.head.i):
+                return appraisal_module.WANT
+        if any(c.dep_ == "aux" and c.lower_ in ("might", "may", "could") for c in token.children):
+            return appraisal_module.POSSIBLE
+        # "I will score a goal tomorrow": not happened yet
+        if any(c.dep_ == "aux" and c.lower_ in ("will", "'ll", "gonna", "shall") for c in token.children) and \
+                not any(c.dep_ == "neg" for c in token.children):
+            return appraisal_module.FUTURE
+        if any(c.dep_ == "aux" and c.lower_ in ("can", "ca") for c in token.children) and \
+                not sentence.text.strip().endswith("?") and token.lemma_ in ("get", "have", "buy", "adopt"):
+            return appraisal_module.POSSIBLE
+        return appraisal_module.REAL
+
+    @staticmethod
     def _is_question(span) -> bool:
         """Question if the sentence ends with "?" or starts with a question word"""
         text = span.text.strip()
@@ -375,6 +454,25 @@ class ResponseEngine:
 
         if "question" in conditions and conditions["question"] != self._is_question(sentence):
             return None
+        # A reaction to something happening does not fit something only hoped for, wanted,
+        # possible or imagined: "we can get a new one" is not "Yay, a new one!", and "I hope he
+        # gets better" is not "I'm so glad he's better" (rules meant for these say "modality_ok")
+        # A rule's tone that contradicts what the matched words say happened: "my brother made
+        # fun of my drawing" is teasing, not the kindness of "made"
+        if valence in ("positive", "negative") and not rule.get("valence_ok"):
+            first = next(iter(nodes.values()))
+            if first.pos_ in ("VERB", "AUX"):
+                appraised = self.appraiser.appraise_tokens(first)
+                if (appraised.action and appraised.notes.get("source") == "phrasal"
+                        and appraised.valence in ("positive", "negative") and appraised.valence != valence):
+                    return None
+        if valence in ("positive", "negative") and not rule.get("modality_ok"):
+            embedded = self._embedded_modality(next(iter(nodes.values())))
+            if embedded in rule.get("modality_ok_for", []):
+                pass
+            elif embedded in (appraisal_module.HOPE, appraisal_module.WANT, appraisal_module.POSSIBLE,
+                              appraisal_module.HYPOTHETICAL, appraisal_module.FUTURE):
+                return None
         if "max_tokens" in conditions and \
                 sum(1 for t in doc if not t.is_punct) > conditions["max_tokens"]:
             return None
@@ -933,31 +1031,14 @@ class ResponseEngine:
                 reply = f"Good guess! The answer is: {answer} Want another one?"
             return self._apply_style(reply, personality)
 
-        # "Want to hear a funny joke?" / "Want another one?" - "yes"
-        offered = self._offered.pop(user_id, None)
-        role = re.match(r"\W*(?:i'm|i am|im)?\s*(?:going to be |gonna be |playing )?(an?|the) ([a-z ]{2,30}?)[.!]*$",
-                        message, re.IGNORECASE) if offered == "role" else None
-        if role:
+        # The answer to what the bot just asked or offered
+        expectation = self._expect.pop(user_id, None)
+        answered = self._answer_expectation(expectation, message, analysis, user_id) if expectation else None
+        if answered is not None:
+            rule_id, reply = answered
             if features is not None:
-                features["rule"] = "play_role"
-            part = f"{role.group(1).lower()} {role.group(2).strip()}"
-            return self._apply_style(f"{part[:1].upper()}{part[1:]}! That sounds like a fun part. "
-                                     "You're going to be great!", personality)
-        if offered == "listen" and not analysis.is_question and len(message.split()) <= 25:
-            if features is not None:
-                features["rule"] = "performance"
-            return self._apply_style("Bravo! That was great! You're going to do awesome.", personality)
-        kind = "joke" if offered in ("joke", "choice") else self._last_request.get(user_id) if offered else None
-        chosen = re.search(r"\b(joke|riddle|fact)s?\b", message, re.IGNORECASE) if offered == "choice" else None
-        if chosen and len(message.split()) <= 6:
-            kind = {"fact": "fact"}.get(chosen.group(1).lower(), chosen.group(1).lower())
-        if kind and (_YES_RE.match(message) or chosen):
-            content = {}
-            self._requested_content(kind, content, user_id)
-            if content.get("content"):
-                if features is not None:
-                    features["rule"] = "joke_offer_yes"
-                return self._apply_style(f"Okay, here's one: {content['content']}", personality)
+                features["rule"] = rule_id
+            return self._apply_style(reply, personality)
 
         # The child is telling a joke: "Why did the chicken cross the road?" ... the punchline
         joke_stage = self._child_joke.pop(user_id, 0)
@@ -1023,6 +1104,14 @@ class ResponseEngine:
         if not allow_reflection:
             # Only rules whose replies use no words taken from the message
             responding = [f for f in responding if not f.rule.get("slots")]
+
+        # "What part are you playing?" - "a tree"; "Why is it your favorite?" - "it has rings"
+        if expectation is not None and expectation.kind in ("item", "reason") and allow_reflection and not responding:
+            answered = self._answer_open_question(expectation, analysis)
+            if answered is not None:
+                rule_id, reply = answered
+                features["rule"] = rule_id
+                return self._apply_style(reply, personality)
 
         if responding:
             frame = responding[0]
@@ -1224,7 +1313,8 @@ class ResponseEngine:
         # Answers to questions about the world and the child's own joke get no joke added
         # and replies repeating back the child's news ("The present was a book about sharks?")
         if flag == "no_jokes" and rule_id and (
-                rule_id.startswith(("fallback_world", "fallback_reflection", "fallback_long_reflection", "fallback_fragment"))
+                rule_id.startswith(("fallback_world", "fallback_reflection", "fallback_long_reflection", "fallback_fragment",
+                                    "fallback_appraisal", "fallback_continuation"))
                 or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes", "spelling", "performance", "play_role", "pretend")):
             return True
         return bool(rule_id and self.rules.get(rule_id, {}).get(flag))
@@ -1305,6 +1395,14 @@ class ResponseEngine:
         def pick(kind: str) -> str:
             return self._pick(fallbacks[kind], user_id, f"template:fallback_{kind}", policy, features)
 
+        # "What if I get lost?": a worry, answered by the appraisal templates
+        if analysis.is_question and allow_reflection:
+            appraisal = self.appraiser.appraise(doc)
+            if appraisal is not None and appraisal.modality == appraisal_module.HYPOTHETICAL:
+                composed = self._appraisal_reply(doc, slots, user_id, policy, features, gentle)
+                if composed is not None:
+                    return composed
+
         if analysis.is_question:
             # "Why is the sky blue?": a known answer, a fact on the topic, or "let's look it up"
             about_bot = any(t.lower_ in ("you", "your", "yours", "yourself") for t in doc)
@@ -1342,6 +1440,18 @@ class ResponseEngine:
                 name = " ".join(w for w in thing.text.split() if w.lower() not in ("the", "a", "an"))
                 return f"Ooh, {name} {extra}? Yum, that sounds so good!", "positive", "fragment"
             return f"{extra[:1].upper()}{extra[1:]}? That sounds fun!", "positive", "fragment"
+
+        # A fragment continuing the previous message ("next week", "to the zoo")
+        if allow_reflection:
+            continued = self._continuation_reply(doc, slots, user_id, policy, features, gentle)
+            if continued is not None:
+                return continued
+
+        # What happened, in general terms: a reply for its kind of event and modality
+        if allow_reflection:
+            composed = self._appraisal_reply(doc, slots, user_id, policy, features, gentle)
+            if composed is not None:
+                return composed
 
         # Reflect the last sentence that is short and about the child
         if allow_reflection:
@@ -1413,6 +1523,176 @@ class ResponseEngine:
                 return pick("topic").format_map(slots), "neutral", "topic"
 
         return pick("generic"), "neutral", "generic"
+
+    def _appraisal_reply(self, doc, slots: Dict[str, str], user_id: int, policy=None,
+                         features: Optional[Dict[str, str]] = None, gentle: bool = False,
+                         clause: Optional[str] = None, kind_prefix: str = "appraisal",
+                         root=None) -> Optional[Tuple[str, str, str]]:
+        """
+        A reply from the appraisal of the message (see services/appraisal.py): templates by kind
+        of event, modality and who did what to whom, tried from most to least specific. None
+        when the message names no kind of event the knowledge base knows, so plainer
+        fallbacks (echoing the child's words) can reply.
+        """
+        if root is not None:
+            appraisal = self.appraiser.appraise_tokens(root, self._pet_names(user_id))
+        else:
+            appraisal = self.appraiser.appraise(doc, self._pet_names(user_id))
+        if appraisal is None:
+            return None
+        root = appraisal.root
+        # Someone the reference tracker could not resolve: ask who first
+        subject = next((c for c in root.children if c.dep_ in ("nsubj", "nsubjpass")), None)
+        if subject is not None and subject.lower_ in ("he", "she", "they"):
+            return None
+        if appraisal.question and appraisal.modality != appraisal_module.HYPOTHETICAL:
+            return None
+        # Long or mixed messages ("he fell down but he was ok"): plainer replies pick out a part
+        sentence = root.sent
+        if clause is None and (len(sentence) > 15 or any(
+                t.lower_ == "but" and t.dep_ == "cc" for t in sentence)):
+            return None
+        # Nothing known about what happened: plainer replies echo it ("We're having a party? Tell me more!")
+        if appraisal.action is None and appraisal.modality in (appraisal_module.REAL, appraisal_module.FUTURE,
+                                                               appraisal_module.OBLIGATION):
+            return None
+        # After sad news, "we visited him" (in the hospital) is not "That sounds like so much fun!"
+        if gentle and appraisal.valence == "positive" and appraisal.modality == appraisal_module.REAL \
+                and appraisal.action == "fun" and (appraisal.target in ("person", "pet") or root.lemma_ == "visit"):
+            return None
+        templates = self.kb.get("appraisal", {}).get("templates", {})
+        key = self._appraisal_template_key(appraisal, templates)
+        if key is None:
+            return None
+        if clause is None:
+            # "You have to clean your room?", not "To clean your room?"
+            clause_root = root if appraisal.modality == appraisal_module.REAL else (
+                next((t for t in [root, *root.ancestors] if t.dep_ == "ROOT"), root))
+            _, clause = self._extract_slot(clause_root, "clause")
+        slots["clause"] = clause
+        text = self._pick(templates[key], user_id, f"template:appraisal_{key}", policy, features).format_map(slots)
+        text = text[:1].upper() + text[1:]
+        return text, appraisal.valence, f"{kind_prefix}_{appraisal.action or 'any'}_{appraisal.modality}"
+
+    def _pet_names(self, user_id: int) -> List[str]:
+        """Names of the child's pets the reference tracker knows ("Milo")"""
+        pets = set(self.kb.get("appraisal", {}).get("pets", []))
+        return [p.name for p in self.references.state(user_id).people
+                if p.name and p.relation and p.relation.split()[-1] in pets]
+
+    @staticmethod
+    def _appraisal_template_key(a: Appraisal, templates: Dict[str, List[str]]) -> Optional[str]:
+        """The most specific template key for an appraisal, or None"""
+        modality = "negated" if a.modality == appraisal_module.REAL and a.negated else a.modality
+        candidates = []
+        if a.notes.get("accident") and modality == appraisal_module.REAL:
+            candidates += [f"{a.action}.accident", "*.accident"]
+        if a.notes.get("habit") and modality == "negated":
+            candidates += [f"{a.action}.never", "*.never"]
+        if a.action:
+            base = f"{a.action}.{modality}"
+            candidates += [f"{base}.{a.actor}>{a.target}", f"{base}.{a.actor}>", f"{base}.>{a.target}",
+                           f"{base}.{a.tense}", base]
+        if modality != "negated" and modality != appraisal_module.REAL:
+            candidates += [f"*.{modality}.{a.actor}>", f"*.{modality}.{a.valence}", f"*.{modality}"]
+        return next((c for c in candidates if c in templates), None)
+
+    def _answer_expectation(self, expectation: "Expectation", message: str, analysis: Analysis,
+                            user_id: int) -> Optional[Tuple[str, str]]:
+        """
+        (rule id, reply) when the message answers an offer or a listening request: "yes" to
+        "Want to hear a funny joke?", "a riddle" to "a joke, a riddle, or a fun fact?", the
+        child's line after "I'd love to hear it". None otherwise.
+        """
+        if expectation.kind == "listen" and not analysis.is_question and len(message.split()) <= 25:
+            return "performance", "Bravo! That was great! You're going to do awesome."
+        if expectation.kind not in ("offer", "choice"):
+            return None
+        kind = None
+        if expectation.kind == "choice":
+            chosen = next((o for o in expectation.options if re.search(rf"\b{o}s?\b", message, re.IGNORECASE)), None)
+            if chosen and len(message.split()) <= 6:
+                kind = chosen
+            elif _YES_RE.match(message):
+                kind = expectation.options[0]
+        elif _YES_RE.match(message):
+            kind = expectation.offer if expectation.offer != "again" else self._last_request.get(user_id)
+        if not kind:
+            return None
+        content = {}
+        self._requested_content(kind, content, user_id)
+        if not content.get("content"):
+            return None
+        return "joke_offer_yes", f"Okay, here's one: {content['content']}"
+
+    def _answer_open_question(self, expectation: "Expectation", analysis: Analysis) -> Optional[Tuple[str, str]]:
+        """
+        (rule id, reply) for a short answer to the bot's "What ...?" or "Why ...?" question,
+        or None if the message does not read as one
+        """
+        doc = analysis.doc
+        words = [t for t in doc if not t.is_punct]
+        if analysis.is_question or not words or len(words) > 10:
+            return None
+        if expectation.kind == "reason":
+            # "Why is Saturn your favorite?" - "it has rings" / "because it has rings"
+            root = next((t for t in doc if t.dep_ == "ROOT"), None)
+            if root is None or root.pos_ not in ("VERB", "AUX"):
+                return "answer_reason", "Ooh, that's a good reason!"
+            _, clause = self._extract_slot(root, "clause")
+            clause = re.sub(r"^(because|cuz|cause) ", "", clause, flags=re.IGNORECASE)
+            return "answer_reason", f"Ooh, that's a good reason! {clause[:1].upper()}{clause[1:]}? Cool!"
+        # An item: "a tree", "I'm a tree", "a ninja", "probably the red one"
+        match = re.match(r"\W*(?:i'm|i am|im|i'll be|it's|its|it is|maybe|probably|um+|uh+)?\s*"
+                         r"(?:going to be |gonna be |playing |be )?((?:an?|the|my) )?([a-z][a-z' -]{1,30}?)[.!]*$",
+                         doc.text, re.IGNORECASE)
+        if match is None or any(t.pos_ == "VERB" and t.lemma_ not in ("be", "play") for t in doc):
+            return None
+        item = f"{(match.group(1) or '').lower()}{match.group(2).strip()}"
+        item = re.sub(r"^my ", "your ", item)
+        noun = expectation.noun
+        tail = f"That sounds like a fun {noun}!" if noun else "That sounds awesome!"
+        return "answer_item", f"{item[:1].upper()}{item[1:]}! {tail}"
+
+    def _continuation_reply(self, doc, slots: Dict[str, str], user_id: int, policy=None,
+                            features: Optional[Dict[str, str]] = None,
+                            gentle: bool = False) -> Optional[Tuple[str, str, str]]:
+        """
+        A fragment that continues the child's previous message ("next week" after "we're going
+        to Disneyland", "to the zoo" after "we went on a field trip"): appraised together with
+        it, with the fragment echoed back
+        """
+        words = [t for t in doc if not t.is_punct]
+        if not words or len(words) > 6 or any(
+                t.pos_ in ("VERB", "AUX") and any(c.dep_ in ("nsubj", "nsubjpass") for c in t.children) for t in doc):
+            return None
+        previous = self._previous_message.get(user_id)
+        if not previous or not (words[0].lower_ in _CONTINUATION_WORDS or not any(
+                t.pos_ in ("VERB", "AUX") for t in doc)):
+            return None
+        previous = previous.rstrip(" .!?")
+        combined = self.parser.parse(f"{previous} {doc.text}")
+        previous_doc = self.parser.parse(previous)
+        if combined is None or previous_doc is None or len(combined) != len(previous_doc) + len(doc):
+            return None
+        fragment_words = [t for t in words if t.lower_ not in ("and", "then", "also", "so")]
+        fragment = self._join(fragment_words, reflect=True)
+        if not fragment:
+            return None
+        verb = next((t for t in doc if t.pos_ == "VERB"), None)
+        if verb is not None:
+            # "and had hot chocolate" after "we made snow angels": about having the hot chocolate
+            if fragment_words[0].i != verb.i:
+                return None
+            combined_verb = combined[len(previous_doc) + verb.i]
+            subject = self.appraiser.subject(combined_verb)
+            who = self._reflect_token(subject) if subject is not None else ""
+            clause = f"{who} {fragment}".strip()
+            return self._appraisal_reply(combined, slots, user_id, policy, features, gentle,
+                                         clause=clause, kind_prefix="continuation",
+                                         root=combined_verb)
+        return self._appraisal_reply(combined, slots, user_id, policy, features, gentle,
+                                     clause=fragment, kind_prefix="continuation")
 
     def _pretend_reply(self, message: str) -> Optional[str]:
         """A line in a game of pretend: take the role the child gives, cheer the child's role, or keep it going"""
