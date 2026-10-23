@@ -122,6 +122,7 @@ export interface MessageMetadata {
   topics_extracted?: string[];
   points_awarded?: unknown[];
   activities_detected?: unknown[];
+  gibberish?: boolean;  // the message was keyboard mashing; the reply asks what they meant
 }
 
 export interface ChatMessage {

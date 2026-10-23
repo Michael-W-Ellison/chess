@@ -70,11 +70,15 @@ class EmojiQuirkService:
 
     # Words that make a sentence sad or difficult: use a caring emoji, not a cheerful one
     NEGATIVE_WORDS = {
-        "sorry", "sad", "hard", "tough", "frustrating", "upset", "worried", "worry", "sick",
+        "scary", "eek", "sorry", "sad", "hard", "tough", "frustrating", "upset", "worried", "worry", "sick",
         "hurt", "miss", "lonely", "scared", "angry", "mad", "wrong", "bad", "cry", "crying",
         "afraid", "nervous", "stressed", "awful", "terrible", "mean", "lost", "broke", "broken",
+        "hospital", "died", "dead", "funeral", "divorce", "injured", "fight", "fighting",
+        "buried", "lonely", "alone", "annoying", "stupid", "dumb", "ugly", "fever", "pain", "hurts",
+        "ouch", "oof", "sting", "stings", "nightmare", "nightmares", "worst", "trouble", "cracked", "spilled", "ripped", "ruined",
     }
     COMFORT_EMOJIS = ["💙", "🫂"]
+    PLAY_FIGHTS = {"pillow", "snowball", "water", "food", "nerf", "tickle", "play", "balloon"}
 
     def apply_emojis(self, text: str, mood: str = "happy", intensity: float = 0.5) -> str:
         """
@@ -128,13 +132,36 @@ class EmojiQuirkService:
                 matches.extend(emojis)
         return matches
 
-    def _is_negative(self, text: str) -> bool:
-        words = set(re.findall(r"[a-z']+", text.lower()))
-        return bool(words & self.NEGATIVE_WORDS) or "oh no" in text.lower()
+    def is_negative(self, text: str) -> bool:
+        """
+        True if the text is about something sad or difficult ("I wasn't scared" and "we were
+        laughing so hard" are not)
+        """
+        words = re.findall(r"[a-z']+", text.lower())
+        if any(re.match(r"(laugh|giggl|fun|happy|yay|haha|lol)", word) for word in words):
+            return False
+        for i, word in enumerate(words):
+            if word in self.NEGATIVE_WORDS and not (i > 0 and (words[i - 1] in ("not", "no", "never")
+                                                                 or words[i - 1].endswith(("n't", "nt")))):
+                if word.startswith("fight") and i > 0 and words[i - 1] in self.PLAY_FIGHTS:
+                    continue  # "a pillow fight"
+                if word == "lost" and ("tooth" in words or "teeth" in words):
+                    continue  # "I lost a tooth" is good news
+                if word == "hospital" and i > 0 and words[i - 1] in ("the", "a") and i > 1 and words[i - 2] in ("from", "left", "of"):
+                    continue  # "she came home from the hospital"
+                if word == "hard" and any(w.startswith(("stud", "work", "tri", "try", "practic", "train"))
+                                          for w in words[max(0, i - 3):i]):
+                    continue  # "I studied really hard"
+                return True
+        # "He scratched me", "the dog bit me": the child was hurt
+        if re.search(r"\b(scratched|bit|bitten|kicked|pinched|punched|hit|pushed|shoved|tripped) (me|my)\b",
+                     text.lower()):
+            return True
+        return "oh no" in text.lower()
 
     def _choose_emoji(self, sentence: str, mood: str) -> str:
         """Caring emoji for sad/difficult sentences, else a keyword emoji, else a mood emoji"""
-        if self._is_negative(sentence) or mood == "concerned":
+        if self.is_negative(sentence) or mood == "concerned":
             return random.choice(self.COMFORT_EMOJIS)
         return self._get_contextual_emoji(sentence, mood) or self._get_mood_emoji(mood)
 

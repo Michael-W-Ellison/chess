@@ -14,9 +14,6 @@ llama-cpp-python==0.2.32
 spacy>=3.8,<3.9
 en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
 
-# Vector Store (optional for semantic memory)
-chromadb==0.4.22
-
 # HTTP Requests
 httpx==0.26.0
 requests==2.31.0

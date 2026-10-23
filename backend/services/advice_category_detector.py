@@ -13,6 +13,13 @@ import logging
 logger = logging.getLogger("chatbot.advice_category_detector")
 
 
+# "my mom will help me", "she helped me": someone else helping the child
+_OTHERS_HELP_RE = re.compile(
+    r"\b(he|she|they|mom|dad|mommy|daddy|teacher|coach|sister|brother|friend|grandma|grandpa|parents)\b"
+    r"[\w' ]{0,20}\bhelp(s|ed|ing)? me\b"
+)
+
+
 class AdviceCategoryDetector:
     """
     Advice Category Detector - identifies and categorizes advice requests
@@ -278,9 +285,12 @@ class AdviceCategoryDetector:
             Tuple of (is_advice_request, confidence)
         """
         # Check if message matches advice-seeking patterns
+        # "She will help me study" tells about someone else helping; it asks nothing
+        others_help = bool(_OTHERS_HELP_RE.search(message)) and "?" not in message
+
         pattern_matches = 0
         for pattern in self.compiled_patterns:
-            if pattern.search(message):
+            if pattern.search(message) and not (others_help and pattern.pattern == r"\bhelp me\b"):
                 pattern_matches += 1
 
         # High confidence if multiple patterns match
@@ -299,6 +309,8 @@ class AdviceCategoryDetector:
 
         for keyword in explicit_keywords:
             if keyword in message:
+                if keyword == "help me" and others_help:
+                    continue
                 return True, 0.8
 
         return False, 0.0

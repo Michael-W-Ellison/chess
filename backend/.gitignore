@@ -58,5 +58,3 @@ htmlcov/
 .dmypy.json
 dmypy.json
 
-# ChromaDB
-chroma_db/

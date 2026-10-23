@@ -32,7 +32,6 @@ no_implicit_optional = true
 [[tool.mypy.overrides]]
 module = [
     "llama_cpp.*",
-    "chromadb.*",
     "better_profanity.*",
 ]
 ignore_missing_imports = true

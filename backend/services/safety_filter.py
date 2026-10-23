@@ -11,8 +11,9 @@ Integrates multiple specialized services:
 - SeverityScorer: Centralized severity scoring and classification
 """
 
-from typing import Dict, Optional
+from typing import Dict, Iterable, Optional
 import logging
+import re
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -27,8 +28,23 @@ from services.inappropriate_request_detector import inappropriate_request_detect
 from services.bullying_keyword_list import bullying_keyword_list
 from services.severity_scorer import severity_scorer
 from services.crisis_response_templates import crisis_response_templates
+from services import crisis_context
 
 logger = logging.getLogger("chatbot.safety_filter")
+
+# Bullying phrases that are also ordinary sibling complaints ("my sister takes my stuff")
+_TAKING_STUFF = {
+    "steals my stuff", "takes my stuff", "take my stuff", "took my stuff", "stole my stuff",
+    "steal my stuff",
+}
+_FAMILY_WORDS = {
+    "sister", "brother", "sis", "bro", "sibling", "siblings", "cousin", "cousins", "mom", "dad",
+    "mother", "father", "mommy", "daddy", "grandma", "grandpa", "stepsister", "stepbrother",
+}
+
+
+# "What if nobody likes me?": a worry about something that has not happened, not bullying
+_WHAT_IF_RE = re.compile(r"^\W*(but |and |so )?(what if|what happens if)\b", re.IGNORECASE)
 
 
 class SafetyFilter:
@@ -76,7 +92,8 @@ class SafetyFilter:
         logger.info("SafetyFilter initialized with all specialized services")
 
     def check_message(
-        self, message: str, user_id: Optional[int] = None
+        self, message: str, user_id: Optional[int] = None, resolved_message: Optional[str] = None,
+        recent_messages: Iterable[str] = (), known_people: Iterable[str] = (), force_crisis: bool = False,
     ) -> Dict:
         """
         Comprehensive safety check integrating all services
@@ -87,6 +104,13 @@ class SafetyFilter:
         Args:
             message: The message to check
             user_id: Optional user ID for violation tracking
+            resolved_message: The message with pronouns resolved ("she" -> "my little
+                sister Ava"), used to tell a sibling taking things from bullying and what
+                "them" is in "I'm scared of them"
+            recent_messages: The child's previous few messages ("beats me" after game talk)
+            known_people: Names of people the child mentioned recently
+            force_crisis: Skip the context check of crisis phrases (the child confirmed
+                that "beats me" means hitting)
 
         Returns:
             Dictionary with comprehensive safety check results:
@@ -130,7 +154,18 @@ class SafetyFilter:
         # PRIORITY 1: Crisis Detection (CRITICAL - HIGHEST PRIORITY)
         # ============================================================
         # Check for crisis keywords using specialized detector
-        if self.crisis_detector.contains_crisis_keywords(message):
+        # Phrases with everyday meanings are read in context (see services/crisis_context.py):
+        # "she beats me" at Mario Kart, "it makes me scared", "kids at school push me"
+        crisis_found = self.crisis_detector.contains_crisis_keywords(message)
+        context_decision = "crisis"
+        if crisis_found and not force_crisis:
+            found = self.crisis_detector.find_crisis_keywords(message)
+            if {f["category"] for f in found} <= {"abuse_physical", "abuse_emotional"}:
+                context_decision = crisis_context.classify(
+                    message, [f["keyword"] for f in found], recent_messages, resolved_message, known_people
+                )
+
+        if crisis_found and context_decision == "crisis":
             crisis_keywords_found = self.crisis_detector.find_crisis_keywords(message)
             crisis_category = self.crisis_detector.get_category(message)
             all_categories = self.crisis_detector.get_all_categories(message)
@@ -156,6 +191,27 @@ class SafetyFilter:
                 "all_categories": all_categories,
                 "keywords_found": crisis_keywords_found,
             }
+
+        elif crisis_found and context_decision == "clarify":
+            # "My sister always beats me": ask whether it means games or hitting
+            action = "clarify"
+            response_message = crisis_context.clarification_question(message)
+            details["crisis_context"] = {"decision": context_decision}
+
+        elif crisis_found and context_decision == "peer_bullying":
+            flags.append("bullying")
+            severity = self.severity_scorer.score_bullying_detection("physical", 1)
+            action = self.severity_scorer.get_action_recommendation(severity)
+            response_message = self.get_bullying_response()
+            details["crisis_context"] = {"decision": context_decision}
+            details["bullying"] = {"detected": True, "primary_category": "physical",
+                                   "all_categories": ["physical"], "keywords_found": []}
+
+        elif crisis_found and context_decision == "indirect_fear":
+            # "It makes me scared" (a storm, parents arguing): comfort and advice to tell a grown-up
+            action = "fear_support"
+            response_message = crisis_context.indirect_fear_reply(message, recent_messages, resolved_message)
+            details["crisis_context"] = {"decision": context_decision}
 
         # ============================================================
         # PRIORITY 2: Inappropriate Request Detection (MEDIUM to CRITICAL)
@@ -201,7 +257,9 @@ class SafetyFilter:
             # PRIORITY 4: Bullying Detection (MEDIUM)
             # ============================================================
             # Check for bullying if no other issues found
-            if not flags and self.bullying_detector.contains_bullying_keywords(message):
+            if (not flags and self.bullying_detector.contains_bullying_keywords(message)
+                    and not self._sibling_taking_things(message, resolved_message)
+                    and not _WHAT_IF_RE.match(message)):
                 bullying_keywords_found = self.bullying_detector.find_bullying_keywords(message)
                 bullying_category = self.bullying_detector.get_category(message)
                 all_bullying_categories = self.bullying_detector.get_all_categories(message)
@@ -273,6 +331,17 @@ If you're not sure who to talk to or if you're in immediate danger:
 - Childhelp National Child Abuse Hotline: 1-800-422-4453 (available 24/7)
 
 What you told me is important, and there are people who can help keep you safe. Please reach out to them. 💙"""
+
+    def _sibling_taking_things(self, message: str, resolved_message: Optional[str]) -> bool:
+        """
+        "My sister always takes my stuff": the only bullying words are about taking the
+        child's things, and the one doing it is family
+        """
+        found = self.bullying_detector.find_bullying_keywords(message)
+        if not found or not all(item["keyword"] in _TAKING_STUFF for item in found):
+            return False
+        words = set(re.findall(r"[a-z]+", f"{message} {resolved_message or ''}".lower()))
+        return bool(words & _FAMILY_WORDS)
 
     def get_bullying_response(self, user_name: str = "friend") -> str:
         """

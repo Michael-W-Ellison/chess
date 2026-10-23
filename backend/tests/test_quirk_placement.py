@@ -1,7 +1,7 @@
 """
 Tests for where personality quirks are placed in a reply
-Facts, puns and the catchphrase go before a closing question, so the reply still ends
-with the bot's question.
+A fact or pun is only added to a reply without a closing question, never to two replies in
+a row, and after the emojis; the catchphrase goes before a closing question.
 """
 
 from unittest.mock import Mock, patch
@@ -42,43 +42,56 @@ def always_fact():
         yield
 
 
-class TestJokesBeforeQuestions:
-    def test_pun_goes_before_closing_question(self, manager, always_pun):
+class TestJokePlacement:
+    @pytest.mark.parametrize("reply", [
+        "That's awesome! What was the best part?",
+        "Nice! Do you? What about you?",
+        "Wait, who do you mean?",
+        "That's awesome! Tell me more!",
+        "Cool! Tell me more about that. 😄",
+    ])
+    def test_reply_asking_a_question_gets_no_joke(self, manager, always_pun, always_fact, reply):
+        features = {}
         response = manager._apply_personality_filter(
-            "That's awesome! What was the best part?", make_personality(["tells_puns"]))
-        assert response == "That's awesome! PUN! What was the best part?"
-
-    def test_fact_goes_before_closing_question(self, manager, always_fact):
-        response = manager._apply_personality_filter(
-            "Cool! Do you like it?", make_personality(["shares_facts"]))
-        assert response == "Cool! FACT. Do you like it?"
-
-    def test_several_closing_questions_stay_together(self, manager, always_pun):
-        response = manager._apply_personality_filter(
-            "Nice! Do you? What about you?", make_personality(["tells_puns"]))
-        assert response == "Nice! PUN! Do you? What about you?"
+            reply, make_personality(["tells_puns", "shares_facts"]), features=features)
+        assert response == reply
+        assert "humor" not in features
 
     def test_question_inside_the_reply_is_not_moved(self, manager, always_pun):
         response = manager._apply_personality_filter(
             "You won your game? That's awesome!", make_personality(["tells_puns"]))
         assert response == "You won your game? That's awesome! PUN!"
 
-    def test_reply_without_question_still_ends_with_joke(self, manager, always_pun):
+    def test_reply_without_question_ends_with_joke(self, manager, always_pun):
         response = manager._apply_personality_filter("That's awesome!", make_personality(["tells_puns"]))
         assert response == "That's awesome! PUN!"
 
-    def test_reply_that_is_only_a_question_gets_no_joke(self, manager, always_pun, always_fact):
-        features = {}
-        response = manager._apply_personality_filter(
-            "Wait, who do you mean?", make_personality(["tells_puns", "shares_facts"]), features=features)
-        assert response == "Wait, who do you mean?"
-        assert "humor" not in features
-
     def test_humor_feature_is_recorded(self, manager, always_pun):
         features = {}
-        manager._apply_personality_filter(
-            "Cool! What's yours?", make_personality(["tells_puns"]), features=features)
+        manager._apply_personality_filter("Cool!", make_personality(["tells_puns"]), features=features)
         assert features["humor"] == "pun"
+
+    def test_no_jokes_in_two_replies_in_a_row(self, manager, always_pun):
+        personality = make_personality(["tells_puns"])
+        first = manager._apply_personality_filter("Cool!", personality)
+        second = manager._apply_personality_filter("Nice!", personality)
+        third = manager._apply_personality_filter("Great!", personality)
+        assert (first, second, third) == ("Cool! PUN!", "Nice!", "Great! PUN!")
+
+    def test_joke_cooldown_is_per_user(self, manager, always_pun):
+        manager._apply_personality_filter("Cool!", make_personality(["tells_puns"]))
+        assert manager._apply_personality_filter("Nice!", make_personality(["tells_puns"])) == "Nice! PUN!"
+
+    def test_emojis_never_split_a_joke(self, manager):
+        personality = make_personality(["tells_puns", "uses_emojis"])
+        personality.friendship_level = 10  # most emojis
+        with patch.object(ConversationManager, "_choose_joke", return_value="pun"), \
+                patch("services.conversation_manager.pun_quirk_service.add_pun",
+                      side_effect=lambda r, context="", probability=0.0: f"{r} Why did it cross? To get over!"):
+            for _ in range(50):
+                manager._joked_last_reply.clear()
+                response = manager._apply_personality_filter("That's awesome! You did great.", personality)
+                assert response.endswith("Why did it cross? To get over!")
 
 
 class TestCatchphrasePlacement:
@@ -162,10 +175,25 @@ class TestOneJokePerReply:
                  for f in getattr(FactQuirkService, n)]
         for _ in range(200):
             features = {}
+            manager._joked_last_reply.clear()
             response = manager._apply_personality_filter(
-                "That's awesome! What was the best part?", self.personality(), "soccer", features=features)
+                "That's awesome! You did great.", self.personality(), "soccer", features=features)
             has_pun = any(p[1:] in response for p in puns)
             has_fact = any(f[1:] in response for f in facts)
             assert not (has_pun and has_fact)
-            assert response.endswith("What was the best part?")
             assert "  " not in response
+
+
+def test_every_pun_has_a_lead_in():
+    from services.pun_quirk_service import pun_quirk_service
+    import random
+    random.seed(0)
+    for _ in range(50):
+        response = pun_quirk_service.add_pun("Cool!", probability=1.0)
+        assert response.split("Cool! ", 1)[1].startswith(("Oh, and here's", "Here's"))
+        assert "reminds me" not in response and "Speaking of which" not in response
+
+
+def test_name_introduction_gets_no_jokes():
+    from services.response_engine import response_engine
+    assert response_engine.rule_flag("name_is", "no_jokes")

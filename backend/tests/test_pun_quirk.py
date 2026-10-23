@@ -236,9 +236,9 @@ class TestPunTransitions:
         # Check if any have transition phrases
         has_transitions = any(
             "Oh, and here's a fun one" in r or
-            "Speaking of which" in r or
-            "That reminds me" in r or
-            "By the way" in r
+            "Here's a joke for you" in r or
+            "Here's one that always makes me laugh" in r or
+            "Here's a silly one" in r
             for r in results
         )
 

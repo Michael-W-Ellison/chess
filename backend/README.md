@@ -224,6 +224,12 @@ response engine instead of the LLM:
   (gendered relation words like "mom" or "brother" count as known), the bot asks which one
   instead of guessing. The stored message and any
   LLM prompt keep the child's original wording; references reset with each new conversation.
+- `services/gibberish_detector.py` recognizes keyboard mashing and random letters
+  ("asdfghjkl", "sdkjfh skdjfh", "jkjkjk"): words that are neither English (the spaCy
+  model's word lists) nor spelled like English (letter combinations that never occur in
+  English words, keyboard-row runs, repeated letters). The bot then asks what the child
+  meant; the message is not scored for engagement, remembered, or counted for friendship
+  points or achievements. Pronounceable made-up words ("blorp") are not flagged.
 - `services/advice_template_service.py` supplies advice from the seeded templates when a
   message asks for advice: the template whose keywords best match the message (rarer keywords
   weigh more), among those available at the child's friendship level and age. Without the LLM

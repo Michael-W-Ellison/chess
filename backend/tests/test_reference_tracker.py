@@ -337,6 +337,14 @@ class TestAmbiguousPeople:
     def test_gendered_relation_mentioned_together(self, engine):
         assert run(engine, "My sister and my brother fought", "He cried") == "My brother cried"
 
+    @pytest.mark.parametrize("first,second,expected", [
+        ("The dog's name is Roxie.", "She is a good dog", "My dog Roxie is a good dog"),
+        ("my dog's name is roxie", "I love her", "I love my dog Roxie"),
+        ("My mom's name is Sarah", "She is nice", "My mom Sarah is nice"),
+    ])
+    def test_named_relation(self, engine, first, second, expected):
+        assert run(engine, first, second) == expected
+
     def test_known_pronoun_is_not_ambiguous(self, engine):
         run(engine, "I played with Maya", "She was nice", "Maya and Jake came over")
         assert run(engine, "She was funny") == "Maya was funny"

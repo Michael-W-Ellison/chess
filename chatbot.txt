@@ -30,7 +30,6 @@ A safe, engaging desktop chatbot companion for preteens (ages 9-13) that develop
 - **API Framework**: FastAPI
 - **LLM**: Llama 3.2 3B or Phi-3 Mini (GGUF format via llama-cpp-python)
 - **Database**: SQLite with SQLAlchemy ORM
-- **Vector Store**: ChromaDB for semantic memory search (optional enhancement)
 
 #### Communication
 - **IPC**: Electron IPC for frontend-backend communication
@@ -477,8 +476,7 @@ def build_conversation_context(user_message):
     # Get recent conversation summary
     context['recent_messages'] = get_last_n_messages(10)
     
-    # Semantic search for relevant memories (if using vector DB)
-    # Or keyword-based search
+    # Keyword-based search for relevant memories
     keywords = extract_keywords(user_message)
     related_memories = search_memories(keywords, limit=5)
     context['relevant_memories'] = related_memories
