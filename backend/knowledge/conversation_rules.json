@@ -293,7 +293,10 @@
       "Oh no, {clause}? I'm sorry. Do you want to talk about it?",
       "Oh no, {clause}? I'm sorry to hear that. What happened?"
     ],
-    "reflection_gentle": ["{clause}? Thank you for telling me about that.", "{clause}? I'm listening."],
+    "reflection_gentle": [
+      "{clause}? Thank you for telling me. I'm here for you.",
+      "{clause}? I'm listening, and I'm right here with you."
+    ],
     "reflection_be": ["{clause}? Tell me more!", "Oh, {clause}? I didn't know that!"],
     "world_question": [
       "Great question! I don't know everything, but that would be fun to look up with a grown-up or in a book. What do you think?",
@@ -301,10 +304,141 @@
     ],
     "world_question_fact": ["I'm not sure about that, but here's something cool: {fact}"],
     "reflection_cant": ["Aw, {clause}? That's a bummer.", "Oh no, {clause}? That's too bad."],
-    "ambiguous_person_upset": ["Oh no, are you okay? Which one was it, {options}?"]
+    "ambiguous_person_upset": ["Oh no, are you okay? Which one was it, {options}?"],
+    "silly": ["{topic}? Hehe, that's so silly! You're funny.", "{topic}? Haha, what a silly combo!"]
   },
 
   "rules": [
+    {
+      "id": "hope_better",
+      "priority": 78,
+      "patterns": [[
+        {"RIGHT_ID": "hope", "RIGHT_ATTRS": {"LEMMA": {"IN": ["hope", "wish"]}}},
+        {"LEFT_ID": "hope", "REL_OP": ">", "RIGHT_ID": "get", "RIGHT_ATTRS": {"DEP": "ccomp", "LEMMA": {"IN": ["get", "feel"]}}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj"}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "better", "RIGHT_ATTRS": {"LOWER": "better"}}
+      ]],
+      "conditions": {"question": false},
+      "slots": {"subject": {"node": "subj", "span": "subtree", "capitalize": "names"}},
+      "no_jokes": true,
+      "responses": ["I hope so too! Sending lots of get-well wishes to {subject}."]
+    },
+    {
+      "id": "time_fragment",
+      "priority": 40,
+      "patterns": [[
+        {"RIGHT_ID": "t", "RIGHT_ATTRS": {"DEP": "ROOT", "LOWER": {"IN": ["week", "weekend", "month", "tomorrow", "tonight", "saturday", "sunday", "monday", "friday", "summer"]}}}
+      ]],
+      "conditions": {"max_tokens": 3, "question": false},
+      "responses": ["That's coming up soon! Are you excited?"]
+    },
+    {
+      "id": "want_to_experience",
+      "priority": 64,
+      "patterns": [[
+        {"RIGHT_ID": "want", "RIGHT_ATTRS": {"LEMMA": "want"}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "verb", "RIGHT_ATTRS": {"DEP": "xcomp", "LEMMA": {"IN": ["meet", "ride", "see", "visit", "try", "swim", "pet", "hug"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "want"},
+      "slots": {"clause": {"node": "verb", "span": "subtree"}},
+      "responses": ["Ooh, that would be so fun! I hope you get to {clause}!"]
+    },
+    {
+      "id": "person_scared_of",
+      "priority": 79,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": "@relations"}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "scared", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["scared", "afraid", "frightened"]}}},
+        {"LEFT_ID": "scared", "REL_OP": ">", "RIGHT_ID": "of", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": "of"}},
+        {"LEFT_ID": "of", "REL_OP": ">", "RIGHT_ID": "thing", "RIGHT_ATTRS": {"DEP": "pobj"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "be"},
+      "slots": {"subject": {"node": "subj", "span": "subtree"}, "thing": {"node": "thing", "span": "subtree"}},
+      "responses": ["Lots of people feel scared of {thing}. Maybe you can help {subject} feel brave!"]
+    },
+    {
+      "id": "not_scared",
+      "priority": 79,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "scared", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["scared", "afraid", "nervous"]}}}
+      ]],
+      "conditions": {"question": false, "max_tokens": 6},
+      "responses": ["Wow, you're brave! That's awesome."]
+    },
+    {
+      "id": "want_to_hear",
+      "priority": 88,
+      "patterns": [[
+        {"RIGHT_ID": "want", "RIGHT_ATTRS": {"LEMMA": "want"}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "hear", "RIGHT_ATTRS": {"DEP": "xcomp", "LEMMA": {"IN": ["hear", "see", "know"]}}},
+        {"LEFT_ID": "hear", "REL_OP": ">", "RIGHT_ID": "it", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["it", "this", "that", "mine"]}}}
+      ]],
+      "conditions": {"question": true},
+      "responses": ["Yes, please! I'd love to hear it!"],
+      "no_jokes": true
+    },
+    {
+      "id": "or_save",
+      "priority": 60,
+      "patterns": [[
+        {"RIGHT_ID": "save", "RIGHT_ATTRS": {"LEMMA": "save"}},
+        {"LEFT_ID": "save", "REL_OP": ">", "RIGHT_ID": "or", "RIGHT_ATTRS": {"DEP": "cc", "LOWER": "or"}}
+      ]],
+      "conditions": {"max_tokens": 5, "first_token": "or"},
+      "responses": ["Saving is smart too! You could spend a little and save the rest. What do you think?"]
+    },
+    {
+      "id": "said_sorry",
+      "priority": 70,
+      "patterns": [[
+        {"RIGHT_ID": "say", "RIGHT_ATTRS": {"LEMMA": {"IN": ["say", "tell"]}}},
+        {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+        {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "sorry", "RIGHT_ATTRS": {"LOWER": {"IN": ["sorry", "apologized"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "say"},
+      "responses": ["That was a really good thing to do. Saying sorry takes courage!"]
+    },
+    {
+      "id": "smarter_than_me",
+      "priority": 90,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "smart", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["smarter", "better", "cooler"]}}},
+        {"LEFT_ID": "smart", "REL_OP": ">", "RIGHT_ID": "than", "RIGHT_ATTRS": {"LOWER": "than"}}
+      ]],
+      "conditions": {"question": true},
+      "no_jokes": true,
+      "responses": [
+        "We're smart in different ways! I know lots of facts, but you can do things I can't, like run, play, and imagine. That's pretty amazing!"
+      ]
+    },
+    {
+      "id": "just_because",
+      "priority": 44,
+      "patterns": [[
+        {"RIGHT_ID": "because", "RIGHT_ATTRS": {"LOWER": {"IN": ["because", "cuz", "cause", "becuz"]}}}
+      ]],
+      "conditions": {"max_tokens": 2},
+      "responses": ["Hehe, just because! Sometimes that's the best reason."]
+    },
+    {
+      "id": "because_reason",
+      "priority": 45,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"POS": {"IN": ["VERB", "AUX"]}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "because", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": {"IN": ["because", "cuz", "cause"]}}}
+      ]],
+      "conditions": {"first_token": "because", "question": false},
+      "slots": {"clause": {"node": "verb", "span": "clause"}},
+      "responses": ["{clause}? That's a great reason!", "Ooh, that's a good reason! {clause}? Cool!"]
+    },
     {
       "id": "scary_but_fun",
       "priority": 62,
@@ -2258,7 +2392,7 @@
     {
       "id": "goal",
       "priority": 60,
-      "suppressed_by": ["crying", "offer_content", "name_someone"],
+      "suppressed_by": ["crying", "offer_content", "name_someone", "want_to_experience"],
       "patterns": [[
         {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["want", "hope", "plan", "wish"]}}},
         {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
@@ -4207,7 +4341,8 @@
       "conditions": {"question": true},
       "slots": {"x": {"node": "x", "span": "noun_phrase"}, "y": {"node": "y", "span": "noun_phrase"}},
       "compute": ["bot_pick"],
-      "responses": ["Hmm, tough one! I'd pick {bot_pick}. What about you?", "I think I'd choose {bot_pick}! Which one do you like better?"]
+      "responses": ["Hmm, tough one! I'd pick {bot_pick}. What about you?", "I think I'd choose {bot_pick}! Which one do you like better?"],
+      "suppressed_by": ["smarter_than_me"]
     },
     {
       "id": "person_better",
@@ -4221,7 +4356,8 @@
       "conditions": {"question": false, "not_negated": "verb"},
       "slots": {"subject": {"node": "subj", "span": "subtree"}},
       "valence": "positive",
-      "responses": ["Yay, I'm so glad {subject} is feeling better!"]
+      "responses": ["Yay, I'm so glad {subject} is feeling better!"],
+      "suppressed_by": ["hope_better"]
     },
     {
       "id": "other_feeling",
@@ -4256,7 +4392,7 @@
           "default": ["{person} {be} {emotion}? Thanks for telling me. Do you know why?"]
         }
       },
-      "suppressed_by": ["good_at", "person_better"]
+      "suppressed_by": ["good_at", "person_better", "person_scared_of"]
     },
     {
       "id": "comparison_better",

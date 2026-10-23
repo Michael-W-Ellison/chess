@@ -193,7 +193,8 @@ _TITLES = {
     "saturn": "Saturn", "jupiter": "Jupiter", "mars": "Mars", "venus": "Venus", "neptune": "Neptune",
     "uranus": "Uranus", "pluto": "Pluto", "halloween": "Halloween", "christmas": "Christmas",
     "easter": "Easter", "thanksgiving": "Thanksgiving", "hanukkah": "Hanukkah", "diwali": "Diwali",
-    "kit kat": "Kit Kat", "kitkat": "KitKat", "skittles": "Skittles", "m&ms": "M&Ms", "reeses": "Reese's",
+    "mickey": "Mickey", "minnie": "Minnie", "elsa": "Elsa", "space mountain": "Space Mountain",
+    "disney": "Disney", "legoland": "LEGOLAND", "kit kat": "Kit Kat", "kitkat": "KitKat", "skittles": "Skittles", "m&ms": "M&Ms", "reeses": "Reese's",
 }
 _TITLES_RE = re.compile(r"\b(" + "|".join(re.escape(t) for t in sorted(_TITLES, key=len, reverse=True)) + r")\b")
 # "its math" (a whole message): "it's math"

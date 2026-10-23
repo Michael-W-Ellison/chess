@@ -121,6 +121,17 @@ class TestNewRules:
         ("halloween is soon", "holiday_soon"),
         ("christmas is coming", "holiday_soon"),
         ("what would you be", "what_would_you_be"),
+        ("because it has rings", "because_reason"),
+        ("because", "just_because"),
+        ("next week", "time_fragment"),
+        ("i want to meet mickey", "want_to_experience"),
+        ("my brother is scared of roller coasters", "person_scared_of"),
+        ("im not scared", "not_scared"),
+        ("do you want to hear it", "want_to_hear"),
+        ("i hope my dog gets better", "hope_better"),
+        ("my grandma is feeling better", "person_better"),
+        ("i said sorry", "said_sorry"),
+        ("are you smarter than me", "smarter_than_me"),
         ("coach said I did great", "praise_reported"),
         ("not much you", "not_much"),
         ("yes", "yes_no"),
@@ -479,6 +490,19 @@ class TestReferences:
     def test_no_jokes_after_bot_identity_answers(self, engine):
         assert engine.rule_flag("bot_identity_question", "no_jokes")
 
+    def test_silly_combination(self, engine):
+        assert rule_of(engine, "purple monkey dishwasher")[0] == "fallback_silly"
+        assert rule_of(engine, "red fire truck")[0] != "fallback_silly"
+
+    def test_applause_after_hearing_a_line(self, engine):
+        rule_of(engine, "do you want to hear it")
+        assert rule_of(engine, "i am a tall tree")[0] == "performance"
+
+    def test_or_save_it(self, engine):
+        for message in ("i got 5 dollars", "i want to buy a toy"):
+            rule_of(engine, message)
+        assert rule_of(engine, "or save it")[0] == "or_save"
+
     def test_rule_ids_are_unique(self, engine):
         ids = [r["id"] for r in engine.kb["rules"]]
         assert len(ids) == len(set(ids))
@@ -761,6 +785,7 @@ class TestNormalization:
         ("im playing fur elise", "I'm playing Für Elise"),
         ("i like frozen yogurt", "I like frozen yogurt"),
         ("my favorite planet is saturn", "my favorite planet is Saturn"),
+        ("i want to meet mickey", "I want to meet Mickey"),
         ("named after my grandpa", "named after my grandpa"),
         ("I feel ill", "I feel ill"),
         ("ur weird", "you're weird"),

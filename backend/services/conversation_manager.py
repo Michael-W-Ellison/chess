@@ -82,6 +82,10 @@ _CHEERFUL_RE = re.compile(r"\b(laugh\w*|fun|happy|great|awesome|excited|yay|haha
 
 # Advice by topic when no advice template matches (checked in order)
 GENERIC_ADVICE_BY_TOPIC = [
+    (r"\b(money|dollars?|save|saving|spend|allowance)\b", [
+        "That's a big choice! You could buy something small now and save the rest, or save it all for something "
+        "bigger later. What would make you happiest?",
+    ]),
     (r"\b(speech|presentation|present|recital|perform\w*|stage|audition|tryouts?)\b", [
         "Lots of people get nervous about that! Try practicing a few times in front of your family or a mirror, "
         "and take slow, deep breaths before you start. You've got this! What part feels scariest?",

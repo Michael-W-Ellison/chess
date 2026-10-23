@@ -129,6 +129,15 @@ RIDDLES = [
 ]
 _KNOCK_KNOCK_RE = re.compile(r"^\W*knock,? knock\W*$", re.IGNORECASE)
 
+# Kinds of words that make a silly combination when mixed ("purple monkey dishwasher")
+_SILLY_GROUPS = {
+    "color": {"red", "orange", "yellow", "green", "blue", "purple", "pink", "brown", "black", "white", "rainbow"},
+    "animal": {"monkey", "cat", "dog", "pig", "cow", "duck", "chicken", "llama", "unicorn", "dinosaur", "fish",
+               "frog", "elephant", "giraffe", "penguin", "banana", "potato", "taco", "pickle", "noodle"},
+    "object": {"dishwasher", "toaster", "sock", "spoon", "fridge", "toilet", "shoe", "chair", "lamp", "pants",
+               "underwear", "bucket", "couch", "microwave", "spaceship", "robot"},
+}
+
 # Things someone (or a pet) can do that hurt the child: "He scratched me"
 _HURT_VERBS = {"scratch", "bite", "hit", "push", "kick", "hurt", "pinch", "bump", "punch", "slap", "trip", "shove"}
 
@@ -258,7 +267,9 @@ class ResponseEngine:
         """
         if not self.is_available():
             return
-        if _CHOICE_OFFER_RE.search(reply):
+        if "I'd love to hear it" in reply:
+            self._offered[user_id] = "listen"  # the child's next message is the line, song or poem
+        elif _CHOICE_OFFER_RE.search(reply):
             self._offered[user_id] = "choice"
         elif _JOKE_OFFER_RE.search(reply):
             self._offered[user_id] = "joke"
@@ -889,6 +900,10 @@ class ResponseEngine:
 
         # "Want to hear a funny joke?" / "Want another one?" - "yes"
         offered = self._offered.pop(user_id, None)
+        if offered == "listen" and not analysis.is_question and len(message.split()) <= 25:
+            if features is not None:
+                features["rule"] = "performance"
+            return self._apply_style("Bravo! That was great! You're going to do awesome.", personality)
         kind = "joke" if offered in ("joke", "choice") else self._last_request.get(user_id) if offered else None
         chosen = re.search(r"\b(joke|riddle|fact)s?\b", message, re.IGNORECASE) if offered == "choice" else None
         if chosen and len(message.split()) <= 6:
@@ -1148,7 +1163,7 @@ class ResponseEngine:
         # and replies repeating back the child's news ("The present was a book about sharks?")
         if flag == "no_jokes" and rule_id and (
                 rule_id.startswith(("fallback_world", "fallback_reflection", "fallback_long_reflection", "fallback_fragment"))
-                or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes", "spelling")):
+                or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes", "spelling", "performance")):
             return True
         return bool(rule_id and self.rules.get(rule_id, {}).get(flag))
 
@@ -1322,6 +1337,12 @@ class ResponseEngine:
             chunks = [c for c in doc.noun_chunks if c.root.pos_ != "PRON"]
             if chunks:
                 slots["topic"] = self._join(list(chunks[-1]), reflect=True)
+                # "purple monkey dishwasher": words that don't go together, said for fun
+                words = [t.lower_ for t in doc if t.is_alpha]
+                kinds = {kind for word in words for kind, group in _SILLY_GROUPS.items() if word in group}
+                if 3 <= len(words) <= 5 and len(kinds) >= 2 and not any(t.pos_ in ("VERB", "AUX", "DET") for t in doc):
+                    slots["topic"] = slots["topic"][:1].upper() + slots["topic"][1:]
+                    return pick("silly").format_map(slots), "positive", "silly"
                 return pick("topic").format_map(slots), "neutral", "topic"
 
         return pick("generic"), "neutral", "generic"
