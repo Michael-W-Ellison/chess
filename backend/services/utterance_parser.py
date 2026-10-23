@@ -228,6 +228,11 @@ _TITLES = {
     "disney": "Disney", "legoland": "LEGOLAND", "kit kat": "Kit Kat", "kitkat": "KitKat", "skittles": "Skittles", "m&ms": "M&Ms", "reeses": "Reese's",
 }
 _TITLES_RE = re.compile(r"\b(" + "|".join(re.escape(t) for t in sorted(_TITLES, key=len, reverse=True)) + r")\b")
+_NOT_SUBJECT_WORDS = {"then", "now", "so", "yes", "no", "well", "okay", "ok", "also", "today", "yesterday",
+                      "tonight", "later", "after", "first", "next", "finally", "there", "here", "just"}
+_ME_AND_RE = re.compile(r"(^|[.!?] )me and ((?:my |our )?(?!my\b|our\b)[a-z]+)(?= [a-z])", re.IGNORECASE)
+_WEEKDAY_RE = re.compile(r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|april|"
+                         r"june|july|august|september|october|november|december)\b")
 # "its math" (a whole message): "it's math"
 _ITS_ALONE_RE = re.compile(r"^its (?=[a-z]*[a-rt-z][.!]*$)", re.IGNORECASE)  # not "its wings"
 # "mr kim" -> "Mr Kim", so the parser reads a name
@@ -245,7 +250,9 @@ def repair_parse(doc):
     for sentence in list(doc.sents):
         root = sentence.root
         helper = next((c for c in root.children if c.dep_ == "aux" and c.lemma_ == "have"), None)
-        subject = next((c for c in root.children if c.dep_ == "nsubj"), None)
+        # The subject on the noun ("the cupcakes had sprinkles") or on "had" ("they had sprinkles")
+        subject = next((c for c in root.children if c.dep_ == "nsubj"), None) or (
+            next((c for c in helper.children if c.dep_ == "nsubj"), None) if helper is not None else None)
         # "I had eaten" (a real helper) has a past participle; "had sprinkles" does not
         if helper is None or subject is None or root.tag_ in ("VBN", "VBG") or helper.i > root.i:
             continue
@@ -265,7 +272,196 @@ def repair_parse(doc):
             root.pos_ = "NOUN"
             root.tag_ = "NNS" if root.text.lower().endswith("s") else "NN"
     _repair_objects(doc)
+    _repair_tags(doc)
     return doc
+
+
+# Words the model tags as names when written in lowercase, though they are not names
+_INTERJECTIONS = {"lol", "haha", "hahaha", "hehe", "lmao", "omg", "sup", "yay", "wow", "ugh", "yikes", "oops", "hmm",
+                  "ok", "okay", "yep", "nope", "yeah", "aww", "aw", "woohoo", "brb", "idk", "jk"}
+_COMMON_NOUNS = {"heaven", "pizza", "taco", "tacos", "banana", "bananas", "cookie", "cookies", "candy", "cake",
+                 "school", "home", "park", "zoo", "beach", "pool", "recess", "lunch", "dinner", "breakfast",
+                 "homework", "math", "art", "science", "music", "soccer", "basketball", "football", "baseball",
+                 "chess", "legos", "lego", "slime", "pancakes", "nuggets", "fries", "spaghetti", "dinosaurs"}
+_WEEKDAYS_AND_MONTHS = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "january",
+                        "february", "march", "april", "june", "july", "august", "september", "october",
+                        "november", "december"}
+# Base forms of verbs, and irregular verb forms with their base ("swam" -> "swim"), from the
+# model's lemmatizer tables (set when the model loads)
+_VERBS: set = set()
+_IRREGULAR_VERBS: dict = {}
+# People and animals a child names as the subject: "my dog snores", "the baby cries"
+_ANIMATE = {"dog", "cat", "puppy", "kitten", "baby", "brother", "sister", "mom", "dad", "mommy", "daddy", "friend",
+            "grandma", "grandpa", "teacher", "bird", "fish", "hamster", "bunny", "horse", "cousin", "uncle", "aunt",
+            "coach", "neighbor", "dogs", "cats", "birds", "kids", "boy", "girl",
+            # Body parts: "my knee tickles", "my tummy hurts"
+            "tummy", "knee", "head", "arm", "leg", "foot", "tooth", "throat", "ear", "nose", "eye", "back", "hand",
+            "finger", "toe", "stomach", "belly", "skin"}
+_QUESTION_AUX = {"do", "does", "did", "can", "could", "will", "would", "should"}
+_COPULAS = {"is", "are", "was", "were", "am", "'s", "'re", "'m"}
+
+
+def _verb_base(word: str):
+    """ "snores" -> "snore", "swam" -> "swim", "chases" -> "chase"; None if not a verb form"""
+    if word in _IRREGULAR_VERBS:
+        return _IRREGULAR_VERBS[word]
+    if word.endswith("s"):
+        for base in (word[:-1], word[:-2], word[:-3] + "y" if word.endswith("ies") else None):
+            if base and base in _VERBS:
+                return base
+    return None
+
+
+def _repair_compound_subject(sentence) -> None:
+    """
+    "my dog snores", "jake hugs", "the baby cries": the subject read as a compound on a plural
+    "noun" that is really the verb
+    """
+    root = sentence.root
+    if root.pos_ != "NOUN" or any(c.dep_ in ("nsubj", "nsubjpass") for c in root.children):
+        return
+    base = _verb_base(root.lower_)
+    if base is None:
+        return
+    subject = next((c for c in root.children if c.dep_ in ("compound", "amod") and c.i == root.i - 1
+                    and (c.lower_ in _ANIMATE or c.pos_ == "PROPN")), None)
+    if subject is None:
+        return
+    for child in list(root.children):
+        # "my" and "the" belong to the subject
+        if child.dep_ in ("poss", "det") and child.i < subject.i:
+            child.head = subject
+    subject.dep_, subject.pos_ = "nsubj", ("PROPN" if subject.pos_ == "PROPN" else "NOUN")
+    tag = "VBD" if root.lower_ in _IRREGULAR_VERBS and not root.lower_.endswith("s") else "VBZ"
+    root.pos_, root.tag_, root.lemma_ = "VERB", tag, base
+
+
+def _repair_question_verb(sentence) -> None:
+    """
+    "can fish swim", "do dogs dance", "how do dogs bark": the subject read as the verb and the
+    verb as its object. The verb becomes the root, the subject its subject.
+    """
+    words = [t for t in sentence if not t.is_punct]
+    start = 1 if words and words[0].tag_ in ("WRB", "WP") else 0
+    if len(words) < start + 3 or words[start].lower_ not in _QUESTION_AUX:
+        return
+    aux, subject, verb = words[start], words[start + 1], words[start + 2]
+    if verb.lower_ not in _VERBS or verb.pos_ == "VERB" and verb.dep_ == "ROOT":
+        return
+    if subject.lower_ in ("you", "i", "we", "they", "he", "she", "it"):
+        return  # pronoun subjects parse fine
+    if subject.dep_ not in ("ROOT", "dobj", "compound", "nsubj") or verb.dep_ not in ("dobj", "ROOT", "npadvmod",
+                                                                                   "compound", "conj", "xcomp"):
+        return
+    rest = [t for t in sentence if t.i != verb.i]
+    verb.head, verb.dep_, verb.pos_, verb.tag_, verb.lemma_ = verb, "ROOT", "VERB", "VB", verb.lower_
+    for token in rest:
+        if token.i == subject.i:
+            token.head, token.dep_ = verb, "nsubj"
+            token.pos_ = "PROPN" if token.pos_ == "PROPN" else "NOUN"
+            token.tag_ = "NNS" if token.lower_.endswith("s") else "NN"
+        elif token.i == aux.i:
+            token.head, token.dep_, token.pos_ = verb, "aux", "AUX"
+        elif token.i < aux.i:
+            token.head, token.dep_ = verb, "advmod"  # "how"
+        elif token.head.i in (subject.i, aux.i) or token.dep_ == "ROOT":
+            token.head = verb
+
+
+def _repair_tags(doc) -> None:
+    """
+    Part-of-speech errors of the small model on children's messages:
+    "lol", "haha" read as names; "tacos", "heaven" read as names when lowercase;
+    "do you like pizza" with "like" as a preposition; "how do fish sleep" and "my tummy
+    hurts" with the verb read as a noun; "why is the sky blue" with "is" as a helper verb
+    """
+    for token in doc:
+        lower = token.lower_
+        if token.pos_ == "PROPN" and token.is_lower and lower in _INTERJECTIONS:
+            token.pos_, token.tag_ = "INTJ", "UH"
+        elif token.pos_ == "PROPN" and token.is_lower and lower in _COMMON_NOUNS:
+            token.pos_ = "NOUN"
+            token.tag_ = "NNS" if lower.endswith("s") else "NN"
+        # "can fish go to heaven": a subject is not a finite verb ("swimming is fun" is a gerund, VBG)
+        if token.dep_ in ("nsubj", "nsubjpass") and token.pos_ == "VERB" and token.tag_ != "VBG" and not any(
+                c.dep_ in ("nsubj", "aux", "dobj") for c in token.children):
+            token.pos_ = "NOUN"
+            token.tag_ = "NNS" if lower.endswith("s") else "NN"
+        # "lol just kidding": an interjection, not the subject
+        if token.pos_ == "INTJ" and token.dep_ == "nsubj":
+            token.dep_ = "intj"
+        # "do you like pizza": "like" with a subject is the verb
+        if token.lemma_ in ("like", "love") and token.pos_ == "ADP" and any(
+                c.dep_ == "nsubj" for c in token.children):
+            token.pos_, token.tag_ = "VERB", "VBP"
+    for token in doc:
+        # "I like jumping": "like" read as a helper of the gerund
+        if token.lemma_ in ("like", "love", "hate", "enjoy") and token.dep_ == "aux" and token.head.tag_ in ("VBG", "VB"):
+            verb = token.head
+            subject = next((c for c in verb.children if c.dep_ == "nsubj"), None)
+            head = verb.head if verb.dep_ != "ROOT" else token
+            token.head, token.dep_ = head, verb.dep_ if verb.dep_ != "ROOT" else "ROOT"
+            token.pos_, token.tag_ = "VERB", "VBP"
+            verb.head, verb.dep_ = token, "xcomp"
+            if subject is not None:
+                subject.head = token
+        # "I love to camp", "I have to camp": the verb after "to" read as a noun
+        if token.pos_ == "NOUN" and token.lower_ in _VERBS and not any(c.dep_ in ("det", "poss", "amod") for c in token.children):
+            to = None
+            if token.dep_ == "xcomp" and any(c.lower_ == "to" for c in token.children):
+                to = next(c for c in token.children if c.lower_ == "to")
+            elif token.dep_ == "pobj" and token.head.lower_ == "to" and token.head.head.lemma_ in (
+                    "love", "like", "want", "need", "try", "hate", "have", "get", "learn", "wanna"):
+                to = token.head
+                token.head, token.dep_ = to.head, "xcomp"
+                to.head, to.dep_ = token, "aux"
+            if to is not None or (token.dep_ == "ccomp" and token.head.lemma_ == "let"):
+                # also "let's race": the suggested activity is a verb
+                token.pos_, token.tag_, token.lemma_ = "VERB", "VB", token.lower_
+    for sentence in doc.sents:
+        # "maya and I went": the name is a subject too, not a modifier
+        words = [t for t in sentence]
+        if (len(words) > 3 and words[0].dep_ in ("npadvmod", "compound", "nmod", "advmod")
+                and words[0].pos_ in ("PROPN", "NOUN", "ADV") and words[0].lower_ not in _NOT_SUBJECT_WORDS
+                and words[1].lower_ == "and" and words[2].lower_ in ("i", "we") and words[2].dep_ == "nsubj"):
+            name, conj, me = words[0], words[1], words[2]
+            verb = me.head
+            name.head, name.dep_ = verb, "nsubj"
+            if name.pos_ == "ADV":
+                name.pos_, name.tag_ = "PROPN", "NNP"
+            conj.head, conj.dep_ = name, "cc"
+            me.head, me.dep_ = name, "conj"
+        _repair_question_verb(sentence)
+        _repair_compound_subject(sentence)
+        root = sentence.root
+        subjects = [c for c in root.children if c.dep_ in ("nsubj", "nsubjpass")]
+        # "how do fish sleep", "can dogs swim": a helper verb on a "noun" root makes it a verb
+        if root.pos_ == "NOUN" and any(c.dep_ == "aux" and c.lower_ in ("do", "does", "did", "can", "could", "will",
+                                                                        "would", "should") for c in root.children):
+            root.pos_, root.tag_ = "VERB", "VB"
+            for subject in subjects:
+                if subject.pos_ == "VERB":
+                    subject.pos_ = "NOUN"
+                    subject.tag_ = "NNS" if subject.lower_.endswith("s") else "NN"
+        # "my tummy hurts", "my mom swam": a verb read as a noun
+        elif (root.pos_ in ("NOUN", "ADJ") and subjects and _verb_base(root.lower_)
+              and not any(c.dep_ in ("det", "poss", "amod", "compound") for c in root.children)):
+            base = _verb_base(root.lower_)
+            if base:
+                tag = "VBD" if root.lower_ in _IRREGULAR_VERBS and not root.lower_.endswith("s") else "VBZ"
+                root.pos_, root.tag_, root.lemma_ = "VERB", tag, base
+                for subject in subjects:
+                    if subject.pos_ == "ADJ":
+                        subject.pos_, subject.tag_ = "NOUN", "NN"
+        # "why is the sky blue": "is" as a helper of "blue"; make it the verb, "blue" its complement
+        elif root.pos_ == "ADJ" and subjects:
+            copula = next((c for c in root.children if c.dep_ == "aux" and c.lower_ in _COPULAS), None)
+            if copula is not None:
+                copula.head, copula.dep_, copula.pos_ = copula, "ROOT", "AUX"
+                for child in list(root.children):
+                    if child.i != copula.i and child.dep_ in ("nsubj", "advmod", "neg", "punct", "aux", "mark"):
+                        child.head = child.head if child.i == copula.i else copula
+                root.head, root.dep_ = copula, "acomp"
 
 
 # Past forms the parser sometimes reads as nouns
@@ -304,6 +500,12 @@ def _repair_objects(doc) -> None:
                 and not any(c.dep_ in ("attr", "acomp") for c in token.head.children)):
             token.dep_, token.pos_ = "attr", "NOUN"
             token.tag_ = "NNS" if token.lower_.endswith("s") else "NN"
+            continue
+        # "let's go swimming": the activity after the verb read as punctuation
+        if (token.dep_ == "punct" and token.is_alpha and token.lower_.endswith("ing") and token.i > 0
+                and doc[token.i - 1].pos_ in ("VERB", "AUX")):
+            token.head, token.dep_ = doc[token.i - 1], "xcomp"
+            token.pos_, token.tag_ = "VERB", "VBG"
             continue
         # "Do you like pancakes": "like" read as an interjection on "pancakes"
         if (token.dep_ == "intj" and token.lemma_ in ("like", "love", "want", "hate") and token.head.dep_ == "ROOT"
@@ -361,6 +563,21 @@ def _repair_objects(doc) -> None:
                 token.dep_ = "nsubj"
 
 
+def _load_verbs(nlp) -> None:
+    """Base forms of verbs from the lemmatizer's tables, for _repair_tags"""
+    try:
+        if "lemmatizer" in nlp.pipe_names:
+            lookups = nlp.get_pipe("lemmatizer").lookups
+            if lookups.has_table("lemma_index"):
+                _VERBS.update(lookups.get_table("lemma_index")["verb"])
+            if lookups.has_table("lemma_exc"):
+                for form, lemmas in lookups.get_table("lemma_exc")["verb"].items():
+                    if lemmas:
+                        _IRREGULAR_VERBS[form] = lemmas[0]
+    except Exception as e:  # tables differ between model versions
+        logger.warning(f"Could not read verb forms: {e}")
+
+
 class UtteranceParser:
     """Lazily loads spaCy and parses normalized user messages"""
 
@@ -380,6 +597,7 @@ class UtteranceParser:
                 import spacy
 
                 self._nlp = spacy.load(self.model_name)
+                _load_verbs(self._nlp)
                 logger.info(f"Loaded spaCy model {self.model_name}")
             except Exception as e:  # ImportError or missing model (OSError)
                 self._load_failed = True
@@ -418,7 +636,13 @@ class UtteranceParser:
         text = _NAMES_ARE_RE.sub(lambda m: f"{m.group(1)} {m.group(2).capitalize()} and {m.group(3).capitalize()}", text)
         text = _PLACES_RE.sub(lambda m: m.group(1).title(), text)
         text = _TITLES_RE.sub(lambda m: _TITLES[m.group(1)], text)
+        # "on saturday" -> "on Saturday" ("may" and "march" are also words, so they stay)
+        text = _WEEKDAY_RE.sub(lambda m: m.group(1).capitalize(), text)
         text = _ITS_ALONE_RE.sub("it's ", text)
+        # "lets fish" at the start: "let's fish"
+        text = re.sub(r"^lets\b", "let's", text, flags=re.IGNORECASE)
+        # "me and lily played tag" -> "lily and I played tag" (the parser reads "me and" badly)
+        text = _ME_AND_RE.sub(lambda m: f"{m.group(1)}{m.group(2)} and I", text)
         text = _TITLE_RE.sub(lambda m: f"{m.group(1).capitalize()} {m.group(2).upper()}", text)
         # "what's your name and how old are you": two questions, answered one by one
         if _QUESTION_START_RE.match(text):

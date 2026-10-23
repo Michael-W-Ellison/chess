@@ -553,6 +553,55 @@
       "responses": ["Ooh, I love pretend! Who should we be?"]
     },
     {
+      "id": "lets_activity",
+      "priority": 45,
+      "patterns": [[
+        {"RIGHT_ID": "let", "RIGHT_ATTRS": {"LOWER": "let", "DEP": "ROOT"}},
+        {"LEFT_ID": "let", "REL_OP": ">", "RIGHT_ID": "act", "RIGHT_ATTRS": {"DEP": "ccomp", "POS": "VERB", "LEMMA": {"NOT_IN": ["talk", "chat", "be", "pretend"]}}},
+        {"LEFT_ID": "act", "REL_OP": ">", "RIGHT_ID": "us", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["'s", "us", "s"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "act", "max_tokens": 8},
+      "slots": {"activity": {"node": "act", "span": "predicate"}},
+      "no_jokes": true,
+      "responses": [
+        "I wish I could {activity} with you! I can't from in here, but you can tell me all about it. Or we could play a game!"
+      ]
+    },
+    {
+      "id": "lets_be_friends",
+      "priority": 70,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "us", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["'s", "us", "s"]}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "attr", "LEMMA": {"IN": ["friend", "bff"]}}}
+      ]],
+      "conditions": {"not_negated": "be"},
+      "responses": ["Yes! We're friends! What do you like to do with your friends?"]
+    },
+    {
+      "id": "talk_about",
+      "priority": 70,
+      "patterns": [
+        [
+          {"RIGHT_ID": "talk", "RIGHT_ATTRS": {"LEMMA": {"IN": ["talk", "chat"]}}},
+          {"LEFT_ID": "talk", "REL_OP": ">", "RIGHT_ID": "us", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["'s", "us", "s", "we"]}}},
+          {"LEFT_ID": "talk", "REL_OP": ">", "RIGHT_ID": "about", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": "about"}},
+          {"LEFT_ID": "about", "REL_OP": ">", "RIGHT_ID": "topic", "RIGHT_ATTRS": {"DEP": "pobj"}}
+        ],
+        [
+          {"RIGHT_ID": "want", "RIGHT_ATTRS": {"LEMMA": {"IN": ["want", "wanna"]}}},
+          {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+          {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "talk", "RIGHT_ATTRS": {"DEP": "xcomp", "LEMMA": {"IN": ["talk", "chat"]}}},
+          {"LEFT_ID": "talk", "REL_OP": ">", "RIGHT_ID": "about", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": "about"}},
+          {"LEFT_ID": "about", "REL_OP": ">", "RIGHT_ID": "topic", "RIGHT_ATTRS": {"DEP": "pobj"}}
+        ]
+      ],
+      "conditions": {"not_past": "talk", "not_negated": "talk"},
+      "slots": {"topic": {"node": "topic", "span": "subtree"}},
+      "no_jokes": true,
+      "responses": ["Sure, let's talk about {topic}! What do you want to tell me?"]
+    },
+    {
       "id": "makes_sense",
       "priority": 50,
       "patterns": [[
