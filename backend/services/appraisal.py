@@ -133,6 +133,13 @@ class Appraiser:
                 any(t.lower_ == "accident" for t in sentence):
             appraisal.notes["accident"] = "yes"
         appraisal.modality = self._modality(event, root, sentence)
+        if appraisal.modality in (WANT, HOPE):
+            # "my mom wants to talk about my grades": someone else's wish, not the child's
+            chain = [event] + [a for a in event.ancestors if a.sent == sentence][:3]
+            wish = next((v for v in chain if v.lemma_ in _HOPE_VERBS | _WANT_VERBS | {"wish"}), None)
+            wisher = next((c for c in wish.children if c.dep_ == "nsubj"), None) if wish is not None else None
+            if wisher is not None and wisher.lower_ not in ("i", "we", "me"):
+                appraisal.notes["wanter"] = "other"
         appraisal.negated = self._negated(event) or (event.i != root.i and self._negated(root))
         appraisal.tense = self._tense(event, appraisal.modality)
         appraisal.valence = self._valence(appraisal)
@@ -197,6 +204,9 @@ class Appraiser:
             place = next((g for c in verb.children if c.dep_ == "prep" for g in c.children if g.dep_ == "pobj"), None)
             if place is not None and place.lemma_.lower() in self.chore_places:
                 return None
+        # "the power went out", "the plane flew": things moving are not an outing
+        if action == "fun" and self._role(self._subject(verb)) == "thing":
+            return None
         # "My mom made me soup", "I made him a card": made for someone
         if action == "achieve" and any(c.dep_ == "dative" for c in verb.children):
             return "kindness"
@@ -226,8 +236,9 @@ class Appraiser:
         if lower in _PERSON_PRONOUNS:
             return "person"
         lemma = token.lemma_.lower()
-        if lower in self._pet_names or lemma in self.pets or any(
-                c.lemma_.lower() in self.pets for c in token.children if c.dep_ in ("compound", "amod")):
+        # "my dog Max" is a pet; "my dog food" is not
+        if lower in self._pet_names or lemma in self.pets or (token.pos_ == "PROPN" and any(
+                c.lemma_.lower() in self.pets for c in token.children if c.dep_ in ("compound", "amod"))):
             return "pet"
         if lemma in self.relations or token.ent_type_ == "PERSON" or token.pos_ == "PROPN":
             return "person"
@@ -278,7 +289,7 @@ class Appraiser:
                 return WANT  # "I wish I had a puppy"
             if verb.lemma_ in ("want", "wanna") or (verb.lemma_ in ("like", "love") and any(
                     c.lower_ in ("would", "'d") for c in verb.children)):
-                if verb.i != event.i or any(c.dep_ == "xcomp" for c in verb.children):
+                if verb.i != event.i or any(c.dep_ in ("xcomp", "dobj") for c in verb.children):
                     return WANT
             if verb.lemma_ in ("have", "need", "got") and verb.i != event.i and \
                     any(c.dep_ == "aux" and c.lower_ == "to" for c in event.children):

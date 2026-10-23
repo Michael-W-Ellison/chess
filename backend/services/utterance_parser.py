@@ -53,6 +53,31 @@ NORMALIZATIONS = {
     "shes": "she's",
     "hes": "he's",
     "theyre": "they're",
+    "youre": "you're",
+    "arent": "aren't",
+    "werent": "weren't",
+    "couldnt": "couldn't",
+    "wouldnt": "wouldn't",
+    "shouldnt": "shouldn't",
+    "havent": "haven't",
+    "hasnt": "hasn't",
+    "whos": "who's",
+    "wheres": "where's",
+    # Past tenses children make regular: "I goed", "we runned"
+    "goed": "went", "runned": "ran", "eated": "ate", "hitted": "hit", "drawed": "drew", "throwed": "threw",
+    "losted": "lost", "beated": "beat", "builded": "built", "swimmed": "swam", "catched": "caught",
+    "buyed": "bought", "bringed": "brought", "brang": "brought", "brung": "brought", "teached": "taught",
+    "thinked": "thought", "falled": "fell", "feeled": "felt", "sleeped": "slept", "maked": "made",
+    "taked": "took", "gived": "gave", "comed": "came", "sayed": "said", "telled": "told", "finded": "found",
+    "rided": "rode", "writed": "wrote", "drinked": "drank", "blowed": "blew", "growed": "grew",
+    "knowed": "knew", "hided": "hid", "bited": "bit", "breaked": "broke", "choosed": "chose",
+    "forgetted": "forgot", "getted": "got", "digged": "dug", "standed": "stood", "sitted": "sat",
+    "stealed": "stole", "sticked": "stuck", "weared": "wore", "winned": "won", "leaved": "left",
+    "meeted": "met", "keeped": "kept", "speaked": "spoke", "waked": "woke", "shaked": "shook",
+    "spinned": "spun", "drived": "drove", "feeded": "fed", "hurted": "hurt", "cutted": "cut",
+    "shutted": "shut", "spended": "spent", "sended": "sent", "haved": "had", "doed": "did", "seed": "saw",
+    "flyed": "flew", "fighted": "fought", "freezed": "froze", "hanged": "hung", "readed": "read",
+    "ringed": "rang", "shooted": "shot", "slided": "slid", "swinged": "swung", "throwded": "threw",
     "thats": "that's",
     "theres": "there's",
     "heres": "here's",
@@ -74,6 +99,13 @@ NORMALIZATIONS = {
     "rlly": "really",
     "rly": "really",
     "realy": "really",
+    "wierd": "weird",
+    "tomorow": "tomorrow",
+    "tmrw": "tomorrow",
+    "favrite": "favorite",
+    "awsome": "awesome",
+    "beutiful": "beautiful",
+    "togther": "together",
     "becuase": "because",
     "beacuse": "because",
     "frend": "friend",
@@ -161,7 +193,14 @@ _EMOJI_RE = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200D\u2B50\u2
 
 # Spellings that are also words, replaced only where the next word shows which is meant:
 # "its so fun" (it's), "ill try" (I'll); "its wings" and "I feel ill" stay
+_GOING_VERBS = r"(go|goes|going|went|gone|come|came|coming|walk|walked|drive|drove|ran|run|moved?|travel|flew|fly|"\
+               r"trip|visit|back|way|road|welcome|next|due|according|close|up|down|out|over|on|from)$"
 _CONTEXT_NORMALIZATIONS = [
+    # "to much homework", "it's to hot"
+    # (not after a verb of going: "we went to Big Bear")
+    (re.compile(r"\b(\w+) to(?= (much|hot|cold|big|small|hard|scary|loud|late|early|tired|full|long|fast|slow|"
+                r"short|high|heavy|far|young|old|spicy|sweet|bright|dark)\b)", re.IGNORECASE),
+     lambda m: m.group(0) if re.match(_GOING_VERBS, m.group(1), re.IGNORECASE) else f"{m.group(1)} too"),
     (re.compile(r"\bits(?= (so|really|very|not|too|just|a|an|the|my|ok|okay|fine|fun|boring|hard|easy|cool|"
                 r"great|good|bad|true|time|going|gonna|like|always|never|raining|snowing|gross|yummy|awesome|"
                 r"amazing|weird|scary|funny|cute|about|mine|yours|over|super|kind|pretty|beautiful|ugly|big|bigger|"
@@ -173,6 +212,13 @@ _CONTEXT_NORMALIZATIONS = [
                 r"stupid|annoying|best|worst|welcome|right|wrong|crazy|lying|kidding|joking|amazing|great|good|"
                 r"bad|too)\b)", re.IGNORECASE),
      "you're"),
+    # "your so funny", "your the best"; an adjective only at the end ("your funny face" stays)
+    (re.compile(r"\byour(?= (so|really|very|not|the|a|an|too|being|going|gonna|welcome|always|never|my|such|"
+                r"kidding|joking|lying)\b|(?= (funny|silly|cool|nice|mean|smart|awesome|weird|dumb|cute|amazing|"
+                r"annoying|right|wrong|crazy|great|best|the best)\s*[.!?]*$))", re.IGNORECASE),
+     "you're"),
+    # "I could of won"
+    (re.compile(r"\b(could|would|should|must|might) of\b", re.IGNORECASE), r"\1 have"),
     (re.compile(r"\blets(?= (play|go|do|make|watch|build|talk|be|see|try|have|pretend|sing|draw|read)\b)",
                 re.IGNORECASE), "let's"),
     (re.compile(r"\bill(?= (try|do|be|go|ask|tell|practice|study|see|talk|play|have|get|make|show|let|just|never|"
@@ -297,6 +343,13 @@ _ANIMATE = {"dog", "cat", "puppy", "kitten", "baby", "brother", "sister", "mom",
             # Body parts: "my knee tickles", "my tummy hurts"
             "tummy", "knee", "head", "arm", "leg", "foot", "tooth", "throat", "ear", "nose", "eye", "back", "hand",
             "finger", "toe", "stomach", "belly", "skin"}
+# Words a child puts before a name: "my friend ava", "my dog coco"
+_NAMED_KINDS = {"friend", "bff", "brother", "sister", "cousin", "teacher", "coach", "neighbor", "uncle", "aunt",
+                "dog", "cat", "puppy", "kitten", "hamster", "bunny", "horse", "fish", "bird", "turtle", "pony",
+                "guinea", "lizard", "snake", "parrot", "goldfish"}
+_NOUNS: set = set()  # filled from the lemmatizer's tables
+_DETERMINERS = {"the", "a", "an", "my", "your", "his", "her", "their", "our", "this", "that"}
+_OBJECT_PRONOUNS = {"me", "him", "her", "us", "them"}
 _QUESTION_AUX = {"do", "does", "did", "can", "could", "will", "would", "should"}
 _COPULAS = {"is", "are", "was", "were", "am", "'s", "'re", "'m"}
 
@@ -312,21 +365,52 @@ def _verb_base(word: str):
     return None
 
 
+def _is_participle(word: str) -> bool:
+    """True if the word is the past form of a verb ("played", "stopped", "tried", "swum"; not "ted")"""
+    if word in _IRREGULAR_VERBS:
+        return True
+    for suffix in ("ed", "d"):
+        if word.endswith(suffix):
+            stem = word[:-len(suffix)]
+            if stem in _VERBS or stem + "e" in _VERBS or (len(stem) > 2 and stem[-1] == stem[-2] and stem[:-1] in _VERBS) \
+                    or (stem.endswith("i") and stem[:-1] + "y" in _VERBS):
+                return True
+    return False
+
+
 def _repair_compound_subject(sentence) -> None:
     """
     "my dog snores", "jake hugs", "the baby cries": the subject read as a compound on a plural
     "noun" that is really the verb
     """
     root = sentence.root
+    if root.pos_ in ("ADV", "ADJ"):
+        # "grandpa snores really loud": "loud" read as the root, "snores" as its subject
+        noun = next((c for c in root.children if c.dep_ == "nsubj" and c.pos_ == "NOUN"
+                     and _verb_base(c.lower_) and c.i < root.i), None)
+        if noun is None:
+            return
+        for child in list(root.children):
+            if child.i != noun.i:
+                child.head = noun
+        noun.head, noun.dep_ = noun, "ROOT"
+        root.head, root.dep_ = noun, "advmod"
+        root = noun
     if root.pos_ != "NOUN" or any(c.dep_ in ("nsubj", "nsubjpass") for c in root.children):
         return
     base = _verb_base(root.lower_)
     if base is None:
         return
+    # "a spider bit me": an object pronoun after it shows the "noun" is a verb
+    takes_object = any(c.dep_ in ("appos", "dobj") and c.lower_ in _OBJECT_PRONOUNS and c.i == root.i + 1
+                       for c in root.children)
     subject = next((c for c in root.children if c.dep_ in ("compound", "amod") and c.i == root.i - 1
-                    and (c.lower_ in _ANIMATE or c.pos_ == "PROPN")), None)
+                    and (c.lower_ in _ANIMATE or c.pos_ == "PROPN" or (takes_object and c.pos_ in ("NOUN", "ADJ")))), None)
     if subject is None:
         return
+    for child in root.children:
+        if child.dep_ == "appos" and child.lower_ in _OBJECT_PRONOUNS:
+            child.dep_ = "dobj"
     for child in list(root.children):
         # "my" and "the" belong to the subject
         if child.dep_ in ("poss", "det") and child.i < subject.i:
@@ -345,18 +429,25 @@ def _repair_question_verb(sentence) -> None:
     start = 1 if words and words[0].tag_ in ("WRB", "WP") else 0
     if len(words) < start + 3 or words[start].lower_ not in _QUESTION_AUX:
         return
-    aux, subject, verb = words[start], words[start + 1], words[start + 2]
+    aux = words[start]
+    # "does your dog bark": skip the subject's determiner
+    determiners = [w for w in words[start + 1:start + 3] if w.lower_ in _DETERMINERS]
+    if len(words) < start + 3 + len(determiners):
+        return
+    subject, verb = words[start + 1 + len(determiners)], words[start + 2 + len(determiners)]
     if verb.lower_ not in _VERBS or verb.pos_ == "VERB" and verb.dep_ == "ROOT":
         return
     if subject.lower_ in ("you", "i", "we", "they", "he", "she", "it"):
         return  # pronoun subjects parse fine
-    if subject.dep_ not in ("ROOT", "dobj", "compound", "nsubj") or verb.dep_ not in ("dobj", "ROOT", "npadvmod",
+    if subject.dep_ not in ("ROOT", "dobj", "compound", "nsubj") or verb.dep_ not in ("dobj", "ROOT", "npadvmod", "nsubj",
                                                                                    "compound", "conj", "xcomp"):
         return
     rest = [t for t in sentence if t.i != verb.i]
     verb.head, verb.dep_, verb.pos_, verb.tag_, verb.lemma_ = verb, "ROOT", "VERB", "VB", verb.lower_
     for token in rest:
-        if token.i == subject.i:
+        if token in determiners:
+            token.head, token.dep_ = subject, "poss" if token.tag_ == "PRP$" else "det"
+        elif token.i == subject.i:
             token.head, token.dep_ = verb, "nsubj"
             token.pos_ = "PROPN" if token.pos_ == "PROPN" else "NOUN"
             token.tag_ = "NNS" if token.lower_.endswith("s") else "NN"
@@ -379,7 +470,9 @@ def _repair_tags(doc) -> None:
         lower = token.lower_
         if token.pos_ == "PROPN" and token.is_lower and lower in _INTERJECTIONS:
             token.pos_, token.tag_ = "INTJ", "UH"
-        elif token.pos_ == "PROPN" and token.is_lower and lower in _COMMON_NOUNS:
+        elif token.pos_ == "PROPN" and token.is_lower and (lower in _COMMON_NOUNS or any(
+                c.dep_ == "det" and c.lower_ in ("a", "an") for c in token.children)):
+            # "a bee stung me": a name does not take "a"
             token.pos_ = "NOUN"
             token.tag_ = "NNS" if lower.endswith("s") else "NN"
         # "can fish go to heaven": a subject is not a finite verb ("swimming is fun" is a gerund, VBG)
@@ -387,6 +480,9 @@ def _repair_tags(doc) -> None:
                 c.dep_ in ("nsubj", "aux", "dobj") for c in token.children):
             token.pos_ = "NOUN"
             token.tag_ = "NNS" if lower.endswith("s") else "NN"
+        # "they're so mean": a complement of "be" is an adjective
+        if token.dep_ == "acomp" and token.pos_ == "VERB" and token.tag_ not in ("VBN", "VBG"):
+            token.pos_, token.tag_ = "ADJ", "JJ"
         # "lol just kidding": an interjection, not the subject
         if token.pos_ == "INTJ" and token.dep_ == "nsubj":
             token.dep_ = "intj"
@@ -395,6 +491,27 @@ def _repair_tags(doc) -> None:
                 c.dep_ == "nsubj" for c in token.children):
             token.pos_, token.tag_ = "VERB", "VBP"
     for token in doc:
+        # "I'm ted": a "participle" that is no verb's form is what the subject is (a name)
+        if token.dep_ == "ROOT" and token.tag_ == "VBN" and token.is_alpha and not _is_participle(token.lower_):
+            be = next((c for c in token.children if c.dep_ == "auxpass" and c.lemma_ == "be"), None)
+            if be is not None:
+                for child in list(token.children):
+                    if child.i != be.i:
+                        child.head = be
+                        if child.dep_ == "nsubjpass":
+                            child.dep_ = "nsubj"
+                be.head, be.dep_ = be, "ROOT"
+                token.head, token.dep_ = be, "attr"
+                token.pos_, token.tag_, token.lemma_ = "PROPN", "NNP", token.lower_
+        # "a dog bit me": the pronoun after the verb is its object
+        if token.dep_ == "appos" and token.lower_ in _OBJECT_PRONOUNS and token.head.pos_ == "VERB":
+            token.dep_ = "dobj"
+        # "my friend ava came over": the name after "my friend" read as a common noun
+        if token.pos_ in ("NOUN", "ADJ") and token.is_alpha and token.lower_ not in _NAMED_KINDS and (
+                (token.dep_ == "appos" and token.head.lower_ in _NAMED_KINDS and token.i == token.head.i + 1)
+                or (token.lower_ not in _NOUNS and not _verb_base(token.lower_) and token.i > 0 and doc[token.i - 1].lower_ in _NAMED_KINDS
+                    and doc[token.i - 1].head.i == token.i and doc[token.i - 1].dep_ == "compound")):
+            token.pos_, token.tag_ = "PROPN", "NNP"
         # "I like jumping": "like" read as a helper of the gerund
         if token.lemma_ in ("like", "love", "hate", "enjoy") and token.dep_ == "aux" and token.head.tag_ in ("VBG", "VB"):
             verb = token.head
@@ -563,6 +680,65 @@ def _repair_objects(doc) -> None:
                 token.dep_ = "nsubj"
 
 
+_STRETCH_RE = re.compile(r"([a-z])\1{2,}", re.IGNORECASE)
+_SAYING_VERBS = {"say", "think", "know", "hope", "wish", "guess", "bet", "feel", "believe", "mean", "remember",
+                 "forget", "tell", "hear", "see", "notice", "pretend", "dream", "promise", "bet", "swear"}
+
+
+_FEELING_WORDS = {"scared", "afraid", "worried", "sure", "glad", "happy", "sad", "sorry", "mad", "nervous",
+                  "excited", "upset", "proud", "surprised", "angry", "certain", "lucky", "thankful", "jealous",
+                  "embarrassed", "disappointed", "frustrated", "confused", "shocked", "positive"}
+
+
+_TIME_NOUNS = {"today", "tonight", "yesterday", "tomorrow", "now", "again", "later", "once", "twice", "everyday",
+               "sometimes", "morning", "night", "week", "weekend", "year"}
+_PLACE_VERBS = {"go", "come", "be", "live", "stay", "sit", "put", "leave", "get", "run", "walk", "drive", "move",
+                "stand", "play", "wait", "keep", "hide", "sleep", "fly", "swim", "travel", "visit", "meet", "find"}
+
+
+def _resplit(doc) -> str:
+    """
+    Text for a second parse when the first shows a misreading only the text can fix:
+    "bigger then you" -> "bigger than you"; "we went to the zoo we saw a lion" -> two sentences
+    """
+    text = doc.text
+    edits = []
+    for token in doc:
+        # "there dog is so cute": "their"; "there going to the park": "they're"
+        if token.lower_ == "there" and token.i + 1 < len(doc):
+            following = doc[token.i + 1]
+            before = doc[token.i - 1] if token.i > 0 else None
+            if following.pos_ == "NOUN" and following.dep_ != "attr" and token.dep_ in ("expl", "advmod", "poss", "det") \
+                    and following.lower_ not in _TIME_NOUNS and (before is None or before.pos_ not in ("AUX", "ADP")) \
+                    and (before is None or before.pos_ != "VERB" or before.lemma_ not in _PLACE_VERBS):
+                edits.append((token.idx, token.idx + 5, "their" if token.text.islower() else "Their"))
+            elif following.tag_ == "VBG" and (token.i == 0 or doc[token.i - 1].pos_ != "AUX"):
+                edits.append((token.idx, token.idx + 5, "they're" if token.text.islower() else "They're"))
+        # "my dog is bigger then your dog"
+        if token.lower_ == "then" and token.i > 0 and (doc[token.i - 1].tag_ in ("JJR", "RBR")
+                                                         or doc[token.i - 1].lower_ in ("more", "less")):
+            edits.append((token.idx, token.idx + 4, "than" if token.text.islower() else "Than"))
+        # A run-on: a second clause with its own subject and object read as a relative clause
+        # ("the zoo we saw a lion") or hung off a verb that does not take a clause
+        if (token.pos_ in ("VERB", "AUX") and token.dep_ in ("relcl", "ccomp", "parataxis")
+                and (token.head.lemma_ not in _SAYING_VERBS
+                     or (token.head.lemma_ in ("see", "hear", "notice")  # "I saw a dog it was big"
+                         and any(c.dep_ == "dobj" and c.pos_ in ("NOUN", "PROPN") for c in token.head.children)))
+                and token.head.pos_ in ("VERB", "AUX", "NOUN", "PROPN")
+                # "I'm scared it will hurt", "I'm glad you came": the feeling's reason
+                and not any(c.dep_ == "acomp" and c.lower_ in _FEELING_WORDS for c in token.head.children)
+                and any(c.dep_ == "nsubj" and c.lower_ in ("i", "we", "he", "she", "they", "it", "you") for c in token.children)
+                and not any(c.dep_ in ("mark", "advmod") and c.tag_ in ("IN", "WRB", "WDT") for c in token.children)
+                and not any(t.tag_ in ("WDT", "WP", "WRB") or t.lower_ == "that" for t in token.subtree if t.i < token.i)
+                and (token.dep_ != "relcl" or any(c.dep_ in ("dobj", "attr", "acomp") and c.pos_ != "PRON" for c in token.children))):
+            start = token.left_edge
+            if start.i > 0 and not doc[start.i - 1].is_punct and doc[start.i - 1].lower_ not in ("and", "but", "so", "then"):
+                edits.append((doc[start.i - 1].idx + len(doc[start.i - 1].text), doc[start.i - 1].idx + len(doc[start.i - 1].text), "."))
+    for begin, end, new in sorted(edits, reverse=True):
+        text = text[:begin] + new + text[end:]
+    return text
+
+
 def _load_verbs(nlp) -> None:
     """Base forms of verbs from the lemmatizer's tables, for _repair_tags"""
     try:
@@ -570,6 +746,7 @@ def _load_verbs(nlp) -> None:
             lookups = nlp.get_pipe("lemmatizer").lookups
             if lookups.has_table("lemma_index"):
                 _VERBS.update(lookups.get_table("lemma_index")["verb"])
+                _NOUNS.update(lookups.get_table("lemma_index")["noun"])
             if lookups.has_table("lemma_exc"):
                 for form, lemmas in lookups.get_table("lemma_exc")["verb"].items():
                     if lemmas:
@@ -639,6 +816,10 @@ class UtteranceParser:
         # "on saturday" -> "on Saturday" ("may" and "march" are also words, so they stay)
         text = _WEEKDAY_RE.sub(lambda m: m.group(1).capitalize(), text)
         text = _ITS_ALONE_RE.sub("it's ", text)
+        # "buddy do you like pizza": the bot's name is a greeting, set off by a comma
+        text = re.sub(r"^buddy,? (?=(?:do|does|did|can|could|will|would|are|guess|what|why|how|where|who|when|i|you|look|listen|tell|let's|lets|wanna|want)\b)", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"^((?:hey|hi|hello) buddy)(?= (?:do|does|did|can|could|will|would|are|guess|what|why|how|where|who|when|i|you|look|listen|tell|let's|lets|wanna|want)\b)", r"\1,", text, flags=re.IGNORECASE)
+        text = re.sub(r"\b(you|thanks|bye|goodnight|night),? buddy\s*([.!?]*)$", r"\1\2", text, flags=re.IGNORECASE)
         # "lets fish" at the start: "let's fish"
         text = re.sub(r"^lets\b", "let's", text, flags=re.IGNORECASE)
         # "me and lily played tag" -> "lily and I played tag" (the parser reads "me and" badly)
@@ -660,11 +841,40 @@ class UtteranceParser:
             return None
         if self._get_nlp() is None:
             return None
-        return self._parse_cached(self.normalize(text))
+        return self._parse_cached(self._unstretch(self.normalize(text)))
+
+    def _unstretch(self, text: str) -> str:
+        """ "sooooo fun" -> "so fun", "yesss" -> "yes", "cooool" -> "cool": the spelling the model knows"""
+        if not _STRETCH_RE.search(text):
+            return text
+        known = self.known_words()
+
+        def fix(match):
+            word = match.group(0)
+            options = {re.sub(r"(\w)\1{2,}", r"\1" * n, word) for n in (1, 2)}
+            # several stretched letters: try each run at one or two
+            runs = list(re.finditer(r"(\w)\1{2,}", word))
+            if len(runs) > 1:
+                options = set()
+                for counts in range(2 ** len(runs)):
+                    out, last = [], 0
+                    for k, run in enumerate(runs):
+                        out.append(word[last:run.start()] + run.group(1) * (1 + (counts >> k & 1)))
+                        last = run.end()
+                    options.add("".join(out) + word[last:])
+            # the longest known spelling: "cooool" is "cool", not "col"
+            ordered = sorted(options, key=len, reverse=True)
+            # a common short word first: "soooo" is "so", not "soo"
+            stop = next((o for o in ordered if o.lower() in self._nlp.Defaults.stop_words), None)
+            return stop or next((o for o in ordered if o.lower() in known), ordered[-1])
+
+        return re.sub(r"\b\w*(\w)\1{2,}\w*\b", fix, text)
 
     @lru_cache(maxsize=256)
     def _parse_cached(self, normalized_text: str):
-        return repair_parse(self._nlp(normalized_text))
+        doc = repair_parse(self._nlp(normalized_text))
+        fixed = _resplit(doc)
+        return repair_parse(self._nlp(fixed)) if fixed != normalized_text else doc
 
     @property
     def vocab(self):

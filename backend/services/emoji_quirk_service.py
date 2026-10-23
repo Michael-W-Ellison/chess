@@ -149,6 +149,8 @@ class EmojiQuirkService:
                     continue  # "I lost a tooth" is good news
                 if word == "hospital" and i > 0 and words[i - 1] in ("the", "a") and i > 1 and words[i - 2] in ("from", "left", "of"):
                     continue  # "she came home from the hospital"
+                if word == "hospital" and any(w.startswith("work") for w in words[:i]):
+                    continue  # "my mom works at a hospital"
                 if word == "hard" and any(w.startswith(("stud", "work", "tri", "try", "practic", "train"))
                                           for w in words[max(0, i - 3):i]):
                     continue  # "I studied really hard"

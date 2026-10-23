@@ -824,11 +824,30 @@ class ResponseEngine:
             text = token.text
             if reflect:
                 text = ResponseEngine._reflect_token(token)
+            if ResponseEngine._lowercase_person_name(token):
+                text = text.capitalize()  # "you and lily played tag" -> "you and Lily"
             # Lowercase a sentence-initial capital unless it is a name or "I"
             if index == 0 and token.i == 0 and token.pos_ != "PROPN" and text not in ("I",):
                 text = text[:1].lower() + text[1:]
             parts.append(text + ResponseEngine._space_after(tokens, index))
         return "".join(parts).strip()
+
+    @staticmethod
+    def _lowercase_person_name(token) -> bool:
+        """A name the child typed in lowercase, in a place only a person fits"""
+        if token.pos_ != "PROPN" or not token.is_alpha or not token.text.islower() or len(token.text) < 3:
+            return False
+        if token.ent_type_ == "PERSON":
+            return True
+        people = ("i", "me", "you", "we")
+        linked = [token.head, *token.children]
+        if token.dep_ == "conj" or any(t.dep_ == "conj" for t in token.children):
+            return any(t.lower_ in people for t in linked)
+        if token.dep_ == "appos" or (token.i > 0 and token.doc[token.i - 1].dep_ == "compound"
+                                     and token.doc[token.i - 1].head.i == token.i):
+            return True  # "my friend ava", "my sister emma"
+        return (token.dep_ == "nsubj" and token.head.pos_ in ("VERB", "AUX")) or (
+            token.dep_ == "pobj" and token.head.lower_ == "with")
 
     @staticmethod
     def _reflect_token(token) -> str:
@@ -895,11 +914,17 @@ class ResponseEngine:
         return False
 
     @staticmethod
+    def _done_to_child(root) -> bool:
+        """ "a bee chased me", "a boy in my class likes me": someone or something acting on the child"""
+        return any(c.dep_ in ("dobj", "dative") and c.lower_ in ("me", "us") for c in root.children) and any(
+            c.dep_ == "nsubj" and c.pos_ in ("NOUN", "PROPN") for c in root.children)
+
+    @staticmethod
     def _first_person_subject(token) -> bool:
         """True if the token's clause has I/we as subject, including conjuncts ("my mom and I")"""
         for candidate in (token, token.head):
             for child in candidate.children:
-                if child.dep_ != "nsubj":
+                if child.dep_ not in ("nsubj", "nsubjpass"):  # "I got stung by a bee"
                     continue
                 subject = {t.i for t in child.subtree}
                 # "I", or "I" coordinated in the subject; not "I" inside "the game that I played"
@@ -1459,7 +1484,7 @@ class ResponseEngine:
                 root = sentence.root
                 if (len(sentence) <= 15 and root.pos_ in ("VERB", "AUX")
                         and (self._first_person_subject(root) or self._known_person_subject(root, user_id)
-                             or self._definite_thing_subject(root))):
+                             or self._definite_thing_subject(root) or self._done_to_child(root))):
                     _, clause = self._extract_slot(root, "clause")
                     slots["clause"] = clause
                     # A follow-up that fits: "How did that go?" only for what already happened
@@ -1593,6 +1618,8 @@ class ResponseEngine:
             base = f"{a.action}.{modality}"
             candidates += [f"{base}.{a.actor}>{a.target}", f"{base}.{a.actor}>", f"{base}.>{a.target}",
                            f"{base}.{a.tense}", base]
+        if a.notes.get("wanter") == "other":
+            candidates.insert(0, f"*.{modality}.other")
         if modality != "negated" and modality != appraisal_module.REAL:
             candidates += [f"*.{modality}.{a.actor}>", f"*.{modality}.{a.valence}", f"*.{modality}"]
         return next((c for c in candidates if c in templates), None)

@@ -579,6 +579,18 @@
       "responses": ["Yes! We're friends! What do you like to do with your friends?"]
     },
     {
+      "id": "lets_not_be_friends",
+      "priority": 70,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "us", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["'s", "us", "s"]}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "attr", "LEMMA": {"IN": ["friend", "bff"]}}}
+      ]],
+      "no_jokes": true,
+      "responses": ["Aw, I'd still like to be your friend. Did something upset you? You can tell me."]
+    },
+    {
       "id": "talk_about",
       "priority": 70,
       "patterns": [
@@ -1015,11 +1027,18 @@
     {
       "id": "loose_tooth",
       "priority": 66,
-      "patterns": [[
-        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": {"IN": ["be", "feel"]}}},
-        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "tooth", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": "tooth"}},
-        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "loose", "RIGHT_ATTRS": {"DEP": {"IN": ["acomp", "advmod"]}, "LOWER": {"IN": ["wiggly", "loose", "wobbly"]}}}
-      ]],
+      "patterns": [
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": {"IN": ["be", "feel"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "tooth", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": "tooth"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "loose", "RIGHT_ATTRS": {"DEP": {"IN": ["acomp", "advmod"]}, "LOWER": {"IN": ["wiggly", "loose", "wobbly"]}}}
+        ],
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": {"IN": ["have", "get", "got"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "tooth", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": "tooth"}},
+          {"LEFT_ID": "tooth", "REL_OP": ">", "RIGHT_ID": "loose", "RIGHT_ATTRS": {"DEP": "amod", "LOWER": {"IN": ["wiggly", "loose", "wobbly"]}}}
+        ]
+      ],
       "conditions": {"question": false, "not_negated": "be"},
       "responses": ["A wiggly tooth! That means a big-kid tooth is getting ready to grow in. Are you going to wiggle it?"],
       "no_jokes": true
@@ -2919,6 +2938,42 @@
       "conditions": {"question": false}
     },
     {
+      "id": "love_bot",
+      "priority": 75,
+      "patterns": [[
+        {"RIGHT_ID": "love", "RIGHT_ATTRS": {"LEMMA": {"IN": ["love", "like"]}}},
+        {"LEFT_ID": "love", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "love", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "you"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "love", "max_tokens": 6},
+      "responses": ["Aw, thank you! I really like talking with you too!"]
+    },
+    {
+      "id": "love_bot_question",
+      "priority": 92,
+      "patterns": [[
+        {"RIGHT_ID": "love", "RIGHT_ATTRS": {"LEMMA": {"IN": ["love", "like"]}}},
+        {"LEFT_ID": "love", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+        {"LEFT_ID": "love", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "me"}}
+      ]],
+      "conditions": {"question": true, "max_tokens": 6},
+      "responses": ["Yes! I really like talking with you. You're my friend!"]
+    },
+    {
+      "id": "favorite_self",
+      "priority": 60,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "value", "RIGHT_ATTRS": {"DEP": "nsubj", "POS": {"IN": ["NOUN", "PROPN"]}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "fav", "RIGHT_ATTRS": {"DEP": {"IN": ["attr", "acomp"]}, "LOWER": {"IN": ["favorite", "favourite"]}}},
+        {"LEFT_ID": "fav", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "my"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "be"},
+      "slots": {"value": {"node": "value", "span": "subtree"}},
+      "valence": "positive",
+      "responses": ["Ooh, {value} is your favorite? Great pick! What do you like best about {value_them}?"]
+    },
+    {
       "id": "love_person",
       "priority": 56,
       "patterns": [[
@@ -2935,11 +2990,19 @@
     {
       "id": "hate_you",
       "priority": 70,
-      "patterns": [[
-        {"RIGHT_ID": "hate", "RIGHT_ATTRS": {"LEMMA": {"IN": ["hate", "dislike"]}}},
-        {"LEFT_ID": "hate", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
-        {"LEFT_ID": "hate", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "you"}}
-      ]],
+      "patterns": [
+        [
+          {"RIGHT_ID": "hate", "RIGHT_ATTRS": {"LEMMA": {"IN": ["hate", "dislike"]}}},
+          {"LEFT_ID": "hate", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+          {"LEFT_ID": "hate", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "you"}}
+        ],
+        [
+          {"RIGHT_ID": "love", "RIGHT_ATTRS": {"LEMMA": {"IN": ["love", "like"]}}},
+          {"LEFT_ID": "love", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+          {"LEFT_ID": "love", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}},
+          {"LEFT_ID": "love", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "you"}}
+        ]
+      ],
       "no_jokes": true,
       "responses": ["Aw, that makes me a little sad. Did something upset you? I'm here if you want to talk."]
     },
@@ -5011,7 +5074,11 @@
         "throw",
         "attack",
         "bully",
-        "choke"
+        "choke",
+        "sting",
+        "poke",
+        "trip",
+        "squeeze"
       ],
       "tease": ["tease", "mock", "insult", "embarrass", "exclude", "ignore"],
       "break": ["break", "ruin", "wreck", "destroy", "smash", "rip", "tear", "spill", "crush", "squish", "stain", "scribble"],
@@ -5271,7 +5338,9 @@
       "lost_item.real.thing>child_thing": ["Oh no, {clause}? I hope you can find it!"],
       "kindness.future": ["That's so thoughtful! I bet they'll love it."],
       "*.never": ["{clause}? That sounds frustrating. Want to think of a plan together?"],
-      "*.want.person>": ["It sounds like that really matters to you. Have you told them how you feel?"]
+      "*.want.person>": ["It sounds like that really matters to you. Have you told them how you feel?"],
+      "*.want.other": ["{clause}? How do you feel about that?"],
+      "*.hope.other": ["{clause}? How do you feel about that?"]
     },
     "chore_places": [
       "dentist",
