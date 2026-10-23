@@ -321,7 +321,9 @@
     "reflection_cant": ["Aw, {clause}? That's a bummer.", "Oh no, {clause}? That's too bad."],
     "ambiguous_person_upset": ["Oh no, are you okay? Which one was it, {options}?"],
     "silly": ["{topic}? Hehe, that's so silly! You're funny.", "{topic}? Haha, what a silly combo!"],
-    "reflection_present_other": ["Oh, {clause}? Tell me more!"]
+    "reflection_present_other": ["Oh, {clause}? Tell me more!"],
+    "unknown_person_event": ["{clause}? Who was that?"],
+    "unknown_person_upset": ["Oh no, {clause}? Are you okay? Who was it?"]
   },
 
   "rules": [
@@ -2275,6 +2277,103 @@
       }
     },
     {
+      "id": "feel_off",
+      "priority": 74,
+      "patterns": [[
+        {"RIGHT_ID": "feel", "RIGHT_ATTRS": {"LEMMA": "feel"}},
+        {"LEFT_ID": "feel", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "feel", "REL_OP": ">", "RIGHT_ID": "how", "RIGHT_ATTRS": {"DEP": {"IN": ["acomp", "advmod", "oprd"]}, "LOWER": {"IN": ["weird", "funny", "strange", "off", "yucky", "icky", "gross", "dizzy", "wobbly", "woozy", "blah"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "feel"},
+      "slots": {"how": {"node": "how", "span": "text"}},
+      "no_jokes": true,
+      "responses": [
+        "Hmm, {how} how? Like sick, or like something is bothering you? If you don't feel well, it's a good idea to tell a grown-up."
+      ]
+    },
+    {
+      "id": "am_i",
+      "priority": 72,
+      "patterns": [
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LOWER": "am"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": "acomp"}}
+        ],
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LOWER": "am"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "thing", "RIGHT_ATTRS": {"DEP": "attr"}},
+          {"LEFT_ID": "thing", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": "amod"}}
+        ]
+      ],
+      "conditions": {"question": true, "evaluation": "what"},
+      "no_jokes": true,
+      "responses_by": {
+        "slot": "evaluation_valence",
+        "variants": {
+          "positive": ["I think so! You're really fun to talk to."],
+          "negative": ["Everybody is a little different, and that's what makes people special. I think you're great!"],
+          "default": ["Everybody is a little different, and that's what makes people special. I think you're great!"]
+        }
+      }
+    },
+    {
+      "id": "do_i_have_to",
+      "priority": 72,
+      "patterns": [[
+        {"RIGHT_ID": "have", "RIGHT_ATTRS": {"LEMMA": {"IN": ["have", "need"]}}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "do", "RIGHT_ATTRS": {"DEP": "aux", "LEMMA": "do"}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "task", "RIGHT_ATTRS": {"DEP": "xcomp"}}
+      ]],
+      "conditions": {"question": true, "not_negated": "have"},
+      "slots": {"task": {"node": "task", "span": "subtree"}},
+      "no_jokes": true,
+      "responses": [
+        "Hmm, that's a good one to ask your mom or dad! Grown-ups usually have a reason when they ask you to {task}. What do you think it is?"
+      ]
+    },
+    {
+      "id": "is_it_okay",
+      "priority": 80,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "it", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "it"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "ok", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["okay", "ok", "normal", "fine", "alright", "bad", "wrong"]}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": {"IN": ["advcl", "xcomp", "ccomp"]}}}
+      ]],
+      "conditions": {"question": true},
+      "no_jokes": true,
+      "responses": ["That's a really good question. A grown-up you trust can help you figure it out. What do you think?"],
+      "modality_ok_for": ["hypothetical"]
+    },
+    {
+      "id": "is_it_okay_feeling",
+      "priority": 82,
+      "patterns": [
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "it", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "it"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "ok", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["okay", "ok", "normal", "fine", "alright", "bad", "wrong"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": {"IN": ["advcl", "xcomp", "ccomp"]}}},
+          {"LEFT_ID": "what", "REL_OP": ">>", "RIGHT_ID": "feel", "RIGHT_ATTRS": {"LOWER": {"IN": ["cry", "scared", "sad", "mad", "angry", "upset", "nervous", "worried", "afraid", "lonely", "feel", "jealous", "frustrated", "grumpy", "embarrassed", "shy", "happy", "excited", "miss"]}}}
+        ],
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "it", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "it"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "ok", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["okay", "ok", "normal", "fine", "alright", "bad", "wrong"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": {"IN": ["advcl", "xcomp", "ccomp"]}, "LOWER": {"IN": ["cry", "scared", "sad", "mad", "angry", "upset", "nervous", "worried", "afraid", "lonely", "feel", "jealous", "frustrated", "grumpy", "embarrassed", "shy", "happy", "excited", "miss"]}}}
+        ]
+      ],
+      "conditions": {"question": true},
+      "no_jokes": true,
+      "responses": [
+        "Yes, it's okay! Everybody has big feelings sometimes, and all feelings are okay. Do you want to talk about it?"
+      ],
+      "modality_ok_for": ["hypothetical"]
+    },
+    {
       "id": "bet_cant_guess",
       "priority": 70,
       "patterns": [[
@@ -3455,7 +3554,7 @@
       "valence": "positive",
       "responses": [
         {"text": "{value}? Mine too! Great minds think alike.", "requires": ["same_favorite"]},
-        {"text": "{value} {value_is} a great {category}! Mine is {bot_favorite}.", "requires": ["bot_favorite"]},
+        {"text": "{value} {value_is} great! My favorite {category} is {bot_favorite}.", "requires": ["bot_favorite"]},
         {"text": "Ooh, {value}! That's a great favorite {category}."},
         {"text": "{value}? Nice choice!"}
       ],
@@ -4121,6 +4220,30 @@
             {"text": "You think {subject} {be} {negation}{evaluation}? We'll see how it goes!", "requires": ["future"]},
             "{subject} {be} {negation}{evaluation}? Okay! Did anything interesting happen?"
           ]
+        }
+      }
+    },
+    {
+      "id": "is_the_best",
+      "priority": 58,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "you", "it", "that", "this", "what", "who", "which"]}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "best", "RIGHT_ATTRS": {"DEP": {"IN": ["attr", "acomp"]}, "LOWER": {"IN": ["best", "worst", "greatest", "coolest", "funniest", "yummiest", "nicest", "meanest", "grossest"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "be"},
+      "slots": {
+        "subj": {"node": "subj", "span": "subtree"},
+        "be": {"node": "be", "span": "text"},
+        "best": {"node": "best", "span": "text", "lowercase": true}
+      },
+      "responses_by": {
+        "slot": "best",
+        "variants": {
+          "worst": ["Oh no, {subj} {be} the worst? What happened?"],
+          "meanest": ["Oh no, {subj} {be} the meanest? What happened?"],
+          "grossest": ["Ew, {subj} {be} the grossest? What's so gross about it?"],
+          "default": ["Ooh, {subj} {be} the {best}? What makes {subj} so great?"]
         }
       }
     },
@@ -5191,13 +5314,32 @@
     {
       "id": "guess_what_i",
       "priority": 46,
-      "patterns": [[
-        {"RIGHT_ID": "guess", "RIGHT_ATTRS": {"LEMMA": "guess"}},
-        {"LEFT_ID": "guess", "REL_OP": ">", "RIGHT_ID": "clause", "RIGHT_ATTRS": {"DEP": "ccomp"}},
-        {"LEFT_ID": "clause", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}}
-      ]],
+      "patterns": [
+        [
+          {"RIGHT_ID": "guess", "RIGHT_ATTRS": {"LEMMA": "guess"}},
+          {"LEFT_ID": "guess", "REL_OP": ">", "RIGHT_ID": "clause", "RIGHT_ATTRS": {"DEP": "ccomp"}},
+          {"LEFT_ID": "clause", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}}
+        ],
+        [
+          {"RIGHT_ID": "guess", "RIGHT_ATTRS": {"LEMMA": "guess"}},
+          {"LEFT_ID": "guess", "REL_OP": ">", "RIGHT_ID": "clause", "RIGHT_ATTRS": {"DEP": "ccomp"}},
+          {"LEFT_ID": "clause", "REL_OP": ">>", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": {"IN": ["how", "who", "where", "when", "which", "what"]}}}
+        ]
+      ],
       "conditions": {"first_token": "guess"},
       "responses": ["Ooh, let me guess. Cereal? What was it?", "Hmm, I give up! Tell me!"]
+    },
+    {
+      "id": "never_guess",
+      "priority": 70,
+      "patterns": [[
+        {"RIGHT_ID": "guess", "RIGHT_ATTRS": {"LEMMA": "guess"}},
+        {"LEFT_ID": "guess", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+        {"LEFT_ID": "guess", "REL_OP": ">", "RIGHT_ID": "never", "RIGHT_ATTRS": {"DEP": "neg"}}
+      ]],
+      "conditions": {"max_tokens": 9},
+      "no_jokes": true,
+      "responses": ["Ooh, I can't wait to hear! What happened?"]
     },
     {
       "id": "food_mention",
@@ -5539,6 +5681,19 @@
       "compute": ["bot_pick"],
       "responses": ["Hmm, tough one! I'd pick {bot_pick}. What about you?", "I think I'd choose {bot_pick}! Which one do you like better?"],
       "suppressed_by": ["smarter_than_me"]
+    },
+    {
+      "id": "choice_bare",
+      "priority": 70,
+      "patterns": [[
+        {"RIGHT_ID": "x", "RIGHT_ATTRS": {"DEP": "ROOT", "POS": {"IN": ["NOUN", "PROPN", "ADJ"]}}},
+        {"LEFT_ID": "x", "REL_OP": ">", "RIGHT_ID": "or", "RIGHT_ATTRS": {"DEP": "cc", "LOWER": "or"}},
+        {"LEFT_ID": "x", "REL_OP": ">", "RIGHT_ID": "y", "RIGHT_ATTRS": {"DEP": "conj"}}
+      ]],
+      "conditions": {"max_tokens": 7},
+      "slots": {"x": {"node": "x", "span": "noun_phrase"}, "y": {"node": "y", "span": "noun_phrase"}},
+      "compute": ["bot_pick"],
+      "responses": [{"text": "Hmm, I'd pick {bot_pick}! Which one do you like better?", "requires": ["bot_pick"]}]
     },
     {
       "id": "person_better",
@@ -6022,7 +6177,11 @@
       "*.hope.other": ["{clause}? How do you feel about that?"],
       "achieve.counterfactual": ["{clause}? Aw, so close! You'll get it next time."],
       "*.counterfactual": ["{clause}? That's okay. Everybody wishes things went differently sometimes. Next time you'll know!"],
-      "*.refuse": ["{clause}? That's okay. How come?"]
+      "*.refuse": ["{clause}? That's okay. How come?"],
+      "*.conditional.positive": ["{clause}? Sounds like a good deal!"],
+      "*.conditional.negative": ["{clause}? Ooh, I see. That sounds tough."],
+      "*.conditional": ["{clause}? Ooh, I see! Tell me more."],
+      "receive.real.negative": ["{clause}? Aw, that's no fun. Are you okay?"]
     },
     "chore_places": [
       "dentist",
@@ -6041,6 +6200,34 @@
       "bank",
       "laundromat",
       "grocery"
+    ],
+    "unwanted_things": [
+      "timeout",
+      "time-out",
+      "punishment",
+      "detention",
+      "shot",
+      "consequence",
+      "cold",
+      "flu",
+      "cavity",
+      "splinter",
+      "bruise",
+      "scratch",
+      "warning",
+      "strike",
+      "zero",
+      "lecture",
+      "chore",
+      "chores",
+      "homework",
+      "fever",
+      "rash",
+      "cut",
+      "scrape",
+      "boo-boo",
+      "nightmare",
+      "ticket"
     ]
   },
 

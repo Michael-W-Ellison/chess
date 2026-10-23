@@ -397,7 +397,7 @@ class TestRoundFive:
 
     def test_other_favorite_still_named(self, engine):
         from tests.test_dialogue_fixes import rule_of
-        assert "Mine is dolphins" in rule_of(engine, "my favorite animal is a cat")[1]
+        assert "My favorite animal is dolphins" in rule_of(engine, "my favorite animal is a cat")[1]
 
 
 @pytest.mark.parametrize("text,normalized", [
@@ -484,7 +484,7 @@ class TestRoundSixReplies:
 
     def test_superlative_with_a_place_is_not_the_world_answer(self, engine):
         from tests.test_dialogue_fixes import rule_of
-        assert "Everest" not in rule_of(engine, "what is the tallest mountain in peru?")[1]
+        assert rule_of(engine, "what is the tallest mountain in peru?")[0] != "fallback_world_answer"
         assert "Everest" in rule_of(engine, "what is the tallest mountain in the world")[1]
 
     def test_body_reply_uses_the_childs_verb(self, engine):
@@ -639,3 +639,80 @@ class TestRoundEight:
     def test_wording(self, engine, text, words):
         from tests.test_dialogue_fixes import rule_of
         assert words in rule_of(engine, text)[1]
+
+
+class TestRoundNine:
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    @pytest.mark.parametrize("text,reply", [
+        ("she told me to stop", "Someone told you to stop? Who was that?"),
+        ("he hit me", "Oh no, someone hit you? Are you okay? Who was it?"),
+        ("if i'm good i get a treat", "If you're good you get a treat? Sounds like a good deal!"),
+        ("if i'm bad i get a timeout", "If you're bad you get a timeout? Ooh, I see. That sounds tough."),
+        ("i got a splinter", "You got a splinter? Aw, that's no fun. Are you okay?"),
+        ("my teacher is the best", "Ooh, your teacher is the best? What makes your teacher so great?"),
+        ("math is the worst", "Oh no, math is the worst? What happened?"),
+        ("school starts at 8:30", "Oh, school starts at 8:30? Tell me more!"),
+    ])
+    def test_reply(self, engine, text, reply):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text)[1] == reply
+
+    def test_description_of_unknown_person_still_asks_who(self, engine):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, "he is nice")[0] == "fallback_unknown_person"
+
+
+def test_last_name_in_a_list_is_a_name():
+    assert token(parser.parse("my friends are maya, jake and zoe"), "zoe").pos_ == "PROPN"
+
+
+def test_said_yes_keeps_the_answer():
+    assert token(parser.parse("plus my mom said yes"), "yes").dep_ == "dobj"
+
+
+def test_relative_clause_is_not_split():
+    assert len(list(parser.parse("the teacher i like the most is mr smith").sents)) == 1
+
+
+class TestRoundTen:
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    @pytest.mark.parametrize("text,rule", [
+        ("which is better pizza or tacos", "comparison_question"),
+        ("dogs or cats", "choice_bare"),
+        ("is it okay if i cry", "is_it_okay_feeling"),
+        ("is it okay to be scared", "is_it_okay_feeling"),
+        ("is it bad to lie", "is_it_okay"),
+        ("do i have to go to school", "do_i_have_to"),
+        ("am i weird", "am_i"),
+        ("am i a good friend", "am_i"),
+        ("guess how old i am", "guess_what_i"),
+        ("you'll never guess what happened", "never_guess"),
+        ("i feel weird", "feel_off"),
+    ])
+    def test_rule(self, engine, text, rule):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text)[0] == rule
+
+    @pytest.mark.parametrize("text,words", [
+        ("my friends are maya, jake and zoe", "Maya, Jake and Zoe"),
+        ("me, maya and jake went to the park", "Maya and Jake"),
+        ("my favorite colors are blue and green", "Blue and green are great!"),
+        ("plus my mom said yes", "said yes"),
+    ])
+    def test_wording(self, engine, text, words):
+        from tests.test_dialogue_fixes import rule_of
+        assert words in rule_of(engine, text)[1]
+
+    def test_relative_clause_verb_does_not_match(self, engine):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, "the teacher i like the most is mr smith")[0] != "like_thing"

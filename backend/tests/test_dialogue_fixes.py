@@ -593,7 +593,7 @@ class TestReferences:
 
     def test_plural_favorite_takes_are(self, engine):
         texts = [r["text"] if isinstance(r, dict) else r for r in engine.rules["favorite_is"]["responses"]]
-        assert "{value} {value_is} a great {category}! Mine is {bot_favorite}." in texts
+        assert "{value} {value_is} great! My favorite {category} is {bot_favorite}." in texts
 
     def test_favorite_and_why(self, engine):
         assert "really cool" in rule_of(engine, "what is your favorite animal and why")[1]

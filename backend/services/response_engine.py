@@ -45,7 +45,7 @@ _REFLECT_WORDS = {
 }
 
 _QUESTION_STARTERS = {"what", "who", "where", "when", "why", "how", "which", "do", "does", "did",
-                      "are", "is", "can", "could", "would", "will", "should", "have", "has"}
+                      "are", "is", "am", "was", "were", "can", "could", "would", "will", "should", "have", "has"}
 
 # Interjections ("um", "oh") are dropped from echoed phrases; punctuation is trimmed only at the ends
 _SKIP_DEPS = {"intj"}
@@ -253,6 +253,11 @@ _RHYME_FAMILIES = [
     ["cheese", "please", "trees", "knees", "bees"], ["duck", "truck", "luck", "stuck"], ["mom", "bomb", "calm"],
     ["dad", "sad", "glad", "mad", "bad"], ["snow", "go", "slow", "grow", "show", "bow"], ["frog", "dog", "log"],
 ]
+
+
+# Things that happen on a schedule, named without "the": "school starts at 8:30"
+_ROUTINES = {"school", "practice", "recess", "lunch", "dinner", "breakfast", "class", "camp", "church", "bedtime",
+             "soccer", "baseball", "basketball", "swimming", "dance", "piano", "karate", "gymnastics", "homework"}
 
 
 def _number_value(text: str) -> Optional[int]:
@@ -530,8 +535,11 @@ class ResponseEngine:
             elif embedded in (appraisal_module.HOPE, appraisal_module.WANT, appraisal_module.POSSIBLE,
                               appraisal_module.HYPOTHETICAL, appraisal_module.FUTURE):
                 return None
-        # "If I'm good I get a treat": words inside an if-clause did not happen
         first = next(iter(nodes.values()))
+        # "the teacher I like the most is Mr. Smith": "like" describes the teacher
+        if first.dep_ == "relcl" and not rule.get("relcl_ok"):
+            return None
+        # "If I'm good I get a treat": words inside an if-clause did not happen
         if not rule.get("modality_ok") and appraisal_module.HYPOTHETICAL not in rule.get("modality_ok_for", []) \
                 and [t.lower_ for t in sentence[:2]] != ["what", "if"] \
                 and (any(c.dep_ == "mark" and c.lower_ in ("if", "unless") and c.head.dep_ == "advcl"
@@ -609,7 +617,8 @@ class ResponseEngine:
             node = nodes[spec["node"]]
             # A bare "pancakes" can be mistagged as singular
             plural = node.tag_ in ("NNS", "NNPS") or (
-                node.pos_ in ("NOUN", "VERB") and node.lower_.endswith("s") and node.lemma_.lower() != node.lower_)
+                node.pos_ in ("NOUN", "VERB") and node.lower_.endswith("s") and node.lemma_.lower() != node.lower_) \
+                or any(c.dep_ == "conj" for c in node.children)  # "blue and green"
             if plural:
                 slots[f"{slot_name}_plural"] = "yes"
             slots[f"{slot_name}_s"] = "" if plural else "s"
@@ -911,8 +920,30 @@ class ResponseEngine:
             return True
         people = ("i", "me", "you", "we")
         linked = [token.head, *token.children]
+        def named(t):
+            # "my friends are maya, jake and zoe": names of the people or pets just mentioned
+            head = t
+            while head.dep_ == "conj":
+                head = head.head
+            return head.dep_ == "attr" and head.head.lemma_ == "be" and any(
+                c.dep_ == "nsubj" and c.lemma_.lower() in _NAMED_KINDS for c in head.head.children)
+        if named(token):
+            return True
         if token.dep_ == "conj" or any(t.dep_ == "conj" for t in token.children):
-            return any(t.lower_ in people for t in linked)
+            # "me, maya and jake": a list with a person in it
+            chain = {token.i}
+            frontier = [token]
+            while frontier:
+                t = frontier.pop()
+                for n in (t.head, *t.children):
+                    if n.dep_ in ("conj", "appos") or t.dep_ in ("conj", "appos") and n.i == t.head.i:
+                        if n.i not in chain and n.pos_ in ("PROPN", "PRON", "NOUN"):
+                            chain.add(n.i)
+                            frontier.append(n)
+            members = [token.doc[i] for i in chain if i != token.i]
+            return any(t.lower_ in people or t.ent_type_ == "PERSON" or (t.pos_ == "PROPN" and t.text[:1].isupper())
+                       or (t.pos_ == "PROPN" and t.dep_ in ("nsubj", "attr")) for t in members) or \
+                any(t.lower_ in people for t in linked)
         if token.dep_ == "poss" and token.i + 1 < len(token.doc) and token.doc[token.i + 1].lower_ == "'s":
             return True  # "jake's house"
         if token.dep_ == "attr" and token.head.lemma_ == "be" and any(
@@ -943,9 +974,13 @@ class ResponseEngine:
     def _definite_thing_subject(token) -> bool:
         """True if the clause's subject is a specific thing ("the tower broke", "my bike is broken")"""
         # The noun can be mistagged ("The starfish felt bumpy" tags "starfish" as an adjective)
+        def owned(noun):
+            # "my bike", "the tower", "my grandma's cookies"
+            return any(d.dep_ in ("det", "poss") and (d.lower_ in ("the", "my", "our", "your", "his", "her", "their")
+                                                       or (d.dep_ == "poss" and owned(d)))
+                       for d in noun.children)
         return any(c.dep_ == "nsubj" and c.pos_ in ("NOUN", "ADJ", "PROPN")
-                   and any(d.dep_ in ("det", "poss") and d.lower_ in ("the", "my", "our", "your", "his", "her", "their")
-                           for d in c.children)
+                   and (owned(c) or (c.lower_ in _ROUTINES and not any(d.dep_ == "det" for d in c.children)))
                    for c in token.children)
 
     @staticmethod
@@ -1645,6 +1680,20 @@ class ResponseEngine:
         if any(t.lower_ in ("he", "she", "they") and t.dep_ in ("nsubj", "nsubjpass")
                and not (t.lower_ == "they" and t.head.lemma_ in ("give", "bring", "let", "show", "teach", "hand"))
                for t in doc):
+            # "She told me to stop": answer what happened, then ask who
+            root = list(doc.sents)[-1].root
+            subject = next((c for c in root.children if c.dep_ in ("nsubj", "nsubjpass")), None)
+            if allow_reflection and subject is not None and subject.lower_ in ("he", "she", "they") \
+                    and root.pos_ in ("VERB", "AUX") and root.lemma_ != "be" and len(doc) <= 14 \
+                    and (any(t.lower_ in ("me", "us", "my", "our", "we", "i", "mine") for t in root.subtree if t.i != subject.i)
+                         or any(t.lemma_ in _HURT_VERBS for t in doc)):
+                _, clause = self._extract_slot(root, "clause")
+                if clause.lower().startswith(("he ", "she ")):
+                    clause = "someone" + clause[clause.index(" "):]
+                slots["clause"] = clause
+                upset = any(t.lemma_ in _HURT_VERBS for t in doc) or emoji_quirk_service.is_negative(doc.text)
+                kind = "unknown_person_upset" if upset else "unknown_person_event"
+                return pick(kind).format_map(slots), ("negative" if upset else "neutral"), kind
             return pick("unknown_person"), "neutral", "unknown_person"
 
         if allow_reflection:
@@ -1722,6 +1771,8 @@ class ResponseEngine:
         """The most specific template key for an appraisal, or None"""
         modality = "negated" if a.modality == appraisal_module.REAL and a.negated else a.modality
         candidates = []
+        if a.notes.get("conditional"):
+            candidates += [f"*.conditional.{a.valence}", "*.conditional"]
         if a.notes.get("refuse"):
             candidates += [f"{a.action}.refuse", "*.refuse"]
         if a.notes.get("counterfactual"):
@@ -1732,8 +1783,9 @@ class ResponseEngine:
             candidates += [f"{a.action}.never", "*.never"]
         if a.action:
             base = f"{a.action}.{modality}"
-            candidates += [f"{base}.{a.actor}>{a.target}", f"{base}.{a.actor}>", f"{base}.>{a.target}",
-                           f"{base}.{a.tense}", base]
+            # a valence-specific template first ("receive.real.negative": "I got a splinter")
+            candidates += [f"{base}.{a.valence}", f"{base}.{a.actor}>{a.target}", f"{base}.{a.actor}>",
+                           f"{base}.>{a.target}", f"{base}.{a.tense}", base]
         if a.notes.get("wanter") == "other":
             candidates.insert(0, f"*.{modality}.other")
         if modality != "negated" and modality != appraisal_module.REAL:

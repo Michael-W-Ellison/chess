@@ -68,6 +68,7 @@ class Appraiser:
         self.relations = set(lexicons.get("relations", []))
         self.pets = set(appraisal.get("pets", []))
         self.chore_places = set(appraisal.get("chore_places", []))
+        self.unwanted = set(appraisal.get("unwanted_things", []))
         self.foods = set(kb.get("lexicons", {}).get("foods", []))
         self.positive_words = {w for w, v in kb.get("evaluations", {}).items() if v == "positive"}
         self.negative_words = {w for w, v in kb.get("evaluations", {}).items() if v == "negative"}
@@ -134,6 +135,12 @@ class Appraiser:
             appraisal.notes["accident"] = "yes"
         self._counterfactual = False
         appraisal.modality = self._modality(event, root, sentence)
+        # "If I'm good, I get a treat": what happens when something else does
+        if appraisal.modality == REAL and any(
+                c.dep_ == "advcl" and any(m.dep_ == "mark" and m.lower_ in ("if", "unless") for m in c.children)
+                for c in root.children):
+            appraisal.modality = HYPOTHETICAL
+            appraisal.notes["conditional"] = "yes"
         if self._counterfactual:
             appraisal.notes["counterfactual"] = "yes"
         if appraisal.modality in (WANT, HOPE):
@@ -333,6 +340,9 @@ class Appraiser:
         table = self.valence.get(a.action or "", {})
         valence = table.get(f"{a.actor}>{a.target}") or table.get(f"{a.actor}>") or table.get(f">{a.target}") \
             or table.get("default", "neutral")
+        # "I get a timeout": getting something nobody wants
+        if a.action == "receive" and any(t.lemma_.lower() in self.unwanted for t in a.root.subtree):
+            valence = "negative"
         if a.action is None:
             # Evaluative words in the clause: "it was scary", "the movie was awesome"
             words = {t.lower_ for t in a.root.subtree}

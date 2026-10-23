@@ -534,6 +534,19 @@ def _repair_tags(doc) -> None:
                 c.dep_ == "nsubj" for c in token.children):
             token.pos_, token.tag_ = "VERB", "VBP"
     for token in doc:
+        # "which is better, pizza or tacos": the choices hang on the verb, not on "better"
+        if token.dep_ == "conj" and token.pos_ in ("NOUN", "PROPN") and token.head.pos_ == "ADJ" \
+                and token.head.dep_ == "acomp":
+            token.head = token.head.head
+        # "maya, jake and zoe": the last name in a list read as a verb
+        if token.dep_ == "conj" and token.pos_ == "VERB" and token.head.pos_ in ("PROPN", "NOUN") \
+                and not any(c.dep_ not in ("punct", "cc") for c in token.children) \
+                and token.lower_ not in _VERBS and not _verb_base(token.lower_):
+            token.pos_, token.tag_ = token.head.pos_, token.head.tag_
+        # "my mom said yes": the answer is what was said
+        if token.lower_ in ("yes", "no", "okay", "ok", "sure", "maybe") and token.dep_ == "intj" \
+                and token.head.lemma_ in ("say", "tell", "answer") and token.i > token.head.i:
+            token.dep_ = "dobj"
         # "I don't want to": the "to" of a verb left unsaid, not punctuation
         if token.lower_ == "to" and token.dep_ == "punct" and token.head.pos_ in ("VERB", "AUX"):
             token.dep_, token.pos_ = "aux", "PART"
@@ -874,7 +887,8 @@ def _resplit(doc) -> str:
                 and any(c.dep_ == "nsubj" and c.lower_ in ("i", "we", "he", "she", "they", "it", "you") for c in token.children)
                 and not any(c.dep_ in ("mark", "advmod") and c.tag_ in ("IN", "WRB", "WDT") for c in token.children)
                 and not any(t.tag_ in ("WDT", "WP", "WRB") or t.lower_ == "that" for t in token.subtree if t.i < token.i)
-                and (token.dep_ != "relcl" or any(c.dep_ in ("dobj", "attr", "acomp") and c.pos_ != "PRON" for c in token.children))):
+                and (token.dep_ != "relcl" or any(c.dep_ in ("dobj", "attr", "acomp") and c.pos_ in ("NOUN", "PROPN", "ADJ")
+                                             and c.lower_ not in ("most", "best", "least", "more") for c in token.children))):
             start = token.left_edge
             if start.i > 0 and not doc[start.i - 1].is_punct and doc[start.i - 1].lower_ not in ("and", "but", "so", "then"):
                 edits.append((doc[start.i - 1].idx + len(doc[start.i - 1].text), doc[start.i - 1].idx + len(doc[start.i - 1].text), "."))
@@ -981,6 +995,10 @@ class UtteranceParser:
         # "I'm a dinosaur rawr": the growl is its own sentence
         text = re.sub(r"(?<=[a-z])\s+((?:rawr+|roa+r+|grr+|meow+|woof+|moo+|oink+)\W*)$", r"! \1", text, flags=re.IGNORECASE)
         text = re.sub(r"\by'?all\b", "you all", text, flags=re.IGNORECASE)
+        # "which is better, pizza or tacos": the choice itself
+        text = re.sub(r"^((?:which|what)(?: one)? (?:is|do you like|would you pick|do you pick|would you choose)"
+                      r"(?: better| more| best)?),?\s+(\w+(?: \w+)?) or (\w+(?: \w+)?)\s*\??$", r"\1, \2 or \3?", text,
+                      flags=re.IGNORECASE)
         # Quotes around what someone said: 'my mom said "no way"'
         text = re.sub(r"[\"“”]", "", text)
         # "what do i do": asking for advice
