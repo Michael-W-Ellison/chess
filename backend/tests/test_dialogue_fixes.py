@@ -163,6 +163,7 @@ class TestNewRules:
         ("whiskers knocked over a cup", "knocked_over"),
         ("my brother knocked over my tower", "wrecked_my_thing"),
         ("🎉🎉", "yay_alone"),
+        ("my brother pushed me on the swing", "pushed_on_swing"),
         ("my favorite food is tacos", "favorite_is"),
         ("coach said I did great", "praise_reported"),
         ("not much you", "not_much"),

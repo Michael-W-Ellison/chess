@@ -310,6 +310,18 @@
 
   "rules": [
     {
+      "id": "pushed_on_swing",
+      "priority": 67,
+      "patterns": [[
+        {"RIGHT_ID": "push", "RIGHT_ATTRS": {"LEMMA": "push"}},
+        {"LEFT_ID": "push", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "me"}},
+        {"LEFT_ID": "push", "REL_OP": ">", "RIGHT_ID": "on", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": {"IN": ["on", "in"]}}},
+        {"LEFT_ID": "on", "REL_OP": ">", "RIGHT_ID": "swing", "RIGHT_ATTRS": {"DEP": "pobj", "LEMMA": {"IN": ["swing", "wagon", "sled", "stroller", "merry-go-round", "cart", "scooter"]}}}
+      ]],
+      "conditions": {"question": false},
+      "responses": ["Wheee! That sounds so fun! How high did you go?"]
+    },
+    {
       "id": "yay_alone",
       "priority": 44,
       "patterns": [[
@@ -2487,7 +2499,8 @@
       "conditions": {"question": false, "not_negated": "push"},
       "mood": "sad",
       "no_jokes": true,
-      "responses": ["Oh no! Are you okay? If someone pushes you on purpose, tell your coach or teacher so they can help."]
+      "responses": ["Oh no! Are you okay? If someone pushes you on purpose, tell your coach or teacher so they can help."],
+      "suppressed_by": ["pushed_on_swing"]
     },
     {
       "id": "moving_house",
