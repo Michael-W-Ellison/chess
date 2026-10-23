@@ -248,3 +248,114 @@ class TestMoreReplies:
     def test_rule(self, engine, text, rule):
         from tests.test_dialogue_fixes import rule_of
         assert rule_of(engine, text)[0] == rule
+
+
+class TestRoundThree:
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    @pytest.mark.parametrize("text,rule,reply", [
+        ("im ted", "im_name", "Nice to meet you, Ted! I'm Buddy."),
+        ("im Sofia", "im_name", "Nice to meet you, Sofia! I'm Buddy."),
+        ("my dog is bigger then your dog", "compare_bot_thing",
+         "I don't have a dog, since I'm a computer program, but your dog sounds really big!"),
+        ("tomorrow is saturday", "day_is", "Ooh, Saturday! Do you have anything fun planned?"),
+        ("today is Halloween", "day_is", "Ooh, Halloween! Do you have anything fun planned?"),
+        ("my tummy feels funny", "body_feels",
+         "Oh no, your tummy feels funny? I'm sorry. Make sure you tell a grown-up so they can help!"),
+        ("santa is coming", "fallback_reflection_present_other", "Oh, Santa is coming? Tell me more!"),
+        ("santa came last night", "fallback_reflection", "So Santa came last night? What happened next?"),
+        ("maya is my friend", "person_relation", "Tell me more about Maya!"),
+        ("i got a lego set", "got_gift", "Yay, a LEGO set! Do you like it?"),
+        ("i want a Puppy", "want_thing", "Ooh, a Puppy would be so fun! Why do you want one?"),
+    ])
+    def test_reply(self, engine, text, rule, reply):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text) == (rule, reply)
+
+    @pytest.mark.parametrize("text", ["i'm hungry", "im starving"])
+    def test_hungry(self, engine, text):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text)[0] == "hungry"
+
+    def test_whiskers_is_a_name(self, engine):
+        from tests.test_dialogue_fixes import rule_of
+        assert "your cat Whiskers was sleeping" in rule_of(engine, "my cat whiskers was sleeping")[1]
+
+    def test_goodnight_still_works(self, engine):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, "goodnight")[0] == "goodnight"
+        assert rule_of(engine, "night night")[0] == "goodnight"
+
+
+@pytest.mark.parametrize("text,normalized", [
+    ("i planted a seed", "I planted a seed"),
+    ("y is the sky blue", "why is the sky blue"),
+    ("i'm a dinosaur rawr", "I'm a dinosaur! rawr"),
+    ("what does gravity mean", "what is gravity"),
+    ("what does that mean", "what does that mean"),
+    ("i watched frozen", "I watched Frozen"),
+    ("i like frozen yogurt", "I like frozen yogurt"),
+    ("we saw cars today", "we saw cars today"),
+])
+def test_round_four_text(text, normalized):
+    assert parser.parse(text).text == normalized
+
+
+def test_pronoun_after_giving_verb_is_the_receiver():
+    doc = parser.parse("i made you a card")
+    assert token(doc, "you").dep_ == "dative" and token(doc, "card").dep_ == "dobj"
+
+
+def test_second_subject_after_be_is_its_complement():
+    assert token(parser.parse("tag you're it"), "it").dep_ == "attr"
+
+
+def test_two_word_person_name():
+    doc = parser.parse("do you like taylor swift")
+    assert token(doc, "swift").pos_ == "PROPN"
+
+
+class TestRoundFour:
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    @pytest.mark.parametrize("text,rule", [
+        ("tag you're it", "tag_youre_it"),
+        ("pretend you're a cat", "pretend_bot_is"),
+        ("look what i made", "show_bot"),
+        ("i want to show you something", "show_bot"),
+        ("i have a question", "have_question"),
+        ("can i tell you something", "tell_bot_something"),
+        ("do you know what", "you_know_what"),
+        ("what does that mean", "what_does_that_mean"),
+        ("can we play later", "play_later"),
+        ("i got a red card", "penalty_card"),
+        ("i got a birthday card", "got_gift"),
+        ("my bike got stolen", "stolen"),
+        ("someone took my lunch", "stolen"),
+        ("i can't find my dog", "cant_find"),
+        ("it's freezing", "weather_temperature"),
+        ("it's so hot today", "weather_temperature"),
+        ("what does gravity mean", "fallback_world_answer"),
+    ])
+    def test_rule(self, engine, text, rule):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text)[0] == rule
+
+    @pytest.mark.parametrize("text,words", [
+        ("i made you a card", "you made me a card"),
+        ("i was scared because it was dark", "because it was dark"),
+        ("do you like taylor swift", "Taylor Swift"),
+        ("i cried when my fish died", "sorry your fish died"),
+        ("i like frozen yogurt", "frozen yogurt"),
+    ])
+    def test_wording(self, engine, text, words):
+        from tests.test_dialogue_fixes import rule_of
+        assert words in rule_of(engine, text)[1]

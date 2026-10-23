@@ -75,8 +75,8 @@ NORMALIZATIONS = {
     "stealed": "stole", "sticked": "stuck", "weared": "wore", "winned": "won", "leaved": "left",
     "meeted": "met", "keeped": "kept", "speaked": "spoke", "waked": "woke", "shaked": "shook",
     "spinned": "spun", "drived": "drove", "feeded": "fed", "hurted": "hurt", "cutted": "cut",
-    "shutted": "shut", "spended": "spent", "sended": "sent", "haved": "had", "doed": "did", "seed": "saw",
-    "flyed": "flew", "fighted": "fought", "freezed": "froze", "hanged": "hung", "readed": "read",
+    "shutted": "shut", "spended": "spent", "sended": "sent", "haved": "had", "doed": "did",
+    "flyed": "flew", "fighted": "fought", "freezed": "froze", "readed": "read",
     "ringed": "rang", "shooted": "shot", "slided": "slid", "swinged": "swung", "throwded": "threw",
     "thats": "that's",
     "theres": "there's",
@@ -318,6 +318,7 @@ def repair_parse(doc):
             root.pos_ = "NOUN"
             root.tag_ = "NNS" if root.text.lower().endswith("s") else "NN"
     _repair_objects(doc)
+    _extend_person_names(doc)
     _repair_tags(doc)
     return doc
 
@@ -349,6 +350,8 @@ _NAMED_KINDS = {"friend", "bff", "brother", "sister", "cousin", "teacher", "coac
                 "guinea", "lizard", "snake", "parrot", "goldfish"}
 _NOUNS: set = set()  # filled from the lemmatizer's tables
 _DETERMINERS = {"the", "a", "an", "my", "your", "his", "her", "their", "our", "this", "that"}
+_GIVING_VERBS = {"make", "give", "get", "buy", "bake", "draw", "send", "bring", "write", "show", "build", "cook",
+                 "paint", "sing", "read", "tell", "find", "save", "knit", "sew", "pick"}
 _OBJECT_PRONOUNS = {"me", "him", "her", "us", "them"}
 _QUESTION_AUX = {"do", "does", "did", "can", "could", "will", "would", "should"}
 _COPULAS = {"is", "are", "was", "were", "am", "'s", "'re", "'m"}
@@ -369,12 +372,13 @@ def _is_participle(word: str) -> bool:
     """True if the word is the past form of a verb ("played", "stopped", "tried", "swum"; not "ted")"""
     if word in _IRREGULAR_VERBS:
         return True
-    for suffix in ("ed", "d"):
-        if word.endswith(suffix):
-            stem = word[:-len(suffix)]
-            if stem in _VERBS or stem + "e" in _VERBS or (len(stem) > 2 and stem[-1] == stem[-2] and stem[:-1] in _VERBS) \
-                    or (stem.endswith("i") and stem[:-1] + "y" in _VERBS):
-                return True
+    if word.endswith("d") and word[:-1] in _VERBS:
+        return True  # "invited"
+    if word.endswith("ed"):
+        stem = word[:-2]
+        if stem in _VERBS or (len(stem) > 2 and stem[-1] == stem[-2] and stem[:-1] in _VERBS) \
+                or (stem.endswith("i") and stem[:-1] + "y" in _VERBS):
+            return True
     return False
 
 
@@ -459,6 +463,30 @@ def _repair_question_verb(sentence) -> None:
             token.head = verb
 
 
+def _extend_person_names(doc) -> None:
+    """ "taylor swift": the person tag covers "taylor" only; the surname is part of the name"""
+    ents = list(doc.ents)
+    changed = False
+    for k, ent in enumerate(ents):
+        last = ent[-1]
+        if ent.label_ == "PERSON" and last.i + 1 < len(doc):
+            following = doc[last.i + 1]
+            if last.dep_ == "compound" and last.head.i == following.i and following.is_alpha and following.pos_ in ("NOUN", "PROPN"):
+                ents[k] = doc[ent.start:following.i + 1]
+                ents[k].label_ = "PERSON"
+                changed = True
+    if changed:
+        try:
+            from spacy.tokens import Span
+            doc.ents = [Span(doc, e.start, e.end, label="PERSON") if e.label_ == "PERSON" else e for e in ents]
+            for e in doc.ents:
+                if e.label_ == "PERSON":
+                    for t in e:
+                        t.pos_, t.tag_ = "PROPN", "NNP"
+        except Exception as e:  # overlapping entities: keep the model's
+            logger.debug(f"Could not extend name: {e}")
+
+
 def _repair_tags(doc) -> None:
     """
     Part-of-speech errors of the small model on children's messages:
@@ -470,7 +498,7 @@ def _repair_tags(doc) -> None:
         lower = token.lower_
         if token.pos_ == "PROPN" and token.is_lower and lower in _INTERJECTIONS:
             token.pos_, token.tag_ = "INTJ", "UH"
-        elif token.pos_ == "PROPN" and token.is_lower and (lower in _COMMON_NOUNS or any(
+        elif token.pos_ == "PROPN" and ((token.is_lower and lower in _COMMON_NOUNS) or any(
                 c.dep_ == "det" and c.lower_ in ("a", "an") for c in token.children)):
             # "a bee stung me": a name does not take "a"
             token.pos_ = "NOUN"
@@ -491,6 +519,24 @@ def _repair_tags(doc) -> None:
                 c.dep_ == "nsubj" for c in token.children):
             token.pos_, token.tag_ = "VERB", "VBP"
     for token in doc:
+        # "tag you're it": a second subject after "be" is what the first one is
+        if token.dep_ == "nsubj" and token.head.lemma_ == "be" and token.i > token.head.i and any(
+                c.dep_ == "nsubj" and c.i < token.head.i for c in token.head.children):
+            token.dep_ = "attr"
+        # "I made you a card": "you" read as the subject of "card" instead of who it was made for
+        if (token.lower_ in _OBJECT_PRONOUNS | {"you"} and token.dep_ == "nsubj" and token.head.pos_ == "NOUN"
+                and token.head.dep_ in ("ccomp", "dobj", "xcomp") and token.head.head.lemma_ in _GIVING_VERBS
+                and token.i == token.head.head.i + 1):
+            noun, verb = token.head, token.head.head
+            token.head, token.dep_ = verb, "dative"
+            noun.dep_ = "dobj"
+        # "I'm Sofia": a capitalized word the dictionary does not know, mid-sentence, is a name
+        if (token.pos_ == "NOUN" and token.text[:1].isupper() and not token.is_sent_start and token.is_alpha
+                and not _verb_base(token.lower_) and token.text != "I"
+                and not any(c.dep_ == "det" and c.lower_ in ("a", "an") for c in token.children)
+                and not any(t.text[:1].isupper() for t in token.sent if t.i != token.i and not t.is_sent_start
+                            and t.text not in ("I", "I'm", "I've", "I'll", "I'd"))):
+            token.pos_, token.tag_ = "PROPN", "NNP"
         # "I'm ted": a "participle" that is no verb's form is what the subject is (a name)
         if token.dep_ == "ROOT" and token.tag_ == "VBN" and token.is_alpha and not _is_participle(token.lower_):
             be = next((c for c in token.children if c.dep_ == "auxpass" and c.lemma_ == "be"), None)
@@ -511,6 +557,13 @@ def _repair_tags(doc) -> None:
                 (token.dep_ == "appos" and token.head.lower_ in _NAMED_KINDS and token.i == token.head.i + 1)
                 or (token.lower_ not in _NOUNS and not _verb_base(token.lower_) and token.i > 0 and doc[token.i - 1].lower_ in _NAMED_KINDS
                     and doc[token.i - 1].head.i == token.i and doc[token.i - 1].dep_ == "compound")):
+            token.pos_, token.tag_ = "PROPN", "NNP"
+        # "my cat whiskers is sleeping": a plural word taking "is" is one thing's name
+        elif (token.tag_ == "NNS" and token.dep_ == "nsubj" and token.i > 0 and doc[token.i - 1].lower_ in _NAMED_KINDS
+              and doc[token.i - 1].head.i == token.i and any(
+                  c.dep_ in ("aux", "auxpass") and c.lower_ in ("is", "was", "'s") for c in token.head.children)
+              or (token.tag_ == "NNS" and token.dep_ == "nsubj" and token.i > 0 and doc[token.i - 1].lower_ in _NAMED_KINDS
+                  and doc[token.i - 1].head.i == token.i and token.head.lower_ in ("is", "was", "'s"))):
             token.pos_, token.tag_ = "PROPN", "NNP"
         # "I like jumping": "like" read as a helper of the gerund
         if token.lemma_ in ("like", "love", "hate", "enjoy") and token.dep_ == "aux" and token.head.tag_ in ("VBG", "VB"):
@@ -820,6 +873,21 @@ class UtteranceParser:
         text = re.sub(r"^buddy,? (?=(?:do|does|did|can|could|will|would|are|guess|what|why|how|where|who|when|i|you|look|listen|tell|let's|lets|wanna|want)\b)", "", text, flags=re.IGNORECASE)
         text = re.sub(r"^((?:hey|hi|hello) buddy)(?= (?:do|does|did|can|could|will|would|are|guess|what|why|how|where|who|when|i|you|look|listen|tell|let's|lets|wanna|want)\b)", r"\1,", text, flags=re.IGNORECASE)
         text = re.sub(r"\b(you|thanks|bye|goodnight|night),? buddy\s*([.!?]*)$", r"\1\2", text, flags=re.IGNORECASE)
+        # "I'm a dinosaur rawr": the growl is its own sentence
+        text = re.sub(r"(?<=[a-z])\s+((?:rawr+|roa+r+|grr+|meow+|woof+|moo+|oink+)\W*)$", r"! \1", text, flags=re.IGNORECASE)
+        # "what does gravity mean": the question the world answers know as "what is gravity"
+        text = re.sub(r"^what does (?!(?:that|it|this|he|she|they|you|mine)\b)([\w ]+?) mean\b", r"what is \1", text,
+                      flags=re.IGNORECASE)
+        # "i watched frozen": a movie title after a word for watching
+        text = re.sub(r"\b(watch|watched|watching|saw|seen|see|love|loved|like|liked)( the movie)? (frozen|moana|encanto|"
+                      r"coco|elemental|luca|tangled|bluey|trolls|turning red|inside out|"
+                      r"toy story|zootopia|minions|despicable me|shrek|wicked|lilo and stitch|the lion king)"
+                      r"(?=\s*(?:[.!?,]|$)|\s+(?:and|with|today|yesterday|again|last|at|on|tonight|so|too|two|2)\b)",
+                      lambda m: f"{m.group(1)}{m.group(2) or ''} {m.group(3).title().replace(' And ', ' and ')}", text,
+                      flags=re.IGNORECASE)
+        # "y is the sky blue", "y not": "why"
+        text = re.sub(r"^y(?= (is|are|do|does|did|not|can|can't|would|wouldn't|should|won't|cant|dont|don't|was|were)\b)|^y(?=\W*$)",
+                      "why", text, flags=re.IGNORECASE)
         # "lets fish" at the start: "let's fish"
         text = re.sub(r"^lets\b", "let's", text, flags=re.IGNORECASE)
         # "me and lily played tag" -> "lily and I played tag" (the parser reads "me and" badly)

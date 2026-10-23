@@ -28,7 +28,7 @@ from services import appraisal as appraisal_module
 from services.appraisal import Appraisal, Appraiser
 from services.emoji_quirk_service import emoji_quirk_service
 from services.reference_tracker import ReferenceTracker, gerund
-from services.utterance_parser import utterance_parser
+from services.utterance_parser import _NAMED_KINDS, utterance_parser
 
 logger = logging.getLogger("chatbot.response_engine")
 
@@ -726,7 +726,9 @@ class ResponseEngine:
                       if t == token or (t.head == token and t.dep_ in ("amod", "compound"))]
         elif span == "clause":
             tokens = [t for t in token.subtree if not _skipped(t)]
-            while tokens and tokens[0].dep_ == "mark":
+            # "because", and "when"/"while" (read as adverbs): "I cried when my fish died"
+            while tokens and (tokens[0].dep_ == "mark" or (tokens[0].tag_ == "WRB" and tokens[0].head.i == token.i
+                                                             and tokens[0].lower_ in ("when", "while", "whenever"))):
                 tokens = tokens[1:]
         elif span == "predicate":
             excluded = set()
@@ -843,8 +845,12 @@ class ResponseEngine:
         linked = [token.head, *token.children]
         if token.dep_ == "conj" or any(t.dep_ == "conj" for t in token.children):
             return any(t.lower_ in people for t in linked)
+        if token.dep_ == "attr" and token.head.lemma_ == "be" and any(
+                c.dep_ == "nsubj" and c.lower_ == "i" for c in token.head.children):
+            return True  # "I'm ted"
         if token.dep_ == "appos" or (token.i > 0 and token.doc[token.i - 1].dep_ == "compound"
-                                     and token.doc[token.i - 1].head.i == token.i):
+                                     and token.doc[token.i - 1].head.i == token.i
+                                     and token.doc[token.i - 1].lower_ in _NAMED_KINDS):
             return True  # "my friend ava", "my sister emma"
         return (token.dep_ == "nsubj" and token.head.pos_ in ("VERB", "AUX")) or (
             token.dep_ == "pobj" and token.head.lower_ == "with")
@@ -854,7 +860,7 @@ class ResponseEngine:
         lower = token.lower_
         if lower == "you":
             return "I" if token.dep_ in ("nsubj", "nsubjpass") else "me"
-        if lower == "was" and ResponseEngine._first_person_subject(token):
+        if lower == "was" and ResponseEngine._own_first_person_subject(token):
             return "were"
         if lower in ("are", "'re") and any(c.dep_ == "nsubj" and c.lower_ == "you"
                                            for c in (*token.children, *token.head.children)):
@@ -912,6 +918,14 @@ class ResponseEngine:
             if any(c.dep_ == "acl" and c.lemma_ == "name" for c in child.children):
                 return True
         return False
+
+    @staticmethod
+    def _own_first_person_subject(token) -> bool:
+        """True if this verb's own subject is I/we ("I was scared", not "it was dark" after it)"""
+        verb = token.head if token.dep_ in ("aux", "auxpass") else token
+        return any(c.dep_ in ("nsubj", "nsubjpass") and c.lower_ in ("i", "we") for c in verb.children) or (
+            verb.dep_ == "conj" and not any(c.dep_ in ("nsubj", "nsubjpass") for c in verb.children)
+            and ResponseEngine._first_person_subject(verb.head))
 
     @staticmethod
     def _done_to_child(root) -> bool:
@@ -1484,7 +1498,9 @@ class ResponseEngine:
                 root = sentence.root
                 if (len(sentence) <= 15 and root.pos_ in ("VERB", "AUX")
                         and (self._first_person_subject(root) or self._known_person_subject(root, user_id)
-                             or self._definite_thing_subject(root) or self._done_to_child(root))):
+                             or self._definite_thing_subject(root) or self._done_to_child(root)
+                             or any(c.dep_ == "nsubj" and c.pos_ == "PROPN" and c.lower_ != "buddy"
+                                    for c in root.children))):
                     _, clause = self._extract_slot(root, "clause")
                     slots["clause"] = clause
                     # A follow-up that fits: "How did that go?" only for what already happened
@@ -1504,6 +1520,9 @@ class ResponseEngine:
                             and not self._first_person_subject(root))
                         if describes and kind in ("reflection_present", "reflection"):
                             kind = "reflection_be"
+                        # "Santa is coming", "my cat sleeps on my bed": not "What's that like?"
+                        elif kind == "reflection_present" and not self._first_person_subject(root):
+                            kind = "reflection_present_other"
                         # "We can't go to the park", "I don't have one"
                         elif self._is_negated(root) and (
                                 any(c.lower_ in ("ca", "can", "could") for c in root.children)
