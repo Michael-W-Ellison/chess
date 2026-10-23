@@ -62,6 +62,13 @@ NORMALIZATIONS = {
     "havent": "haven't",
     "hasnt": "hasn't",
     "whos": "who's",
+    "lotsa": "lots of",
+    "kinda": "kind of",
+    "sorta": "sort of",
+    "outta": "out of",
+    "gimme": "give me",
+    "lemme": "let me",
+    "dunno": "don't know",
     "wheres": "where's",
     # Past tenses children make regular: "I goed", "we runned"
     "goed": "went", "runned": "ran", "eated": "ate", "hitted": "hit", "drawed": "drew", "throwed": "threw",
@@ -519,6 +526,9 @@ def _repair_tags(doc) -> None:
                 c.dep_ == "nsubj" for c in token.children):
             token.pos_, token.tag_ = "VERB", "VBP"
     for token in doc:
+        # "do you like pizza?": a verb's object read as the object of a preposition
+        if token.dep_ == "pobj" and token.head.pos_ == "VERB" and token.head.i < token.i:
+            token.dep_ = "dobj"
         # "tag you're it": a second subject after "be" is what the first one is
         if token.dep_ == "nsubj" and token.head.lemma_ == "be" and token.i > token.head.i and any(
                 c.dep_ == "nsubj" and c.i < token.head.i for c in token.head.children):
@@ -733,6 +743,30 @@ def _repair_objects(doc) -> None:
                 token.dep_ = "nsubj"
 
 
+_TAG_QUESTION_RE = re.compile(r"^(.*?),? (?:right|huh|(?:aren't|isn't|don't|doesn't|didn't|wasn't|weren't|can't|won't) "
+                              r"(?:they|it|you|we|he|she|i))\s*\?*$", re.IGNORECASE)
+_NOT_BEFORE_TAG = {"that's", "turn", "turned", "go", "went", "on", "the", "to", "all", "you're", "i'm", "is", "was",
+                   "are", "just", "yeah", "yes", "it's", "exactly", "alright", "left", "be", "it", "right", "anything",
+                   "everything", "something", "nothing", "this", "that", "them", "him", "her", "me", "you", "us", "not",
+                   "so", "very", "too", "quite", "really", "never", "always"}
+
+
+def _tag_question(match) -> str:
+    """ "you like pizza right" -> "you like pizza?"; "that's right" and "turn right" stay"""
+    words = match.group(1).split()
+    if len(words) < 3 or words[-1].lower() in _NOT_BEFORE_TAG:
+        return match.group(0)
+    # "you like pizza right" asks "do you like pizza?"; "dogs are cute aren't they" says they are
+    if words[0].lower() == "you" and words[1].lower() not in ("are", "were", "can", "will", "would", "could", "should",
+                                                              "have", "had", "did", "do", "don't", "didn't", "can't"):
+        return f"do {match.group(1)}?"
+    return match.group(1)
+
+
+_DIGIT_SHORTHAND = {"b4": "before", "2day": "today", "2morrow": "tomorrow", "2moro": "tomorrow", "2nite": "tonight",
+                    "l8r": "later", "l8": "late", "gr8": "great", "h8": "hate", "m8": "mate", "w8": "wait",
+                    "any1": "anyone", "some1": "someone", "every1": "everyone", "no1": "no one"}
+_DIGIT_SHORTHAND_RE = re.compile(r"(?<![\w'])(" + "|".join(_DIGIT_SHORTHAND) + r")(?![\w'])", re.IGNORECASE)
 _STRETCH_RE = re.compile(r"([a-z])\1{2,}", re.IGNORECASE)
 _SAYING_VERBS = {"say", "think", "know", "hope", "wish", "guess", "bet", "feel", "believe", "mean", "remember",
                  "forget", "tell", "hear", "see", "notice", "pretend", "dream", "promise", "bet", "swear"}
@@ -743,6 +777,7 @@ _FEELING_WORDS = {"scared", "afraid", "worried", "sure", "glad", "happy", "sad",
                   "embarrassed", "disappointed", "frustrated", "confused", "shocked", "positive"}
 
 
+_TITLE_KINDS = {"book", "movie", "show", "song", "series", "cartoon", "film"}
 _TIME_NOUNS = {"today", "tonight", "yesterday", "tomorrow", "now", "again", "later", "once", "twice", "everyday",
                "sometimes", "morning", "night", "week", "weekend", "year"}
 _PLACE_VERBS = {"go", "come", "be", "live", "stay", "sit", "put", "leave", "get", "run", "walk", "drive", "move",
@@ -767,6 +802,26 @@ def _resplit(doc) -> str:
                 edits.append((token.idx, token.idx + 5, "their" if token.text.islower() else "Their"))
             elif following.tag_ == "VBG" and (token.i == 0 or doc[token.i - 1].pos_ != "AUX"):
                 edits.append((token.idx, token.idx + 5, "they're" if token.text.islower() else "They're"))
+        # "the book wings of fire": a title after "the book", "the song", "the show"
+        if token.lower_ in _TITLE_KINDS and token.i + 1 < len(doc):
+            words = []
+            for t in doc[token.i + 1:]:
+                if t.is_punct or t.pos_ in ("VERB", "AUX", "PRON", "SCONJ", "CCONJ", "DET") or t.lower_ in _TIME_NOUNS \
+                        or (t.pos_ == "ADP" and t.lower_ != "of"):
+                    break
+                words.append(t)
+            while words and words[-1].lower_ == "of":
+                words.pop()
+            head = words[-1] if words else None
+            attached = head is not None and (
+                (token.dep_ == "compound" and token.head.i in {w.i for w in words})
+                or any(w.dep_ == "appos" and w.head.i == token.i for w in words)
+                or (head.dep_ == "pobj" and any(w.head.i == token.i or token.head.i == w.i for w in words)))
+            if attached and len(words) <= 5 and any(w.text.islower() for w in words):
+                start, end = words[0].idx, words[-1].idx + len(words[-1].text)
+                title = " ".join(w.capitalize() if k == 0 or w.lower() not in ("of", "the", "and", "a", "an", "in", "on")
+                                 else w.lower() for k, w in enumerate(doc.text[start:end].split()))
+                edits.append((start, end, title))
         # "my dog is bigger then your dog"
         if token.lower_ == "then" and token.i > 0 and (doc[token.i - 1].tag_ in ("JJR", "RBR")
                                                          or doc[token.i - 1].lower_ in ("more", "less")):
@@ -855,6 +910,8 @@ class UtteranceParser:
                 return word  # "ur weird" (you're) or "ur dog" (your): decided below by the next word
             return NORMALIZATIONS.get(word.lower(), word)
 
+        # Shorthand with digits ("b4", "2day", "l8r"), which the word pattern below does not see
+        text = _DIGIT_SHORTHAND_RE.sub(lambda m: _DIGIT_SHORTHAND[m.group(0).lower()], text)
         # Spellings first, so "its rlly big" reads "its really big" before "its" -> "it's"
         text = _WORD_RE.sub(replace, text)
         for pattern, replacement in _CONTEXT_NORMALIZATIONS:
@@ -873,6 +930,18 @@ class UtteranceParser:
         text = re.sub(r"^buddy,? (?=(?:do|does|did|can|could|will|would|are|guess|what|why|how|where|who|when|i|you|look|listen|tell|let's|lets|wanna|want)\b)", "", text, flags=re.IGNORECASE)
         text = re.sub(r"^((?:hey|hi|hello) buddy)(?= (?:do|does|did|can|could|will|would|are|guess|what|why|how|where|who|when|i|you|look|listen|tell|let's|lets|wanna|want)\b)", r"\1,", text, flags=re.IGNORECASE)
         text = re.sub(r"\b(you|thanks|bye|goodnight|night),? buddy\s*([.!?]*)$", r"\1\2", text, flags=re.IGNORECASE)
+        # "home.it was fun": a sentence run together after the period
+        text = re.sub(r"(?<=[a-z])\.(?=(?:i|it|we|he|she|they|my|the|then|and|but|so|you|that|there|this)\b)", ". ", text)
+        # "my mom n dad", "me & my sister", "w/ my grandma", "going 2 the store"
+        text = re.sub(r"(?<=\w) (?:n|&|\+) (?=\w)", " and ", text)
+        text = re.sub(r"\bw/(?=\s)", "with", text, flags=re.IGNORECASE)
+        text = re.sub(r"\b(go|going|went|goes|come|came|want|wanna|have|need|got|talk|listen|back|up|next|way|time|to|due)"
+                      r" 2 (?=(?:the|my|a|school|bed|sleep|play|go|eat|be|see|get|do|work|church|grandma's|grandpa's)\b)",
+                      r"\1 to ", text, flags=re.IGNORECASE)
+        # "you like pizza right", "dogs are cute aren't they": a question looking for "yes"
+        text = _TAG_QUESTION_RE.sub(_tag_question, text)
+        # "i dare you to say something funny": the dare is the request
+        text = re.sub(r"^i (?:dare|double dare|triple dare) you to ", "", text, flags=re.IGNORECASE)
         # "I'm a dinosaur rawr": the growl is its own sentence
         text = re.sub(r"(?<=[a-z])\s+((?:rawr+|roa+r+|grr+|meow+|woof+|moo+|oink+)\W*)$", r"! \1", text, flags=re.IGNORECASE)
         # "what does gravity mean": the question the world answers know as "what is gravity"

@@ -359,3 +359,134 @@ class TestRoundFour:
     def test_wording(self, engine, text, words):
         from tests.test_dialogue_fixes import rule_of
         assert words in rule_of(engine, text)[1]
+
+
+@pytest.mark.parametrize("text,normalized", [
+    ("i like the book wings of fire", "I like the book Wings of Fire"),
+    ("we sang the song baby shark", "we sang the song Baby Shark"),
+    ("the movie scared me", "the movie scared me"),
+    ("i read the book yesterday", "I read the book yesterday"),
+    ("i read a book about sharks", "I read a book about sharks"),
+])
+def test_titles_after_kind_words(text, normalized):
+    assert parser.parse(text).text == normalized
+
+
+class TestRoundFive:
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    @pytest.mark.parametrize("text,rule,reply", [
+        ("my favorite animal is a dolphin", "favorite_is", "A dolphin? Mine too! Great minds think alike."),
+        ("i'm a dinosaur rawr", "pretend_i_am", "Whoa, a dinosaur! I'd better watch out! What does a dinosaur like to do?"),
+        ("i drew a picture of you", "made_for_bot",
+         "Aw, you made that for me? That's so sweet! Can you tell me what it looks like?"),
+        ("i'm learning to read", "learning_skill",
+         "Ooh, you're learning to read? That's a great thing to work on! How's it going so far?"),
+    ])
+    def test_reply(self, engine, text, rule, reply):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text) == (rule, reply)
+
+    def test_not_pretend(self, engine):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, "i am a kid")[0] != "pretend_i_am"
+
+    def test_other_favorite_still_named(self, engine):
+        from tests.test_dialogue_fixes import rule_of
+        assert "Mine is dolphins" in rule_of(engine, "my favorite animal is a cat")[1]
+
+
+@pytest.mark.parametrize("text,normalized", [
+    ("my mom n dad took me to the park", "my mom and dad took me to the park"),
+    ("i went w/ my grandma", "I went with my grandma"),
+    ("i ate b4 school", "I ate before school"),
+    ("2day was fun", "today was fun"),
+    ("see u l8r", "see you later"),
+    ("i'm going 2 the store", "I'm going to the store"),
+    ("i have 2 dogs", "I have 2 dogs"),
+    ("i have lotsa homework", "I have lots of homework"),
+    ("i went home.it was fun", "I went home. it was fun"),
+    ("you like pizza right", "do you like pizza?"),
+    ("dogs are cute aren't they", "dogs are cute"),
+    ("that's right", "that's right"),
+    ("turn right", "turn right"),
+    ("i did it right", "I did it right"),
+    ("the name is not right", "the name is not right"),
+    ("i dare you to say something funny", "say something funny"),
+])
+def test_shorthand(text, normalized):
+    assert UtteranceParser.normalize(text) == normalized
+
+
+class TestRoundSix:
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    @pytest.mark.parametrize("text,rule", [
+        ("i'm not good at anything", "not_good_at_anything"),
+        ("i can't do anything right", "not_good_at_anything"),
+        ("i'm not good at math", "not_good_at"),
+        ("i'm really good at drawing", "good_at"),
+        ("i'm better than my brother at math", "better_than"),
+        ("my friend is better than me at reading", "better_than"),
+        ("i threw up at school", "sick"),
+        ("last week i got sick", "sick"),
+        ("my nose is runny", "body_feels"),
+        ("i got 3rd place", "achievement"),
+        ("I got an A on my spelling test", "achievement"),
+        ("i got braces", "got_medical"),
+        ("my brother always gets his way", "gets_their_way"),
+        ("i have nobody to play with", "left_out"),
+        ("no one wanted to sit with me", "left_out"),
+        ("i bet you can't guess", "bet_cant_guess"),
+        ("tell me something cool", "request_something"),
+        ("are dragons real", "fallback_world_answer"),
+        ("when is christmas", "fallback_world_answer"),
+        ("what time is it", "fallback_world_answer"),
+    ])
+    def test_rule(self, engine, text, rule):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text)[0] == rule
+
+    @pytest.mark.parametrize("text", ["i got ice cream", "we got ice cream and then we went home"])
+    def test_getting_food_is_not_an_achievement(self, engine, text):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text)[0] != "achievement"
+
+
+def test_object_of_like_with_question_mark():
+    assert token(parser.parse("do you like pizza?"), "pizza").dep_ == "dobj"
+
+
+class TestRoundSixReplies:
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    @pytest.mark.parametrize("text,rule", [
+        ("do you like pizza?", "bot_like_food"),
+        ("you like pizza right", "bot_like_food"),
+        ("dogs are cute aren't they", "pet_cute"),
+        ("i got a victory royale", "achievement"),
+    ])
+    def test_rule(self, engine, text, rule):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text)[0] == rule
+
+    def test_superlative_with_a_place_is_not_the_world_answer(self, engine):
+        from tests.test_dialogue_fixes import rule_of
+        assert "Everest" not in rule_of(engine, "what is the tallest mountain in peru?")[1]
+        assert "Everest" in rule_of(engine, "what is the tallest mountain in the world")[1]
+
+    def test_body_reply_uses_the_childs_verb(self, engine):
+        from tests.test_dialogue_fixes import rule_of
+        assert "your nose is runny?" in rule_of(engine, "my nose is runny")[1]

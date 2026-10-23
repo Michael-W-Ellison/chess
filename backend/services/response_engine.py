@@ -231,6 +231,16 @@ class _BlankDict(dict):
         return ""
 
 
+def _same_thing(a: str, b: str) -> bool:
+    """ "a dolphin" and "dolphins", "The Moon" and "moon": the same thing, named differently"""
+    def base(text):
+        words = re.sub(r"^(a|an|the|my)\s+", "", text.strip().lower()).split()
+        if words and len(words[-1]) > 3 and words[-1].endswith("s") and not words[-1].endswith("ss"):
+            words[-1] = words[-1][:-2] if words[-1].endswith(("ches", "shes", "xes")) else words[-1][:-1]
+        return " ".join(words)
+    return bool(a.strip()) and base(a) == base(b)
+
+
 class ResponseEngine:
     """Structural rule matcher and reply composer"""
 
@@ -1244,7 +1254,7 @@ class ResponseEngine:
                     mention = f"the {slots['category']} {favorite}" if slots["category"] in ("color", "number") else favorite
                     self._last_mentions[getattr(personality, "user_id", 0)] = [mention]
                     self._last_category[getattr(personality, "user_id", 0)] = slots["category"]
-                    if favorite.lower() == slots.get("value_raw", "").lower():
+                    if _same_thing(favorite, slots.get("value_raw", "")):
                         slots["same_favorite"] = "yes"
                     else:
                         slots["bot_favorite"] = favorite
@@ -1298,6 +1308,9 @@ class ResponseEngine:
             elif name == "joke_content":
                 # "Tell me something funny"
                 self._requested_content("joke", slots, user_id=getattr(personality, "user_id", 0))
+            elif name == "fact_content":
+                # "Tell me something cool"
+                self._requested_content("fact", slots, user_id=getattr(personality, "user_id", 0))
             elif name == "repeat_request":
                 kind = self._last_request.get(getattr(personality, "user_id", 0))
                 if kind:

@@ -249,7 +249,7 @@ class TestNewRules:
         ("why is the sky blue", "fallback_world_answer"),
         ("how far is the moon", "fallback_world_answer"),
         ("do you know about planets", "fallback_world_question_fact"),
-        ("what time is it", "fallback_world_question"),
+        ("who invented candy", "fallback_world_question"),
         ("why do penguins not fly", "fallback_world_answer"),
         ("nobody picked me for their team", "left_out"),
         ("its raining", "weather"),

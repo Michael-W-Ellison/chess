@@ -166,7 +166,7 @@ class TestResponses:
         assert reply.startswith("The sky looks blue")
 
     def test_unknown_world_question_suggests_looking_it_up(self, engine):
-        reply = engine.generate_response("what time is it?", make_personality())
+        reply = engine.generate_response("who invented candy?", make_personality())
         assert reply in engine.kb["fallbacks"]["world_question"]
 
     def test_reflection_fallback(self, engine):
