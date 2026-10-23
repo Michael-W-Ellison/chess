@@ -1,6 +1,10 @@
 {
   "_comment": "Short answers to common questions children ask about the world, used by the rule-based response engine (services/response_engine.py) when a question matches no rule. Each pattern is a case-insensitive regular expression matched against the child's question; the first match wins, so put specific patterns before general ones. Keep answers short, simple and well established.",
   "answers": [
+    {"pattern": "\\bwhat (is|are) (a )?fractions?\\b", "answer": "A fraction is a part of something whole! If you cut a pizza into 4 equal slices, one slice is 1/4, or one fourth, of the pizza."},
+    {"pattern": "\\bwhat (is|are) (a )?decimals?\\b", "answer": "A decimal is another way to write part of a number, like 0.5, which means one half!"},
+    {"pattern": "\\bwhat is (a )?prime number\\b", "answer": "A prime number can only be divided evenly by 1 and itself, like 2, 3, 5, 7, and 11!"},
+    {"pattern": "\\bwhat is (an? )?(even|odd) numbers?\\b", "answer": "Even numbers can be split into two equal groups, like 2, 4, and 6. Odd numbers have one left over, like 1, 3, and 5!"},
     {"pattern": "\\bhow (do|does) (a )?computers? work\\b", "answer": "Computers follow lists of instructions called programs, super fast! They use electricity and tiny switches to do math, remember things, and show pictures."},
     {"pattern": "\\bwhat did (the )?t\\.? ?rex eat\\b", "answer": "T. rex was a meat-eater! It probably hunted other dinosaurs, like Triceratops."},
     {"pattern": "\\bhow tall (can|do) sunflowers\\b", "answer": "Sunflowers can grow taller than a grown-up! Most get about 5 to 10 feet tall, and some grow even taller."},

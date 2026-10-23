@@ -189,6 +189,18 @@ class TestNewRules:
         ("can you remember my name", "bot_think_question"),
         ("the snowman's name is Frosty", "thing_name_is"),
         ("how do computers work", "fallback_world_answer"),
+        ("we found him", "found_it"),
+        ("I didn't have any cavities", "no_cavities"),
+        ("I got a new toothbrush", "got_gift"),
+        ("I feel left out", "feel_left_out"),
+        ("when will I get one", "will_i"),
+        ("I didn't want to leave", "didnt_want_to_leave"),
+        ("if you could be any animal what would you be", "bot_would_be"),
+        ("what is half of 10", "arithmetic"),
+        ("what is a fraction", "fallback_world_answer"),
+        ("my aunt had a baby", "new_baby"),
+        ("I got to hold my baby cousin", "got_to"),
+        ("I don't have one", "fallback_reflection_cant"),
     ])
     def test_rule(self, engine, message, rule):
         assert rule_of(engine, message)[0] == rule
@@ -389,6 +401,25 @@ class TestReferences:
         rule_of(engine, "I got a goody bag")
         engine.references.record_bot_reply(1, "Ooh, a goody bag! What was in it?", told="joke", told_was_added=True)
         assert "joke" not in engine.resolve_references("it was the best", 1)
+
+    def test_aunts_baby_is_a_cousin(self, engine):
+        assert "cousin" in rule_of(engine, "my aunt had a baby")[1]
+        assert engine.resolve_references("she is so tiny", 1) == "My baby cousin is so tiny"
+        engine.resolve_references("her name is rose", 1)
+        assert engine.resolve_references("I got to hold her", 1) == "I got to hold my baby cousin Rose"
+
+    def test_toy_with_a_title_name(self, engine):
+        rule_of(engine, "I lost my favorite stuffed animal")
+        rule, reply = rule_of(engine, "his name is mr bear")
+        assert reply == "Mr Bear is a great name for an animal!"
+        assert engine.resolve_references("I can't find him", 1) == "I can't find Mr Bear"
+
+    def test_it_was_far_away(self, engine):
+        rule_of(engine, "I saw a bear")
+        assert engine.resolve_references("it was far away", 1) == "The bear was far away"
+
+    def test_an_before_a_vowel(self, engine):
+        assert "an animal" in rule_of(engine, "the animal's name is Mr Bear")[1]
 
     def test_mine_is_not_a_thing(self, engine):
         rule_of(engine, "my favorite food is sushi")

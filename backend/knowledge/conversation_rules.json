@@ -1,5 +1,5 @@
 {
-  "_comment": "Knowledge base for the rule-based response engine (services/response_engine.py). Patterns use spaCy DependencyMatcher syntax; a string value starting with '@' inside an IN list refers to a lexicon below. A rule's suppressed_by lists rules whose match cancels it. Response text placeholders: {slot} is the slot from the bot's perspective (my -> your), {slot_raw} is the child's original wording, {slot_slug} is a key-safe form, and {slot_s} / {slot_them} are \"s\"/\"it\" for a singular noun and \"\"/\"them\" for a plural one (\"{thing} sound{thing_s} fun\"). Always available: {user_name}, {bot_name}, {bot_mood}. A rule's answer (optional) names what its reply says, from the child's point of view (\"your name\"), so the child can refer to it with \"it\" or \"that\". A rule's memory_conjuncts (optional) names a node whose list items (\"two cats, a dog\") are stored as separate memories; no_jokes keeps puns and facts off its replies.",
+  "_comment": "Knowledge base for the rule-based response engine (services/response_engine.py). Patterns use spaCy DependencyMatcher syntax; a string value starting with '@' inside an IN list refers to a lexicon below. A rule's suppressed_by lists rules whose match cancels it. Response text placeholders: {slot} is the slot from the bot's perspective (my -> your), {slot_raw} is the child's original wording, {slot_slug} is a key-safe form, and {slot_a} is \"a\" or \"an\" for the slot, and {slot_s} / {slot_them} are \"s\"/\"it\" for a singular noun and \"\"/\"them\" for a plural one (\"{thing} sound{thing_s} fun\"). Always available: {user_name}, {bot_name}, {bot_mood}. A rule's answer (optional) names what its reply says, from the child's point of view (\"your name\"), so the child can refer to it with \"it\" or \"that\". A rule's memory_conjuncts (optional) names a node whose list items (\"two cats, a dog\") are stored as separate memories; no_jokes keeps puns and facts off its replies.",
   "lexicons": {
     "like_verbs": ["love", "like", "enjoy", "adore"],
     "hate_verbs": ["hate", "dislike", "detest"],
@@ -441,12 +441,25 @@
       "priority": 76,
       "patterns": [[
         {"RIGHT_ID": "have", "RIGHT_ATTRS": {"LEMMA": "have"}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj"}},
         {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "baby", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": "baby"}}
       ]],
       "conditions": {"not_negated": "have", "question": false},
       "valence": "positive",
       "mood": "happy",
-      "responses": ["A new baby? That's so exciting! Are you hoping for a brother or a sister?"]
+      "slots": {"parent": {"node": "subj", "span": "lemma"}},
+      "responses_by": {
+        "slot": "parent",
+        "variants": {
+          "mom": ["A new baby? That's so exciting! Are you hoping for a brother or a sister?"],
+          "mommy": ["A new baby? That's so exciting! Are you hoping for a brother or a sister?"],
+          "mother": ["A new baby? That's so exciting! Are you hoping for a brother or a sister?"],
+          "stepmom": ["A new baby? That's so exciting! Are you hoping for a brother or a sister?"],
+          "aunt": ["A new baby cousin? How exciting! Have you met the baby yet?"],
+          "uncle": ["A new baby cousin? How exciting! Have you met the baby yet?"],
+          "default": ["A new baby? How exciting! Have you met the baby yet?"]
+        }
+      }
     },
     {
       "id": "person_event",
@@ -681,6 +694,22 @@
       "no_jokes": true,
       "responses": [
         "You're not stupid! One hard day doesn't change how smart and special you are. Do you want to talk about what happened?"
+      ]
+    },
+    {
+      "id": "feel_left_out",
+      "priority": 79,
+      "patterns": [[
+        {"RIGHT_ID": "feel", "RIGHT_ATTRS": {"LEMMA": "feel"}},
+        {"LEFT_ID": "feel", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "feel", "REL_OP": ">", "RIGHT_ID": "left", "RIGHT_ATTRS": {"LOWER": "left"}},
+        {"LEFT_ID": "left", "REL_OP": ">", "RIGHT_ID": "out", "RIGHT_ATTRS": {"LOWER": "out"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "feel"},
+      "mood": "sad",
+      "no_jokes": true,
+      "responses": [
+        "Feeling left out is really hard. I'm sorry. You're not alone in feeling that way. Do you want to talk about it?"
       ]
     },
     {
@@ -1032,7 +1061,7 @@
       ]],
       "slots": {"thing": {"node": "ball", "span": "lemma"}},
       "no_jokes": true,
-      "responses": ["Ouch! Getting hit with a {thing} can sting. Are you okay?", "Oof! Are you okay?"]
+      "responses": ["Ouch! Getting hit with {thing_a} {thing} can sting. Are you okay?", "Oof! Are you okay?"]
     },
     {
       "id": "we_won",
@@ -1214,11 +1243,19 @@
     {
       "id": "got_gift",
       "priority": 66,
-      "patterns": [[
-        {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": {"IN": ["get", "receive"]}}},
-        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
-        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "gift", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["gift", "present", "bag", "toy", "candy", "sticker", "balloon", "prize", "treat", "card", "book", "game", "bike", "doll", "lego", "legos", "shirt", "shoes", "phone", "tablet", "ipad", "watch"]}}}
-      ]],
+      "patterns": [
+        [
+          {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": {"IN": ["get", "receive"]}}},
+          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "gift", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["gift", "present", "bag", "toy", "candy", "sticker", "balloon", "prize", "treat", "card", "book", "game", "bike", "doll", "lego", "legos", "shirt", "shoes", "phone", "tablet", "ipad", "watch"]}}}
+        ],
+        [
+          {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": {"IN": ["get", "receive"]}}},
+          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "gift", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"NOT_IN": "@relations"}}},
+          {"LEFT_ID": "gift", "REL_OP": ">", "RIGHT_ID": "new", "RIGHT_ATTRS": {"DEP": "amod", "LOWER": "new"}}
+        ]
+      ],
       "conditions": {"not_negated": "get", "question": false},
       "slots": {"gift": {"node": "gift", "span": "subtree"}},
       "valence": "positive",
@@ -1228,6 +1265,42 @@
         {"text": "Yay, {gift}! Do you like {gift_them}?"}
       ],
       "compute": ["gift_container"]
+    },
+    {
+      "id": "found_it",
+      "priority": 66,
+      "patterns": [[
+        {"RIGHT_ID": "find", "RIGHT_ATTRS": {"LEMMA": "find"}},
+        {"LEFT_ID": "find", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+        {"LEFT_ID": "find", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "find", "past": "find"},
+      "valence": "positive",
+      "responses": ["Yay, you found it! I'm so glad!"]
+    },
+    {
+      "id": "no_cavities",
+      "priority": 67,
+      "patterns": [[
+        {"RIGHT_ID": "have", "RIGHT_ATTRS": {"LEMMA": "have"}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "cavity", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["cavity", "cavities"]}}}
+      ]],
+      "responses": ["No cavities? Great job taking care of your teeth!"]
+    },
+    {
+      "id": "got_to",
+      "priority": 67,
+      "patterns": [[
+        {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": "get"}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "do", "RIGHT_ATTRS": {"DEP": "xcomp", "POS": "VERB"}}
+      ]],
+      "conditions": {"not_negated": "get", "question": false},
+      "slots": {"clause": {"node": "get", "span": "clause"}},
+      "valence": "positive",
+      "responses": ["{clause}? That sounds so special!", "Aw, {clause}? How fun!"]
     },
     {
       "id": "achievement",
@@ -1249,7 +1322,7 @@
           {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "xcomp"}}
         ]
       ],
-      "suppressed_by": ["bad_result", "tried_hard", "grade", "got_gift", "allowance"],
+      "suppressed_by": ["bad_result", "tried_hard", "grade", "got_gift", "allowance", "got_to"],
       "conditions": {"not_negated": "verb", "question": false},
       "slots": {"clause": {"node": "verb", "span": "clause"}, "what": {"node": "verb", "span": "predicate"}},
       "memories": [{"category": "achievement", "key": "achievement_{what_slug}", "value": "{what}"}],
@@ -1300,6 +1373,18 @@
       "conditions": {"question": false, "not_negated": "want"},
       "slots": {"thing": {"node": "thing", "span": "subtree"}},
       "responses": ["Ooh, {thing}! Do you know which one you want?"]
+    },
+    {
+      "id": "didnt_want_to_leave",
+      "priority": 61,
+      "patterns": [[
+        {"RIGHT_ID": "want", "RIGHT_ATTRS": {"LEMMA": "want"}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "leave", "RIGHT_ATTRS": {"DEP": "xcomp", "LEMMA": {"IN": ["leave", "go", "stop"]}}}
+      ]],
+      "conditions": {"question": false, "past": "want"},
+      "responses": ["Aw, it sounds like you had a really great time!"]
     },
     {
       "id": "goal",
@@ -1606,7 +1691,10 @@
       "slots": {"relation": {"node": "rel", "span": "noun_phrase"}, "name": {"node": "name", "span": "text"}},
       "memories": [{"category": "person", "key": "{relation_slug}_{name_slug}", "value": "{name_raw}"}],
       "valence": "positive",
-      "responses": ["You have a {relation} named {name}? That's so cool! What is {name} like?", "{name} the {relation}! I love that name. Tell me about {name}!"]
+      "responses": [
+        "You have {relation_a} {relation} named {name}? That's so cool! What is {name} like?",
+        "{name} the {relation}! I love that name. Tell me about {name}!"
+      ]
     },
     {
       "id": "will_try",
@@ -1749,6 +1837,18 @@
       "conditions": {"question": true},
       "suppressed_by": ["which_should_i", "naming_question", "should_apologize", "bored_ideas"],
       "responses": ["Hmm, that's your call! What do you think would feel best? You can always ask a grown-up too."]
+    },
+    {
+      "id": "will_i",
+      "priority": 57,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"POS": "VERB"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we"]}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "will", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": {"IN": ["will", "'ll"]}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "when", "RIGHT_ATTRS": {"LOWER": {"IN": ["when", "how"]}}}
+      ]],
+      "conditions": {"question": true},
+      "responses": ["That's a great question to ask your mom or dad!"]
     },
     {
       "id": "plan",
@@ -2251,6 +2351,24 @@
       }
     },
     {
+      "id": "bot_would_be",
+      "priority": 89,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "could", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": {"IN": ["could", "would"]}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "cat", "RIGHT_ATTRS": {"DEP": "attr"}},
+        {"LEFT_ID": "cat", "REL_OP": ">", "RIGHT_ID": "any", "RIGHT_ATTRS": {"DEP": "det", "LOWER": "any"}}
+      ]],
+      "conditions": {},
+      "slots": {"category": {"node": "cat", "span": "lemma"}},
+      "compute": ["bot_favorite"],
+      "responses": [
+        {"text": "Ooh, fun question! I think I'd pick {bot_favorite}! What would you be?", "requires": ["bot_favorite"]},
+        {"text": "Ooh, fun question! I'd have to think about that. What would you be?"}
+      ]
+    },
+    {
       "id": "bot_do_question",
       "priority": 88,
       "patterns": [
@@ -2468,7 +2586,10 @@
       "conditions": {"not_negated": "named"},
       "slots": {"name": {"node": "name", "span": "subtree", "capitalize": true}, "relation": {"node": "rel", "span": "lemma"}},
       "valence": "positive",
-      "responses": ["{name} is a great name for a {relation}!", "Ooh, {name}! I like that name for a {relation}."]
+      "responses": [
+        "{name} is a great name for {relation_a} {relation}!",
+        "Ooh, {name}! I like that name for {relation_a} {relation}."
+      ]
     },
     {
       "id": "relation_named",
@@ -2484,7 +2605,7 @@
       "memories": [{"category": "person", "key": "{relation_slug}_{name_slug}", "value": "{name_raw}"}],
       "valence": "positive",
       "responses": [
-        "{name} is a great name for a {relation}!",
+        "{name} is a great name for {relation_a} {relation}!",
         "Aw, {name}! I'll remember that. What is {name} like?",
         {"text": "{name} is a lovely name. It sounds like {name} was really special to you.", "requires": ["past"]}
       ]
@@ -2500,8 +2621,8 @@
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": {"IN": ["attr", "acomp"]}}}
       ]],
       "conditions": {"not_negated": "be", "no_det": "name"},
-      "slots": {"name": {"node": "name", "span": "text", "capitalize": true}, "thing": {"node": "owner", "span": "lemma"}},
-      "responses": ["{name} is a great name for a {thing}!"]
+      "slots": {"name": {"node": "name", "span": "subtree", "capitalize": true}, "thing": {"node": "owner", "span": "lemma"}},
+      "responses": ["{name} is a great name for {thing_a} {thing}!"]
     },
     {
       "id": "relation_name_is",
@@ -2518,7 +2639,7 @@
       "memories": [{"category": "person", "key": "{relation_slug}_{name_slug}", "value": "{name_raw}"}],
       "valence": "positive",
       "responses": [
-        "{name} is a great name for a {relation}!",
+        "{name} is a great name for {relation_a} {relation}!",
         "Aw, {name}! I'll remember that. What is {name} like?",
         {"text": "{name} is a lovely name. It sounds like {name} was really special to you.", "requires": ["past"]}
       ]

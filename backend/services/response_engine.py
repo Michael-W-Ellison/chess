@@ -95,6 +95,8 @@ CHILD_JOKE_LAUGHS = ["Haha! That's a good one! You're really funny.", "Hahaha! I
 _ARITHMETIC_RE = re.compile(
     r"\b(\d{1,4}) ?(plus|\+|minus|-|times|x|\*|divided by|/) ?(\d{1,4})\b", re.IGNORECASE
 )
+# "What is half of 10?"
+_HALF_RE = re.compile(r"\b(half|a half|a third|a quarter|one third|one quarter) of (\d{1,4})\b", re.IGNORECASE)
 
 
 def _slug(text: str) -> str:
@@ -333,6 +335,7 @@ class ResponseEngine:
                 slots[f"{slot_name}_plural"] = "yes"
             slots[f"{slot_name}_s"] = "" if plural else "s"
             slots[f"{slot_name}_them"] = "them" if plural else "it"
+            slots[f"{slot_name}_a"] = "an" if reflected[:1].lower() in "aeiou" and reflected else "a"
 
         slots["message_text"] = doc.text
         if "comparison_preference" in rule.get("compute", []):
@@ -771,6 +774,17 @@ class ResponseEngine:
             return self._apply_style(self.rng.choice(CHILD_JOKE_LAUGHS), personality)
 
         # "What's 2 plus 2?"
+        half_match = _HALF_RE.search(message)
+        if half_match and not analysis.frames:
+            part = half_match.group(1).lower().split()[-1]
+            whole = int(half_match.group(2))
+            parts = {"half": 2, "third": 3, "quarter": 4}[part]
+            value = whole / parts
+            value_text = str(int(value)) if value == int(value) else f"{value:g}"
+            if features is not None:
+                features["rule"] = "arithmetic"
+            return self._apply_style(f"{part.capitalize()} of {whole} is {value_text}! Do you like math?", personality)
+
         sum_match = _ARITHMETIC_RE.search(message)
         if sum_match and not analysis.frames:
             if features is not None:
@@ -1059,8 +1073,10 @@ class ResponseEngine:
                             and not self._first_person_subject(root))
                         if describes and kind in ("reflection_present", "reflection"):
                             kind = "reflection_be"
-                        # "We can't go to the park"
-                        elif self._is_negated(root) and any(c.lower_ in ("ca", "can", "could") for c in root.children):
+                        # "We can't go to the park", "I don't have one"
+                        elif self._is_negated(root) and (
+                                any(c.lower_ in ("ca", "can", "could") for c in root.children)
+                                or (root.lemma_ == "have" and self._first_person_subject(root))):
                             kind = "reflection_cant"
                     return pick(kind).format_map(slots), "neutral", kind
 

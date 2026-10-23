@@ -382,19 +382,22 @@ class ReferenceTracker:
                     if things and self._is_thing_reference(token):
                         return self._match_case(self._as_subject(things[0], token), token)
             else:
-                candidates = [p for p in people if not p.plural and p.pronoun in (None, gender)]
+                candidates = [p for p in people if not p.plural and p.pronoun in (None, gender, "any")]
             if not candidates:
                 # "We built a snowman. His name is Frosty": the thing the child made
                 if lower in ("his", "her") and token.head.lower_ == "name":
                     things = [t for t in self._recent(state.things, state)
                               if not t.short and not t.added and not t.plural]
                     if things:
-                        noun = things[0].text.split()[-1]
-                        return self._match_case(f"the {noun}'s", token)
+                        # "my favorite stuffed animal" -> "the stuffed animal's"
+                        words = [w for w in things[0].text.split()
+                                 if w.lower() not in _DETERMINERS and w.lower() not in ("favorite", "favourite")]
+                        return self._match_case(f"the {' '.join(words)}'s", token)
                 return None
 
             # Most recent turn first; within a turn, someone known to be "she"/"he"
-            candidates.sort(key=lambda p: (-p.turn, p.pronoun != gender))
+            # A new baby ("my aunt had a baby. She is so tiny") is "he" or "she" and comes first
+            candidates.sort(key=lambda p: (-p.turn, p.pronoun not in (gender, "any"), p.pronoun != "any"))
             person = candidates[0]
             if gender != "they" and person.pronoun is None:
                 # The people whose pronouns are not known, back to the most recent person
@@ -522,7 +525,10 @@ class ReferenceTracker:
                 return False
             if any(c.dep_ == "poss" for comp in complements for c in comp.children):
                 return False  # "It's my turn"
-            return head.lemma_ != "be" or bool(complements)
+            # "It was far away", "it was over there"
+            where = any(c.dep_ == "advmod" and c.lower_ in ("away", "far", "close", "there", "here", "everywhere")
+                        for c in head.children)
+            return head.lemma_ != "be" or bool(complements) or where
         if token.dep_ == "dobj":
             # "They do it every day": what they do, not a thing ("I want to do that" is)
             return head.lemma_ not in _IDIOM_OBJECT_VERBS and not (head.lemma_ == "do" and token.lower_ == "it")
@@ -577,6 +583,14 @@ class ReferenceTracker:
                     plural=token.tag_ == "NNS",
                     pronoun=_GENDERED_RELATIONS.get(token.lemma_.lower()),
                 ))
+            elif (token.lemma_.lower() == "baby" and token.dep_ == "dobj" and token.head.lemma_ == "have"
+                  and any(c.dep_ == "nsubj" and c.lemma_.lower() in self.relations for c in token.head.children)):
+                # "My aunt had a baby": a cousin; "My mom is having a baby": the new baby
+                parent = next(c for c in token.head.children if c.dep_ == "nsubj")
+                if parent.lemma_.lower() in ("aunt", "uncle"):
+                    mentioned.append(Person(relation="baby cousin", pronoun="any"))
+                else:
+                    mentioned.append(Person(name="the new baby", pronoun="any"))
             elif token.lemma_.lower() in self.relations and self._is_new_relation(token):
                 # "I got a new puppy", "We have two cats and a dog": the child's from now on
                 mentioned.append(Person(
@@ -595,7 +609,9 @@ class ReferenceTracker:
                 name_token = next((c for c in head.head.children if c.dep_ in ("attr", "acomp")), None)
                 if name_token is not None and name_token.is_alpha and not any(c.dep_ == "det" for c in name_token.children):
                     named_tokens.add(name_token.i)
-                    mentioned.append(Person(name=name_token.text[:1].upper() + name_token.text[1:]))
+                    named_tokens.update(c.i for c in name_token.children if c.dep_ == "compound")
+                    name = self._full_name(name_token)
+                    mentioned.append(Person(name=name[:1].upper() + name[1:]))
             if (token.dep_ == "poss" and token.lemma_.lower() in self.relations
                     and head.lower_ == "name" and head.dep_ == "nsubj"
                     and any(c.lower_ in ("my", "our", "the") for c in token.children)):
@@ -605,7 +621,9 @@ class ReferenceTracker:
                     named_tokens.add(name_token.i)
                     mentioned.append(Person(
                         name=name_token.text[:1].upper() + name_token.text[1:],
-                        relation=token.lemma_.lower(),
+                        # "my baby cousin's name" -> "baby cousin"
+                        relation=" ".join([c.lower_ for c in token.children if c.dep_ == "compound"]
+                                          + [token.lemma_.lower()]),
                         pronoun=_GENDERED_RELATIONS.get(token.lemma_.lower()),
                     ))
 
@@ -620,7 +638,9 @@ class ReferenceTracker:
                     named_tokens.add(name_token.i)
                     mentioned.append(Person(
                         name=name_token.text[:1].upper() + name_token.text[1:],
-                        relation=token.lemma_.lower(),
+                        # "my baby cousin's name" -> "baby cousin"
+                        relation=" ".join([c.lower_ for c in token.children if c.dep_ == "compound"]
+                                          + [token.lemma_.lower()]),
                         pronoun=_GENDERED_RELATIONS.get(token.lemma_.lower()),
                     ))
 
