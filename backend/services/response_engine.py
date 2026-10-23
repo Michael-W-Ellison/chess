@@ -144,6 +144,11 @@ _HURT_VERBS = {"scratch", "bite", "hit", "push", "kick", "hurt", "pinch", "bump"
 # "How do you spell because?"
 _SPELL_RE = re.compile(r"\b(?:how (?:do|would|can) (?:you|i|we) spell|can you spell|spell) ([a-z]{2,20})\b", re.IGNORECASE)
 
+# "is 1/2 bigger than 1/4"
+_FRACTION_COMPARE_RE = re.compile(
+    r"\b(\d{1,3})/(\d{1,3}) (?:is )?(bigger|larger|more|greater|smaller|less) than (\d{1,3})/(\d{1,3})\b",
+    re.IGNORECASE)
+
 _ARITHMETIC_RE = re.compile(
     r"\b(\d{1,4}) ?(plus|\+|minus|-|times|x|\*|divided by|/) ?(\d{1,4})\b", re.IGNORECASE
 )
@@ -269,6 +274,8 @@ class ResponseEngine:
             return
         if "I'd love to hear it" in reply:
             self._offered[user_id] = "listen"  # the child's next message is the line, song or poem
+        elif "What part are you playing?" in reply:
+            self._offered[user_id] = "role"  # "I'm a tree"
         elif _CHOICE_OFFER_RE.search(reply):
             self._offered[user_id] = "choice"
         elif _JOKE_OFFER_RE.search(reply):
@@ -900,6 +907,14 @@ class ResponseEngine:
 
         # "Want to hear a funny joke?" / "Want another one?" - "yes"
         offered = self._offered.pop(user_id, None)
+        role = re.match(r"\W*(?:i'm|i am|im)?\s*(?:going to be |gonna be |playing )?(an?|the) ([a-z ]{2,30}?)[.!]*$",
+                        message, re.IGNORECASE) if offered == "role" else None
+        if role:
+            if features is not None:
+                features["rule"] = "play_role"
+            part = f"{role.group(1).lower()} {role.group(2).strip()}"
+            return self._apply_style(f"{part[:1].upper()}{part[1:]}! That sounds like a fun part. "
+                                     "You're going to be great!", personality)
         if offered == "listen" and not analysis.is_question and len(message.split()) <= 25:
             if features is not None:
                 features["rule"] = "performance"
@@ -942,6 +957,13 @@ class ResponseEngine:
             return self._apply_style(self.rng.choice(CHILD_JOKE_LAUGHS), personality)
 
         # "What's 2 plus 2?"
+        # "Is 1/2 bigger than 1/4?"
+        fraction_match = _FRACTION_COMPARE_RE.search(message)
+        if fraction_match:
+            if features is not None:
+                features["rule"] = "arithmetic"
+            return self._apply_style(self._compare_fractions(fraction_match), personality)
+
         half_match = _HALF_RE.search(message)
         if half_match and not analysis.frames:
             part = half_match.group(1).lower().split()[-1]
@@ -1163,7 +1185,7 @@ class ResponseEngine:
         # and replies repeating back the child's news ("The present was a book about sharks?")
         if flag == "no_jokes" and rule_id and (
                 rule_id.startswith(("fallback_world", "fallback_reflection", "fallback_long_reflection", "fallback_fragment"))
-                or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes", "spelling", "performance")):
+                or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes", "spelling", "performance", "play_role")):
             return True
         return bool(rule_id and self.rules.get(rule_id, {}).get(flag))
 
@@ -1266,6 +1288,11 @@ class ResponseEngine:
 
         # "with marshmallows" right after "and had hot chocolate": part of that thing
         words = [t for t in doc if not t.is_punct]
+        # "and stay up late" after "we are going to watch a movie": more of the plan
+        if (allow_reflection and 2 <= len(words) <= 6 and words[0].lower_ in ("and", "then", "also")
+                and words[1].pos_ == "VERB" and words[1].tag_ == "VB"):
+            rest = " ".join(self._reflect_token(t) for t in words[1:])
+            return f"{rest[:1].upper()}{rest[1:]} too? That sounds like so much fun!", "positive", "fragment"
         if allow_reflection and 2 <= len(words) <= 4 and words[0].lower_ == "with":
             state = self.references.state(user_id)
             # The thing from an earlier message, not this one's own "marshmallows"
@@ -1347,10 +1374,30 @@ class ResponseEngine:
 
         return pick("generic"), "neutral", "generic"
 
+    @staticmethod
+    def _compare_fractions(match) -> str:
+        """ "Is 1/2 bigger than 1/4?" -> "Yes! 1/2 is bigger than 1/4." """
+        a, b, word, c, d = match.groups()
+        if int(b) == 0 or int(d) == 0:
+            return "Hmm, you can't split something into zero parts! Try another one?"
+        left, right = int(a) / int(b), int(c) / int(d)
+        bigger = word.lower() in ("bigger", "larger", "more", "greater")
+        first, second = f"{a}/{b}", f"{c}/{d}"
+        if left == right:
+            return f"They're the same size! {first} and {second} are equal."
+        true = (left > right) == bigger
+        relation = "bigger" if left > right else "smaller"
+        reply = f"{'Yes' if true else 'Nope'}! {first} is {relation} than {second}."
+        if a == c == "1":
+            reply += " When you split something into more pieces, each piece gets smaller!"
+        return reply
+
     def _world_answer(self, text: str) -> Optional[str]:
         """The answer to a common question about the world ("Why is the sky blue?"), if known"""
+        # "What's a fraction?" matches patterns written as "what is"
+        expanded = re.sub(r"\b(what|where|who|how|when|why)'s\b", r"\1 is", text, flags=re.IGNORECASE)
         for pattern, answer in self.answers:
-            if pattern.search(text):
+            if pattern.search(text) or pattern.search(expanded):
                 return answer
         return None
 

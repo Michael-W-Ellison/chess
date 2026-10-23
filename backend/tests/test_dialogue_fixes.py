@@ -132,6 +132,21 @@ class TestNewRules:
         ("my grandma is feeling better", "person_better"),
         ("i said sorry", "said_sorry"),
         ("are you smarter than me", "smarter_than_me"),
+        ("im in the school play", "in_a_play"),
+        ("ok that makes sense", "makes_sense"),
+        ("i get my own room", "own_room"),
+        ("i found a shell", "found_new"),
+        ("i found it", "found_it"),
+        ("leave me alone", "leave_me_alone"),
+        ("i want to build a robot", "want_to_make"),
+        ("im the fastest kid in my class", "best_in_class"),
+        ("i beat everyone in a race", "beat_everyone"),
+        ("my baby brother cries a lot", "baby_cries"),
+        ("i help feed him", "helped_someone"),
+        ("i dont get fractions", "dont_get"),
+        ("i ate too much candy", "ate_too_much"),
+        ("my mom said no more candy", "said_no_more"),
+        ("is 1/2 bigger than 1/4", "arithmetic"),
         ("coach said I did great", "praise_reported"),
         ("not much you", "not_much"),
         ("yes", "yes_no"),
@@ -503,6 +518,35 @@ class TestReferences:
             rule_of(engine, message)
         assert rule_of(engine, "or save it")[0] == "or_save"
 
+    def test_it_after_a_favorite_is_the_answer(self, engine):
+        rule_of(engine, "my favorite planet is saturn")
+        assert "Saturn has rings" in rule_of(engine, "because it has rings")[1]
+
+    def test_role_in_the_play(self, engine):
+        rule_of(engine, "im in the school play")
+        assert rule_of(engine, "i am a tree") == ("play_role", "A tree! That sounds like a fun part. You're going to be great!")
+
+    def test_fraction_comparison(self, engine):
+        assert rule_of(engine, "is 1/4 bigger than 1/2")[1].startswith("Nope! 1/4 is smaller than 1/2.")
+
+    def test_more_of_the_plan(self, engine):
+        rule_of(engine, "we are going to watch a movie")
+        assert rule_of(engine, "and stay up late")[1].startswith("Stay up late too?")
+
+    def test_bot_filler_word_is_not_it(self, engine):
+        rule_of(engine, "we are moving to a new house")
+        assert "change" not in engine.resolve_references("its bigger", 1)
+
+    def test_wave_knocked_down_the_castle(self, engine):
+        rule_of(engine, "i built a sand castle")
+        assert rule_of(engine, "a wave knocked it down")[0] == "knocked_down"
+
+    def test_second_friend_name_is_capitalized(self, engine):
+        assert "Maya and Zoe" in rule_of(engine, "my friends maya and zoe are coming")[1]
+
+    def test_no_jokes_after_praise(self, engine):
+        assert engine.rule_flag("achievement", "no_jokes") and engine.rule_flag("can_now", "no_jokes")
+
     def test_rule_ids_are_unique(self, engine):
         ids = [r["id"] for r in engine.kb["rules"]]
         assert len(ids) == len(set(ids))
@@ -664,7 +708,7 @@ class TestReferences:
 
     def test_his_name_for_a_thing_the_child_made(self, engine):
         rule_of(engine, "we built a snowman")
-        assert engine.resolve_references("his name is frosty", 1) == "The snowman's name is frosty"
+        assert engine.resolve_references("his name is frosty", 1) == "The snowman's name is Frosty"
         assert engine.resolve_references("he has a carrot nose", 1) == "Frosty has a carrot nose"
 
     def test_the_best_is_not_a_reaction_to_an_added_joke(self, engine):
@@ -786,6 +830,9 @@ class TestNormalization:
         ("i like frozen yogurt", "I like frozen yogurt"),
         ("my favorite planet is saturn", "my favorite planet is Saturn"),
         ("i want to meet mickey", "I want to meet Mickey"),
+        ("its blue and green", "it's blue and green"),
+        ("his name was nemo", "his name was Nemo"),
+        ("the name is not right", "the name is not right"),
         ("named after my grandpa", "named after my grandpa"),
         ("I feel ill", "I feel ill"),
         ("ur weird", "you're weird"),

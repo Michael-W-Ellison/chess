@@ -63,6 +63,10 @@ def reply(engine, message):
     ("how much money do you get", "It's different for every family"),
     ("how do i build a castle in minecraft", "Start with a strong base"),
     ("how long do tomato seeds take to grow", "Most seeds sprout"),
+    ("whats a fraction", "A fraction is"),
+    ("how do robots work", "Robots have a computer"),
+    ("where does snow come from", "Snow forms"),
+    ("can fish go to heaven", "That's a really big question"),
 ])
 def test_known_questions(engine, question, start):
     text, rule = reply(engine, question)

@@ -144,7 +144,10 @@ _EMOJI_RE = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200D\u2B50\u2
 _CONTEXT_NORMALIZATIONS = [
     (re.compile(r"\bits(?= (so|really|very|not|too|just|a|an|the|my|ok|okay|fine|fun|boring|hard|easy|cool|"
                 r"great|good|bad|true|time|going|gonna|like|always|never|raining|snowing|gross|yummy|awesome|"
-                r"amazing|weird|scary|funny|cute|about|mine|yours|over|super|kind|pretty)\b)", re.IGNORECASE),
+                r"amazing|weird|scary|funny|cute|about|mine|yours|over|super|kind|pretty|beautiful|ugly|big|bigger|"
+                r"small|smaller|huge|tiny|heavy|soft|red|orange|yellow|green|blue|purple|pink|brown|black|white|"
+                r"gray|grey|sticky|shiny|sparkly|broken|done|finished|lost|gone|made|called|still|almost|my)\b)",
+     re.IGNORECASE),
      "it's"),
     (re.compile(r"\bur(?= (so|really|very|not|the|a|an|my|weird|cool|funny|nice|mean|smart|awesome|silly|dumb|"
                 r"stupid|annoying|best|worst|welcome|right|wrong|crazy|lying|kidding|joking|amazing|great|good|"
@@ -167,6 +170,11 @@ _JOINED_QUESTION_RE = re.compile(
 )
 # "a snowman named frosty" -> "a snowman named Frosty"
 _NAMED_RE = re.compile(r"\b(named|called) (?!(after|it|him|her|them|me|you|us|that|this|what|a|an|the|my)\b)([a-z])")
+# "his name was nemo" -> "his name was Nemo"
+_NAME_IS_RE = re.compile(
+    r"\b(name (?:is|was|'s)) (?!(not|a|an|the|my|so|really|very|too|kind|cool|weird|nice|funny|silly|pretty|great|"
+    r"awesome|beautiful|long|short|hard|easy|dumb|stupid|ugly|cute|good|bad|special|unique|strange|boring|perfect|"
+    r"fine|ok|okay|lovely|fancy|same|different|tricky|interesting)\b)([a-z])")
 # "their names are luna and milo" -> "their names are Luna and Milo"
 _NAMES_ARE_RE = re.compile(r"\b(names are) ([a-z]+) and ([a-z]+)\b")
 # Places a child may name in lowercase
@@ -346,6 +354,7 @@ class UtteranceParser:
         text = re.sub(r"\bur\b", "your", text, flags=re.IGNORECASE)
         text = _POSSESSIVE_RE.sub(r"\1's ", text)
         text = _NAMED_RE.sub(lambda m: f"{m.group(1)} {m.group(3).upper()}", text)
+        text = _NAME_IS_RE.sub(lambda m: f"{m.group(1)} {m.group(3).upper()}", text)
         text = _NAMES_ARE_RE.sub(lambda m: f"{m.group(1)} {m.group(2).capitalize()} and {m.group(3).capitalize()}", text)
         text = _PLACES_RE.sub(lambda m: m.group(1).title(), text)
         text = _TITLES_RE.sub(lambda m: _TITLES[m.group(1)], text)

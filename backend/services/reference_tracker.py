@@ -142,6 +142,8 @@ _PETS = {"dog", "puppy", "cat", "kitten", "kitty", "hamster", "bunny", "rabbit",
 _PET_WORDS = {"cute", "fluffy", "adorable", "furry", "soft", "cuddly", "tiny", "playful", "naughty"}
 
 _FOOD_ADJECTIVES = {"hot", "iced", "fried", "scrambled", "whipped", "mashed", "grilled", "frozen", "baked", "roasted"}
+_BOT_FILLER_NOUNS = {"change", "idea", "question", "thing", "lot", "way", "part", "kind", "sort", "bit", "fun",
+                     "feeling", "plan", "goal", "step", "reason", "choice", "minds", "mind", "spirit"}
 _MAKING_VERBS = {"make", "cook", "bake", "buy", "get", "eat", "bring", "give", "drink", "order"}
 
 
@@ -376,6 +378,9 @@ class ReferenceTracker:
         if doc is not None and state.ambiguity is None:
             for chunk in doc.noun_chunks:
                 root = chunk.root
+                # "Moving is a big change!": a word of the bot's reply, not a thing the child means by "it"
+                if root.lemma_.lower() in _BOT_FILLER_NOUNS:
+                    continue
                 # Only new things the bot brought up, not echoes of the child's words or
                 # anything with "my"/"your" (whose it is depends on who is speaking)
                 # Not an exclamation at the start of a sentence ("Awesome! You built a castle")
@@ -633,6 +638,10 @@ class ReferenceTracker:
             return False
         if token.dep_ == "appos" and token.pos_ == "PROPN" and token.head.lemma_.lower() in self.relations:
             return True
+        # "my friends maya and zoe": the second name, joined to the first
+        if token.dep_ == "conj" and token.head.pos_ == "PROPN" and token.pos_ in ("PROPN", "NOUN") and (
+                self._is_relation_name(token.head) or token.head.text[:1].isupper()):
+            return token.lower_ not in self.parser.known_words() or token.pos_ == "PROPN"
         relation = next((c for c in token.children
                          if c.dep_ == "compound" and c.lemma_.lower() in self.relations), None)
         # "my" on the name ("my cousin jake") or on the relation ("my friend lucas")
@@ -650,6 +659,9 @@ class ReferenceTracker:
         if not ((noun.dep_ == "attr" and verb.lemma_ == "be") or (noun.dep_ == "dobj" and verb.lemma_ == "have")):
             return False
         subject = next((c for c in verb.children if c.dep_ == "nsubj"), None)
+        # "My favorite planet is Saturn": Saturn is what the child is talking about
+        if subject is not None and any(c.lower_ in ("favorite", "favourite") for c in subject.children):
+            return False
         return (subject is not None and subject.pos_ == "NOUN"
                 and subject.lemma_.lower() not in self.relations and subject.lemma_.lower() not in _GROUPS)
 
@@ -896,8 +908,11 @@ class ReferenceTracker:
 
     def _remember_thing(self, text: str, state: DiscourseState, plural: bool = False, added: bool = False,
                         short: bool = False, made: bool = False, detail: bool = False) -> None:
+        same = [t for t in state.things if t.text.lower() == text.lower()]
         # Once a detail of something else ("a unicorn" the picture shows), still a detail when named again
-        detail = detail or any(t.detail for t in state.things if t.text.lower() == text.lower())
+        detail = detail or any(t.detail for t in same)
+        # The bot repeating the child's own word ("Saturn? Mine too!") does not make it the bot's answer
+        short = short and not any(not t.short and not t.added for t in same)
         state.things = [t for t in state.things if t.text.lower() != text.lower()]
         state.things.insert(0, Thing(text=text, turn=state.turn, plural=plural, order=state.tick(), added=added,
                                      short=short, made=made, detail=detail))
