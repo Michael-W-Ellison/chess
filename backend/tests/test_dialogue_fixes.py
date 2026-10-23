@@ -51,6 +51,8 @@ def rule_of(engine, message, user_id=1):
 class TestNewRules:
     @pytest.mark.parametrize("message,rule", [
         ("I miss my grandpa", "miss_person"),
+        ("my grandma is feeling better", "person_better"),
+        ("can you give me advice", "ask_for_advice"),
         ("coach said I did great", "praise_reported"),
         ("not much you", "not_much"),
         ("yes", "yes_no"),
@@ -569,6 +571,7 @@ class TestSafetyAndEmojis:
         ("Wow, you lost a tooth?", False),
         ("we were laughing so hard", False),
         ("today was the worst day", True),
+        ("she came home from the hospital", False),
     ])
     def test_is_negative(self, text, negative):
         assert emoji_quirk_service.is_negative(text) is negative
@@ -677,3 +680,33 @@ class TestConversation:
         user_id, conversation_id, _ = start(api)
         reply = send(api, user_id, conversation_id, "what do you think I should do?")
         assert "trust" in reply  # both generic advice replies mention someone you trust
+
+    def test_check_in_greeting_after_sad_news(self, api):
+        user_id, conversation_id, _ = start(api)
+        for message in ("im noah", "my grandma is in the hospital"):
+            send(api, user_id, conversation_id, message)
+        greeting = api.post(f"/api/conversation/start?user_id={user_id}").json()["greeting"]
+        assert "I've been thinking about you" in greeting
+
+    def test_no_check_in_greeting_after_happy_talk(self, api):
+        user_id, conversation_id, _ = start(api)
+        for message in ("im noah", "I have a spelling test tomorrow"):
+            send(api, user_id, conversation_id, message)
+        greeting = api.post(f"/api/conversation/start?user_id={user_id}").json()["greeting"]
+        assert "thinking about you" not in greeting
+
+    def test_remember_thing_from_recent_messages(self, api):
+        user_id, conversation_id, _ = start(api)
+        send(api, user_id, conversation_id, "I have a spelling test tomorrow")
+        reply = send(api, user_id, conversation_id, "remember my spelling test")
+        assert "your spelling test" in reply and "your your" not in reply
+
+    @pytest.mark.parametrize("problem,question,word", [
+        ("my brother keeps taking my toys", "how do i get him to stop", "mom or dad"),
+        ("my friend told everyone my secret", "what should i do", "friend"),
+        ("I have a speech at school tomorrow", "any tips", "practic"),
+    ])
+    def test_advice_follows_the_topic(self, api, problem, question, word):
+        user_id, conversation_id, _ = start(api)
+        send(api, user_id, conversation_id, problem)
+        assert word in send(api, user_id, conversation_id, question)

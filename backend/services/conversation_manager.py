@@ -71,13 +71,39 @@ _MOOD_KEYWORDS = [
     ("angry", re.compile(r"\b(angry|mad|madder|maddening|furious)\b")),
 ]
 
+# Sad news worth asking about at the start of the next conversation
+_CHECK_IN_RE = re.compile(
+    r"\b(sick|hospital|died|dead|funeral|divorce|sad|cry\w*|cried|miss|lonely|bull(y|ied|ies)|hurt|"
+    r"fight\w*|scared)\b", re.IGNORECASE
+)
+
 # Words that end the gentle replies after sad news
 _CHEERFUL_RE = re.compile(r"\b(laugh\w*|fun|happy|great|awesome|excited|yay|haha\w*|lol)\b", re.IGNORECASE)
+
+# Advice by topic when no advice template matches (checked in order)
+GENERIC_ADVICE_BY_TOPIC = [
+    (r"\b(speech|presentation|present|recital|perform\w*|stage|audition|tryouts?)\b", [
+        "Lots of people get nervous about that! Try practicing a few times in front of your family or a mirror, "
+        "and take slow, deep breaths before you start. You've got this! What part feels scariest?",
+    ]),
+    (r"\b(friends?|bff|best friend)\b", [
+        "That sounds hard. When you're both calm, you could tell your friend how it made you feel. If it keeps "
+        "happening, it's okay to spend time with other friends and to talk to a grown-up you trust. What do you think?",
+    ]),
+    (r"\b(brother|sister|sibling|cousin)\b", [
+        "That sounds frustrating! You could calmly tell them how it makes you feel and what you'd like them to do "
+        "instead. If it keeps happening, ask your mom or dad to help. What do you think?",
+    ]),
+    (r"\b(homework|assignment|project|test|quiz|grade|school|study\w*)\b", [
+        "Try breaking it into small steps and doing a little at a time, with short breaks in between. A teacher "
+        "or a parent can help you make a plan too! What's the hardest part?",
+    ]),
+]
 
 # "What should I do?", "can you help me", not "What ride should I go on?"
 _ASKS_WHAT_TO_DO_RE = re.compile(
     r"\bwhat (should|can|could|do) I do\b|\bwhat\b[^?.!]*\bI (should|can|could) do\b|\bhelp me\b|\badvice\b"
-    r"|\bhow (do|can|should) I (deal|handle|stop|fix|tell)\b",
+    r"|\btips\b|\bhow (do|can|should) I (deal|handle|stop|fix|tell|get|make|help)\b",
     re.IGNORECASE,
 )
 
@@ -619,6 +645,17 @@ class ConversationManager:
         hours_since = (datetime.now() - last_active).total_seconds() / 3600
         name = name or "there"
 
+        # Last time the child talked about something sad ("my grandma is sick"): check in
+        child_messages = (
+            db.query(Message)
+            .filter(Message.conversation_id == previous.id, Message.role == "user")
+            .order_by(Message.timestamp.desc())
+            .limit(5)
+            .all()
+        )
+        if any(_CHECK_IN_RE.search(m.content or "") for m in child_messages):
+            return f"Hi {name}! I've been thinking about you. Last time things seemed a little hard. How are you feeling today?"
+
         if hours_since > 48:
             return f"Hey {name}! I missed you! It's been a while. How have you been?"
         elif hours_since > 24:
@@ -1121,15 +1158,28 @@ INSTRUCTIONS:
                 )
                 # "What should I do?" with no advice template for it: not "What do you think?"
                 detection = context.get("advice_request") or {}
-                if (response and features is not None and features.get("rule") in ("fallback_question", "should_i")
+                # "Can you give me advice?" after "I have to give a speech and I'm scared"
+                asked_after_topic = (features is not None and features.get("rule") == "ask_for_advice"
+                                     and len(self._recent_messages.get(personality.user_id, [])) >= 2)
+                if (response and features is not None and asked_after_topic) or (
+                        response and features is not None and features.get("rule") in ("fallback_question", "should_i")
                         and detection.get("is_advice_request") and _ASKS_WHAT_TO_DO_RE.search(user_message)):
                     features["rule"] = "advice_generic"
-                    return random.choice(GENERIC_ADVICE)
+                    return self._generic_advice(user_message, personality.user_id)
                 if response:
                     return response
         except Exception as e:
             logger.error(f"Error generating rule-based response: {e}", exc_info=True)
         return self._fallback_response(context)
+
+    def _generic_advice(self, user_message: str, user_id: int) -> str:
+        """Short advice for the topic of the last two messages, when no advice template matches"""
+        recent = list(self._recent_messages.get(user_id, []))
+        text = " ".join(recent[-2:] or [user_message]).lower()
+        for pattern, replies in GENERIC_ADVICE_BY_TOPIC:
+            if re.search(pattern, text):
+                return random.choice(replies)
+        return random.choice(GENERIC_ADVICE)
 
     def _set_awaiting_name(self, user_id: int, reply: str) -> None:
         """Remember whether this reply asked the child's name"""
@@ -1185,6 +1235,14 @@ INSTRUCTIONS:
         detection = context.get("advice_request") or {}
         if personality is None or not detection.get("is_advice_request"):
             return None
+        # "What should I do?" right after "My friend is being mean to me": the topic is in
+        # the message before
+        recent = list(self._recent_messages.get(personality.user_id, []))
+        if not detection.get("categories") and len(recent) >= 2:
+            combined = f"{recent[-2]} {user_message}"
+            combined_detection = advice_category_detector.detect_advice_request(combined)
+            if combined_detection.get("categories"):
+                detection, user_message = combined_detection, combined
         try:
             user = getattr(personality, "user", None)
             return advice_template_service.get_advice_for_context(

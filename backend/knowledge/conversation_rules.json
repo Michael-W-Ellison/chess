@@ -469,15 +469,20 @@
           {"RIGHT_ID": "remember", "RIGHT_ATTRS": {"LEMMA": "remember"}},
           {"LEFT_ID": "remember", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
           {"LEFT_ID": "remember", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "me"}}
+        ],
+        [
+          {"RIGHT_ID": "remember", "RIGHT_ATTRS": {"LEMMA": "remember"}},
+          {"LEFT_ID": "remember", "REL_OP": ">", "RIGHT_ID": "thing", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"NOT_IN": ["name"]}}},
+          {"LEFT_ID": "thing", "REL_OP": ">", "RIGHT_ID": "my", "RIGHT_ATTRS": {"DEP": "poss", "LOWER": "my"}}
         ]
       ],
-      "conditions": {"question": true},
-      "slots": {"thing": {"node": "thing", "span": "lemma"}},
+      "conditions": {},
+      "slots": {"thing": {"node": "thing", "span": "lemma"}, "thing_phrase": {"node": "thing", "span": "subtree"}},
       "compute": ["recall_thing"],
       "no_jokes": true,
       "responses": [
         {"text": "Of course! {recalled}! How is {recalled_name} doing?", "requires": ["recalled", "recalled_name"]},
-        {"text": "Of course! {recalled}! How are they doing?", "requires": ["recalled"]},
+        {"text": "Of course I remember {recalled}! Tell me about it!", "requires": ["recalled"]},
         {"text": "Of course I remember you, {user_name}!", "requires": ["known_name"], "unless": ["thing"]},
         {
           "text": "Hmm, I don't think you've told me about your {thing} yet. Tell me!",
@@ -544,7 +549,7 @@
     {
       "id": "person_event",
       "priority": 75,
-      "suppressed_by": ["other_feeling"],
+      "suppressed_by": ["other_feeling", "person_better"],
       "patterns": [
         [
           {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@loss_verbs"}}},
@@ -2525,6 +2530,23 @@
       ]
     },
     {
+      "id": "ask_for_advice",
+      "priority": 89,
+      "patterns": [
+        [
+          {"RIGHT_ID": "give", "RIGHT_ATTRS": {"LEMMA": {"IN": ["give", "have"]}}},
+          {"LEFT_ID": "give", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+          {"LEFT_ID": "give", "REL_OP": ">", "RIGHT_ID": "advice", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["advice", "tip", "idea", "help"]}}}
+        ],
+        [
+          {"RIGHT_ID": "advice", "RIGHT_ATTRS": {"LEMMA": {"IN": ["advice", "tip", "idea"]}, "DEP": "ROOT"}},
+          {"LEFT_ID": "advice", "REL_OP": ">", "RIGHT_ID": "any", "RIGHT_ATTRS": {"LOWER": {"IN": ["any", "some"]}}}
+        ]
+      ],
+      "conditions": {"max_tokens": 8},
+      "responses": ["Of course! What do you need advice about?"]
+    },
+    {
       "id": "bot_do_question",
       "priority": 88,
       "patterns": [
@@ -3325,6 +3347,20 @@
       "responses": ["Hmm, tough one! I'd pick {bot_pick}. What about you?", "I think I'd choose {bot_pick}! Which one do you like better?"]
     },
     {
+      "id": "person_better",
+      "priority": 76,
+      "patterns": [[
+        {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["feel", "get", "be"]}}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": "@relations"}}},
+        {"LEFT_ID": "subj", "REL_OP": ">", "RIGHT_ID": "my", "RIGHT_ATTRS": {"DEP": "poss", "LOWER": "my"}},
+        {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "better", "RIGHT_ATTRS": {"LOWER": "better"}}
+      ]],
+      "conditions": {"question": false, "not_negated": "verb"},
+      "slots": {"subject": {"node": "subj", "span": "subtree"}},
+      "valence": "positive",
+      "responses": ["Yay, I'm so glad {subject} is feeling better!"]
+    },
+    {
       "id": "other_feeling",
       "priority": 77,
       "patterns": [
@@ -3357,7 +3393,7 @@
           "default": ["{person} {be} {emotion}? Thanks for telling me. Do you know why?"]
         }
       },
-      "suppressed_by": ["good_at"]
+      "suppressed_by": ["good_at", "person_better"]
     },
     {
       "id": "comparison_better",
@@ -3425,7 +3461,7 @@
       "conditions": {"question": true},
       "slots": {"action": {"node": "verb", "span": "predicate"}},
       "responses": ["Hmm, I don't think I can {action}, since I'm a computer program. But I can chat, tell jokes, and share fun facts! What would you like?"],
-      "suppressed_by": ["cheer_me_up", "request_funny", "bot_think_question"]
+      "suppressed_by": ["cheer_me_up", "request_funny", "bot_think_question", "ask_for_advice"]
     },
     {
       "id": "thanks",

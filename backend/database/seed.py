@@ -32,7 +32,7 @@ def seed_advice_templates(db: Session) -> None:
         # School Stress
         {
             "category": "school_stress",
-            "keywords": json.dumps(["test", "homework", "grade", "study", "exam", "project"]),
+            "keywords": json.dumps(["test", "grade", "study", "exam"]),
             "template": "Hey {name}, I know tests can feel really overwhelming! Here's what might help: 1) Break your studying into small chunks - like 20 minutes at a time. 2) Try teaching the material to someone else (even a stuffed animal!). 3) Make sure you get good sleep the night before. You've got this! And remember, one test doesn't define you. Want to talk about what you're most worried about?",
             "min_friendship_level": 1,
             "expert_reviewed": True,

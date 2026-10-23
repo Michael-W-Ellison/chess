@@ -933,6 +933,13 @@ class ResponseEngine:
                     slots["recalled_name"] = named
                 elif thing and any(k in (f"has_{thing}", f"likes_{thing}", f"favorite_{thing}") for k in facts):
                     slots["recalled"] = f"your {slots.get('thing', thing)}"
+                elif thing:
+                    # Told in an earlier conversation but not stored ("my spelling test")
+                    noun = slots.get("thing_phrase") or slots.get("thing", thing)
+                    earlier = getattr(self, "_context", {}).get("recent_messages") or []
+                    if any(getattr(m, "role", "") == "user" and thing in (getattr(m, "content", "") or "").lower()
+                           for m in earlier):
+                        slots["recalled"] = noun if noun.split()[0].lower() in ("your", "the") else f"your {noun}"
             elif name == "gift_container":
                 # "a goody bag" holds something; "a bike" does not
                 if slots.get("gift_raw", "").lower().split()[-1:] in (["bag"], ["box"], ["basket"], ["stocking"]):
@@ -1077,7 +1084,9 @@ class ResponseEngine:
         if analysis.is_question:
             # "Why is the sky blue?": a known answer, a fact on the topic, or "let's look it up"
             about_bot = any(t.lower_ in ("you", "your", "yours", "yourself") for t in doc)
-            if not about_bot or re.match(r"(do|did) you know\b", doc.text, re.IGNORECASE):
+            # "How do I get him to stop?" is about the child's life, not the world
+            personal = any(t.lower_ in ("i", "me", "my", "mine") for t in doc) and not self._world_answer(doc.text)
+            if (not about_bot or re.match(r"(do|did) you know\b", doc.text, re.IGNORECASE)) and not personal:
                 answer = self._world_answer(doc.text)
                 if answer:
                     return answer, "neutral", "world_answer"
