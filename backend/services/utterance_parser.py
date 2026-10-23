@@ -112,6 +112,25 @@ NORMALIZATIONS = {
     "dinosour": "dinosaur",
     "dinosours": "dinosaurs",
     "minecraf": "minecraft",
+    "helo": "hello",
+    "hellow": "hello",
+    "nme": "name",
+    "naem": "name",
+    "calld": "called",
+    "caled": "called",
+    "relly": "really",
+    "reely": "really",
+    "dogz": "dogs",
+    "catz": "cats",
+    "k": "ok",
+    "kk": "ok",
+    "okk": "ok",
+    "okey": "okay",
+    "sed": "said",
+    "becaus": "because",
+    "scool": "school",
+    "favirite": "favorite",
+    "pritty": "pretty",
 }
 
 _EMOJI_WORDS = {
@@ -153,6 +172,8 @@ _CONTEXT_NORMALIZATIONS = [
                 r"stupid|annoying|best|worst|welcome|right|wrong|crazy|lying|kidding|joking|amazing|great|good|"
                 r"bad|too)\b)", re.IGNORECASE),
      "you're"),
+    (re.compile(r"\blets(?= (play|go|do|make|watch|build|talk|be|see|try|have|pretend|sing|draw|read)\b)",
+                re.IGNORECASE), "let's"),
     (re.compile(r"\bill(?= (try|do|be|go|ask|tell|practice|study|see|talk|play|have|get|make|show|let|just|never|"
                 r"always|probably|draw|read|call|text|come|help|work|remember|eat|drink|wait|clean|finish|sleep|bring|"
                 r"buy|use|build|write|stop|take|give|send|keep|think|put|pick|sit|stay|watch|listen|look|fix|"
@@ -259,6 +280,20 @@ def _repair_objects(doc) -> None:
     "What game do you like": "you" the object of "do" -> the subject of "like"
     """
     for token in doc:
+        # "Do you like pancakes": "like" read as an interjection on "pancakes"
+        if (token.dep_ == "intj" and token.lemma_ in ("like", "love", "want", "hate") and token.head.dep_ == "ROOT"
+                and token.head.pos_ == "NOUN" and token.i < token.head.i
+                and any(c.dep_ == "nsubj" for c in token.children)):
+            noun = token.head
+            for c in list(noun.children):
+                if c.i < token.i and c.dep_ in ("aux", "nsubj"):
+                    c.head = token
+            token.head, token.dep_, token.pos_ = token, "ROOT", "VERB"
+            noun.head, noun.dep_ = token, "dobj"
+            for c in list(noun.children):
+                if c.dep_ == "punct":
+                    c.head = token
+            continue
         # "I helped my mom bake cookies": "my mom bake cookies" read as one noun
         if (token.dep_ == "dobj" and token.head.lemma_ in ("help", "watch", "see", "let", "make", "hear")
                 and token.pos_ == "NOUN"):

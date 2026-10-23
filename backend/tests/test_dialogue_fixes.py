@@ -147,6 +147,18 @@ class TestNewRules:
         ("i ate too much candy", "ate_too_much"),
         ("my mom said no more candy", "said_no_more"),
         ("is 1/2 bigger than 1/4", "arithmetic"),
+        ("do you like pancakes", "bot_like_food"),
+        ("what if she dies", "what_if_dies"),
+        ("i dont want her to die", "dont_want_die"),
+        ("i have to get a shot tomorrow", "getting_a_shot"),
+        ("ok i will be brave", "will_be_brave"),
+        ("i didnt get one", "didnt_get_one"),
+        ("she always gets everything", "always_gets"),
+        ("a kid called me a baby", "called_me_names"),
+        ("i didnt say anything", "didnt_say_anything"),
+        ("i have to go to bed", "go_to_bed"),
+        ("see you tomorrow", "see_you"),
+        ("lets play pretend", "play_pretend"),
         ("coach said I did great", "praise_reported"),
         ("not much you", "not_much"),
         ("yes", "yes_no"),
@@ -547,6 +559,28 @@ class TestReferences:
     def test_no_jokes_after_praise(self, engine):
         assert engine.rule_flag("achievement", "no_jokes") and engine.rule_flag("can_now", "no_jokes")
 
+    def test_pretend_play(self, engine):
+        rule_of(engine, "lets play pretend")
+        assert rule_of(engine, "you are a dragon")[1] == "Rawr! Okay, I'm a dragon! Who are you?"
+        assert rule_of(engine, "i am a knight")[1] == "Ooh, a knight! What happens next?"
+        assert rule_of(engine, "stop")[1].startswith("Okay! That was so fun.")
+
+    def test_bot_words_are_not_the_childs_it(self, engine):
+        rule_of(engine, "i have to get a shot tomorrow")
+        assert engine.resolve_references("will it hurt", 1) == "will the shot hurt"
+
+    def test_feeling_after_teasing_is_not_the_teasing_again(self, engine):
+        rule_of(engine, "a kid called me a baby")
+        assert rule_of(engine, "it made me sad")[0] != "called_me_names"
+
+    def test_it_is_the_event_not_the_bots_word(self, engine):
+        rule_of(engine, "my baby brother cries a lot")
+        assert "nap" not in engine.resolve_references("it wakes me up", 1)
+
+    def test_hear_my_line_after_it_is_resolved(self, engine):
+        rule_of(engine, "i only have one line")
+        assert rule_of(engine, "do you want to hear it")[0] == "want_to_hear"
+
     def test_rule_ids_are_unique(self, engine):
         ids = [r["id"] for r in engine.kb["rules"]]
         assert len(ids) == len(set(ids))
@@ -833,6 +867,11 @@ class TestNormalization:
         ("its blue and green", "it's blue and green"),
         ("his name was nemo", "his name was Nemo"),
         ("the name is not right", "the name is not right"),
+        ("helo", "hello"),
+        ("my nme is jak", "my name is Jak"),
+        ("k", "ok"),
+        ("lets play pretend", "let's play pretend"),
+        ("he lets me play", "he lets me play"),
         ("named after my grandpa", "named after my grandpa"),
         ("I feel ill", "I feel ill"),
         ("ur weird", "you're weird"),
@@ -1058,3 +1097,9 @@ class TestConversation:
         send(api, user_id, conversation_id, "my parents are getting divorced")
         reply = send(api, user_id, conversation_id, "i dont know")
         assert "a lot to think about" in reply
+
+    def test_teasing_advice_a_few_messages_later(self, api):
+        user_id, conversation_id, _ = start(api)
+        for message in ("a kid called me a baby", "it made me sad", "i didnt say anything"):
+            send(api, user_id, conversation_id, message)
+        assert "Please stop" in send(api, user_id, conversation_id, "what should i say")

@@ -97,6 +97,13 @@ _PEOPLE_GROUPS = {"kid", "boy", "girl", "classmate", "student", "people", "every
 STORY_MAX_TURNS = 10
 STORY_PROMPTS = ["Ooh! And then what happened?", "Wow! What happened next?", "Ooh, exciting! What did they do next?",
                  "That's so cool! Then what?", "I love this story! Keep going!"]
+# Pretend play: replies when the child's message gives no role
+PRETEND_MAX_TURNS = 8
+PRETEND_PROMPTS = ["Whoa! What happens next?", "Ooh, exciting! Your turn!", "Haha, I didn't see that coming! What next?",
+                   "Quick, what do we do now?"]
+_PRETEND_SOUNDS = {"dragon": "Rawr!", "lion": "Roar!", "tiger": "Roar!", "dinosaur": "Rawr!", "monster": "Grrr!",
+                   "robot": "Beep boop!", "cat": "Meow!", "dog": "Woof!", "wolf": "Awoooo!", "ghost": "Boo!",
+                   "pirate": "Arrr!", "owl": "Hoot hoot!", "unicorn": "Neigh!", "horse": "Neigh!"}
 STORY_ENDINGS = ["The end! What a great story. I loved it!", "What a fun story! You're a great storyteller."]
 
 # Replies to a joke the child tells: to the setup question, then to the punchline
@@ -195,6 +202,8 @@ class ResponseEngine:
         self._child_joke: Dict[int, int] = {}
         # Turns of a story the child and the bot are making up together
         self._story_mode: Dict[int, int] = {}  # the favorite category last talked about
+        # Turns left of a game of pretend
+        self._pretend: Dict[int, int] = {}
         # The answer to a riddle the bot asked, while the child guesses
         self._riddle: Dict[int, Tuple[str, str]] = {}
         # What the bot's last reply offered: "joke" ("Want to hear a funny joke?") or
@@ -263,6 +272,7 @@ class ResponseEngine:
         self._child_joke.pop(user_id, None)
         self._story_mode.pop(user_id, None)
         self._riddle.pop(user_id, None)
+        self._pretend.pop(user_id, None)
         self._offered.pop(user_id, None)
 
     def record_bot_reply(self, user_id: int, reply: str, humor: Optional[str] = None) -> None:
@@ -871,6 +881,22 @@ class ResponseEngine:
             "bot_mood": getattr(personality, "mood", None) or "happy",
         }
 
+        # Playing pretend: the child gives the bot a role and plays theirs
+        pretend_turns = self._pretend.pop(user_id, 0)
+        if pretend_turns and re.match(r"\W*(ok |okay )?(stop|the end|i'?m done|done playing|let'?s stop)\W*$", message,
+                                      re.IGNORECASE):
+            if features is not None:
+                features["rule"] = "pretend"
+            return self._apply_style("Okay! That was so fun. Thanks for playing pretend with me!", personality)
+        if pretend_turns and not re.search(r"\b(stop|the end|i'?m done|done playing|bye|goodbye)\b", message,
+                                           re.IGNORECASE):
+            reply = self._pretend_reply(message)
+            if reply:
+                self._pretend[user_id] = pretend_turns - 1
+                if features is not None:
+                    features["rule"] = "pretend"
+                return self._apply_style(reply, personality)
+
         # Making up a story together: prompts for the child's lines until "the end"
         story_turns = self._story_mode.pop(user_id, 0)
         if story_turns:
@@ -1005,6 +1031,8 @@ class ResponseEngine:
             features["rule"] = frame.rule_id
             if frame.rule_id == "offer_content" and slots.get("kind") in ("joke", "riddle", "pun"):
                 self._child_joke[user_id] = 1  # the next message is the child's joke
+            if frame.rule_id == "play_pretend":
+                self._pretend[user_id] = PRETEND_MAX_TURNS
             if frame.rule_id == "story_together" or (frame.rule_id == "request" and slots.get("kind") == "story"):
                 self._story_mode[user_id] = 1  # the next messages are the child's story
 
@@ -1185,7 +1213,7 @@ class ResponseEngine:
         # and replies repeating back the child's news ("The present was a book about sharks?")
         if flag == "no_jokes" and rule_id and (
                 rule_id.startswith(("fallback_world", "fallback_reflection", "fallback_long_reflection", "fallback_fragment"))
-                or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes", "spelling", "performance", "play_role")):
+                or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes", "spelling", "performance", "play_role", "pretend")):
             return True
         return bool(rule_id and self.rules.get(rule_id, {}).get(flag))
 
@@ -1373,6 +1401,21 @@ class ResponseEngine:
                 return pick("topic").format_map(slots), "neutral", "topic"
 
         return pick("generic"), "neutral", "generic"
+
+    def _pretend_reply(self, message: str) -> Optional[str]:
+        """A line in a game of pretend: take the role the child gives, cheer the child's role, or keep it going"""
+        text = message.lower()
+        bot_role = re.search(r"\byou(?:'re| are|re) (a|an|the) ([a-z ]{2,25}?)[.!?]*$", text)
+        if bot_role:
+            role = bot_role.group(2).strip()
+            sound = _PRETEND_SOUNDS.get(role.split()[-1], "")
+            return f"{sound + ' ' if sound else ''}Okay, I'm {bot_role.group(1)} {role}! Who are you?"
+        child_role = re.search(r"\bi(?:'m| am|m) (a|an|the) ([a-z ]{2,25}?)[.!?]*$", text)
+        if child_role:
+            return f"Ooh, {child_role.group(1)} {child_role.group(2).strip()}! What happens next?"
+        if re.search(r"\b(attack|fight|hit|zap|chase)\b", text) and re.search(r"\byou\b", text):
+            return "Whoosh! I dodge out of the way! Your turn!"
+        return self._pick(PRETEND_PROMPTS, 0)
 
     @staticmethod
     def _compare_fractions(match) -> str:

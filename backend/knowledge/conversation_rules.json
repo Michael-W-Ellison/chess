@@ -310,6 +310,182 @@
 
   "rules": [
     {
+      "id": "what_if_dies",
+      "priority": 95,
+      "patterns": [
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["die", "pass"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}}
+        ],
+        [
+          {"RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what", "DEP": "ROOT"}},
+          {"LEFT_ID": "what", "REL_OP": ">", "RIGHT_ID": "verb", "RIGHT_ATTRS": {"DEP": "advcl", "LEMMA": {"IN": ["die", "pass"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}}
+        ]
+      ],
+      "conditions": {"first_token": "what"},
+      "no_jokes": true,
+      "mood": "sad",
+      "responses": [
+        "It's normal to worry about the people we love. It shows how much you care. Spending time together and telling your mom or dad about this worry can really help."
+      ]
+    },
+    {
+      "id": "dont_want_die",
+      "priority": 95,
+      "patterns": [[
+        {"RIGHT_ID": "want", "RIGHT_ATTRS": {"LEMMA": "want"}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}},
+        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "die", "RIGHT_ATTRS": {"DEP": {"IN": ["xcomp", "ccomp"]}, "LEMMA": "die"}},
+        {"LEFT_ID": "die", "REL_OP": ">", "RIGHT_ID": "who", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "me"]}}}
+      ]],
+      "no_jokes": true,
+      "mood": "sad",
+      "responses": [
+        "That's a really big feeling, and it shows how much you love {who}. Talking to your mom or dad about it can help. I'm here for you too."
+      ],
+      "slots": {"who": {"node": "who", "span": "subtree"}}
+    },
+    {
+      "id": "getting_a_shot",
+      "priority": 68,
+      "patterns": [
+        [
+          {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": {"IN": ["get", "have"]}}},
+          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "shot", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["shot", "vaccine", "injection", "flu"]}}}
+        ],
+        [
+          {"RIGHT_ID": "have", "RIGHT_ATTRS": {"LEMMA": {"IN": ["have", "need", "go"]}}},
+          {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+          {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "get", "RIGHT_ATTRS": {"DEP": "xcomp", "LEMMA": "get"}},
+          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "shot", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["shot", "vaccine", "injection", "flu"]}}}
+        ]
+      ],
+      "conditions": {"question": false, "not_negated": "get"},
+      "no_jokes": true,
+      "responses": [
+        "Shots can feel scary, but they help keep you healthy! It's just a quick pinch, and it's over fast. Do you want to talk about it?"
+      ]
+    },
+    {
+      "id": "will_be_brave",
+      "priority": 70,
+      "patterns": [[
+        {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "will", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": {"IN": ["will", "'ll", "gonna", "can"]}}},
+        {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "brave", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["brave", "strong", "okay", "ok", "fine"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "be"},
+      "no_jokes": true,
+      "responses": ["You've got this! I'm proud of you for being brave."]
+    },
+    {
+      "id": "didnt_get_one",
+      "priority": 66,
+      "patterns": [[
+        {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": "get"}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["one", "any", "anything", "a", "it"]}}}
+      ]],
+      "conditions": {"question": false, "past": "get"},
+      "no_jokes": true,
+      "responses": [
+        "Aw, it's hard when someone else gets something and you don't. That feeling is called jealousy, and it's totally normal."
+      ]
+    },
+    {
+      "id": "always_gets",
+      "priority": 64,
+      "patterns": [[
+        {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": {"IN": ["get", "win"]}}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "we", "you"]}}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "always", "RIGHT_ATTRS": {"LOWER": "always"}},
+        {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "all", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["everything", "anything", "all"]}}}
+      ]],
+      "conditions": {"question": false},
+      "no_jokes": true,
+      "responses": ["It can really feel that way sometimes! Have you told your mom or dad how you feel?"]
+    },
+    {
+      "id": "called_me_names",
+      "priority": 82,
+      "patterns": [
+        [
+          {"RIGHT_ID": "call", "RIGHT_ATTRS": {"LEMMA": "call", "DEP": {"NOT_IN": ["csubj", "nsubj", "acl", "pcomp"]}}},
+          {"LEFT_ID": "call", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "me"}},
+          {"LEFT_ID": "call", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": {"IN": ["oprd", "attr", "xcomp", "ccomp", "dobj"]}, "LOWER": {"IN": ["baby", "loser", "dumb", "stupid", "idiot", "weirdo", "ugly", "fat", "crybaby", "nerd", "chicken", "slow", "names", "weird", "annoying", "dork", "freak", "liar", "cheater"]}}}
+        ],
+        [
+          {"RIGHT_ID": "call", "RIGHT_ATTRS": {"LEMMA": "call", "DEP": {"NOT_IN": ["csubj", "nsubj", "acl", "pcomp"]}}},
+          {"LEFT_ID": "call", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "dative", "LOWER": "me"}},
+          {"LEFT_ID": "call", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["baby", "loser", "dumb", "stupid", "idiot", "weirdo", "ugly", "fat", "crybaby", "nerd", "chicken", "slow", "names", "weird", "annoying", "dork", "freak", "liar", "cheater"]}}}
+        ]
+      ],
+      "conditions": {"question": false, "not_negated": "call"},
+      "no_jokes": true,
+      "mood": "sad",
+      "responses": [
+        "That wasn't a kind thing to say, and I'm sorry it happened. What they said isn't true about you. How did you feel?"
+      ]
+    },
+    {
+      "id": "didnt_say_anything",
+      "priority": 62,
+      "patterns": [[
+        {"RIGHT_ID": "say", "RIGHT_ATTRS": {"LEMMA": "say"}},
+        {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}},
+        {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "any", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["anything", "nothing"]}}}
+      ]],
+      "conditions": {"question": false},
+      "responses": ["That's okay. It can be really hard to know what to say in the moment."]
+    },
+    {
+      "id": "go_to_bed",
+      "priority": 17,
+      "patterns": [[
+        {"RIGHT_ID": "need", "RIGHT_ATTRS": {"LEMMA": {"IN": ["have", "need", "get"]}}},
+        {"LEFT_ID": "need", "REL_OP": ">", "RIGHT_ID": "go", "RIGHT_ATTRS": {"DEP": "xcomp", "LEMMA": "go"}},
+        {"LEFT_ID": "go", "REL_OP": ">", "RIGHT_ID": "to", "RIGHT_ATTRS": {"LOWER": "to"}},
+        {"LEFT_ID": "to", "REL_OP": ">", "RIGHT_ID": "bed", "RIGHT_ATTRS": {"LOWER": {"IN": ["bed", "sleep"]}}}
+      ]],
+      "conditions": {"question": false},
+      "no_jokes": true,
+      "responses": ["Goodnight, {user_name}! Sleep well and sweet dreams!"]
+    },
+    {
+      "id": "see_you",
+      "priority": 16,
+      "patterns": [[
+        {"RIGHT_ID": "see", "RIGHT_ATTRS": {"LEMMA": "see"}},
+        {"LEFT_ID": "see", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "you"}},
+        {"LEFT_ID": "see", "REL_OP": ">", "RIGHT_ID": "when", "RIGHT_ATTRS": {"LOWER": {"IN": ["tomorrow", "later", "soon", "monday", "tonight"]}}}
+      ]],
+      "conditions": {"max_tokens": 5, "question": false},
+      "no_jokes": true,
+      "responses": ["See you then! Bye for now, {user_name}!"]
+    },
+    {
+      "id": "play_pretend",
+      "priority": 88,
+      "patterns": [
+        [
+          {"RIGHT_ID": "play", "RIGHT_ATTRS": {"LEMMA": "play"}},
+          {"LEFT_ID": "play", "REL_OP": ">", "RIGHT_ID": "pretend", "RIGHT_ATTRS": {"LOWER": {"IN": ["pretend", "make-believe", "dress-up"]}}}
+        ],
+        [
+          {"RIGHT_ID": "play", "RIGHT_ATTRS": {"LEMMA": {"IN": ["let", "want", "can"]}}},
+          {"LEFT_ID": "play", "REL_OP": ">", "RIGHT_ID": "pretend", "RIGHT_ATTRS": {"LOWER": {"IN": ["pretend", "make-believe", "dress-up"]}}}
+        ]
+      ],
+      "no_jokes": true,
+      "responses": ["Ooh, I love pretend! Who should we be?"]
+    },
+    {
       "id": "makes_sense",
       "priority": 50,
       "patterns": [[
@@ -429,11 +605,12 @@
         {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}},
         {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "thing", "RIGHT_ATTRS": {"DEP": "dobj"}}
       ]],
-      "conditions": {"question": false},
+      "conditions": {"question": false, "not_past": "get"},
       "slots": {"thing": {"node": "thing", "span": "subtree"}},
       "responses": [
         "{thing} can be tricky! It's okay not to get it right away. You can ask me a question about it, or ask your teacher for help."
-      ]
+      ],
+      "suppressed_by": ["didnt_get_one"]
     },
     {
       "id": "ate_too_much",
@@ -540,12 +717,20 @@
     {
       "id": "want_to_hear",
       "priority": 88,
-      "patterns": [[
-        {"RIGHT_ID": "want", "RIGHT_ATTRS": {"LEMMA": "want"}},
-        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
-        {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "hear", "RIGHT_ATTRS": {"DEP": "xcomp", "LEMMA": {"IN": ["hear", "see", "know"]}}},
-        {"LEFT_ID": "hear", "REL_OP": ">", "RIGHT_ID": "it", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["it", "this", "that", "mine"]}}}
-      ]],
+      "patterns": [
+        [
+          {"RIGHT_ID": "want", "RIGHT_ATTRS": {"LEMMA": "want"}},
+          {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+          {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "hear", "RIGHT_ATTRS": {"DEP": "xcomp", "LEMMA": {"IN": ["hear", "see", "know"]}}},
+          {"LEFT_ID": "hear", "REL_OP": ">", "RIGHT_ID": "it", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["it", "this", "that", "mine"]}}}
+        ],
+        [
+          {"RIGHT_ID": "want", "RIGHT_ATTRS": {"LEMMA": "want"}},
+          {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "you"}},
+          {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "hear", "RIGHT_ATTRS": {"DEP": "xcomp", "LEMMA": {"IN": ["hear", "see"]}}},
+          {"LEFT_ID": "hear", "REL_OP": ">", "RIGHT_ID": "it", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["line", "song", "poem", "speech", "part", "drawing", "picture", "dance", "trick"]}}}
+        ]
+      ],
       "conditions": {"question": true},
       "responses": ["Yes, please! I'd love to hear it!"],
       "no_jokes": true
@@ -1440,7 +1625,7 @@
     {
       "id": "person_event",
       "priority": 75,
-      "suppressed_by": ["other_feeling", "person_better"],
+      "suppressed_by": ["other_feeling", "person_better", "what_if_dies", "dont_want_die"],
       "patterns": [
         [
           {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": "@loss_verbs"}}},
@@ -1973,7 +2158,7 @@
         ]
       ],
       "conditions": {"first_token": "what"},
-      "suppressed_by": ["what_if_worry", "what_if_liked", "what_if_weather", "what_if_forgotten"],
+      "suppressed_by": ["what_if_worry", "what_if_liked", "what_if_weather", "what_if_forgotten", "what_if_dies"],
       "responses": ["Ooh, that's a good what-if! What do you think would happen?"]
     },
     {
@@ -1998,7 +2183,7 @@
       "responses": [
         "It's normal to worry about that. Even if it doesn't go perfectly, that's okay. You can always try again. What part feels hardest?"
       ],
-      "suppressed_by": ["what_if_forgotten"]
+      "suppressed_by": ["what_if_forgotten", "what_if_dies"]
     },
     {
       "id": "setback",
@@ -4672,7 +4857,7 @@
       "conditions": {"max_tokens": 6, "question": false},
       "responses": ["Bye, {user_name}! Talk to you soon!", "See you later, {user_name}! I had fun talking with you."],
       "no_jokes": true,
-      "suppressed_by": ["other_goes_home"]
+      "suppressed_by": ["other_goes_home", "go_to_bed"]
     },
     {
       "id": "farewell_last",

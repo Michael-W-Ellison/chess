@@ -396,7 +396,9 @@ class ReferenceTracker:
                         and root.lemma_.lower() not in _TIME_WORDS
                         and root.lemma_.lower() not in state.last_child_words
                         and not self._describes_bot(root)):
-                    self._remember_thing(self._thing_text(chunk), state, plural=root.tag_ in ("NNS", "NNPS"))
+                    # Short: meant by a reaction ("That's so cool!"), not by the child's own next news
+                    self._remember_thing(self._thing_text(chunk), state, plural=root.tag_ in ("NNS", "NNPS"),
+                                         short=True)
         mentions = list(mentions)
         if told and told_was_added:
             self._remember_thing(f"your {told}", state, added=True)
@@ -539,6 +541,10 @@ class ReferenceTracker:
             # Not an event done by someone this message names: "She started it" is not
             # "My sister started my sister and my brother fighting"
             events = [e for e in self._recent(state.events, state) if not e.actor & named]
+            # Only the bot's own words left ("a nap"), and the child told of something happening:
+            # "It wakes me up" is the baby crying
+            if things and all(t.short for t in things) and events and not reaction:
+                things = []
             thing = things[0] if things else None
             event = events[0] if events else None
             if lower in _EVENT_PRONOUNS:

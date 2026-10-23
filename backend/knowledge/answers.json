@@ -1,6 +1,8 @@
 {
   "_comment": "Short answers to common questions children ask about the world, used by the rule-based response engine (services/response_engine.py) when a question matches no rule. Each pattern is a case-insensitive regular expression matched against the child's question; the first match wins, so put specific patterns before general ones. Keep answers short, simple and well established.",
   "answers": [
+    {"pattern": "\\bwhy do butterflies have wings\\b|\\bhow do butterflies fly\\b", "answer": "Butterflies use their wings to fly from flower to flower to drink nectar. Their bright colors can also warn birds to stay away!"},
+    {"pattern": "\\b(will|does|do|is) (it|(a |the |my )?(shots?|vaccines?|injections?)) (going to )?hurt\\b", "answer": "A shot might pinch for a second, but it's over really fast! Taking a deep breath or squeezing a grown-up's hand can help."},
     {"pattern": "\\bhow do robots work\\b|\\bhow does a robot work\\b", "answer": "Robots have a computer 'brain' that follows instructions called a program, sensors to notice what's around them, and motors to move!"},
     {"pattern": "\\bwhere does snow come from\\b|\\bhow is snow made\\b", "answer": "Snow forms high up in very cold clouds. Tiny water drops freeze into ice crystals, and the crystals stick together into snowflakes!"},
     {"pattern": "\\bwhy is lightning (so )?scary\\b|\\bis lightning dangerous\\b", "answer": "Lightning is super bright and thunder is really loud, and lightning can be dangerous, so it's smart to stay inside during a storm. Feeling scared of it is totally normal!"},

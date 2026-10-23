@@ -67,6 +67,8 @@ def reply(engine, message):
     ("how do robots work", "Robots have a computer"),
     ("where does snow come from", "Snow forms"),
     ("can fish go to heaven", "That's a really big question"),
+    ("why do butterflies have wings", "Butterflies use their wings"),
+    ("will the shot hurt", "A shot might pinch"),
 ])
 def test_known_questions(engine, question, start):
     text, rule = reply(engine, question)
