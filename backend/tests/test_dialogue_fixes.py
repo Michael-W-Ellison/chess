@@ -186,7 +186,7 @@ class TestNewRules:
         ("do you have a brain", "bot_body_question"),
         ("do you have feelings", "bot_body_question"),
         ("can you think", "bot_think_question"),
-        ("can you remember my name", "bot_think_question"),
+        ("can you remember my name", "ask_my_name"),
         ("the snowman's name is Frosty", "thing_name_is"),
         ("how do computers work", "fallback_world_answer"),
         ("we found him", "found_it"),
@@ -208,6 +208,19 @@ class TestNewRules:
         ("❤️", "aww"),
         ("I love it", "love_it"),
         ("do you like pizza or tacos", "comparison_question"),
+        ("what's my name", "ask_my_name"),
+        ("what is my favorite color", "ask_my_favorite"),
+        ("do you remember my dog", "ask_remember"),
+        ("you're dumb", "bot_compliment"),
+        ("shut up", "shut_up"),
+        ("I hate you", "hate_you"),
+        ("sorry", "sorry"),
+        ("what", "what_alone"),
+        ("who made you", "bot_creator"),
+        ("are you chatgpt", "bot_other_ai"),
+        ("what can you do", "bot_abilities"),
+        ("what color would your horse be", "bot_would_pick"),
+        ("my teacher said I was brave", "person_says_about_me"),
     ])
     def test_rule(self, engine, message, rule):
         assert rule_of(engine, message)[0] == rule
@@ -440,6 +453,21 @@ class TestReferences:
         reply = rule_of(engine, "whats your name and how old are you")[1]
         assert "Buddy" in reply and "old" in reply
 
+    @pytest.mark.parametrize("message,facts,name,expected", [
+        ("what's my name", {}, "Lily", "Your name is Lily! I remember."),
+        ("what's my name", {}, None, "Hmm, I don't know it yet! What's your name?"),
+        ("what is my favorite color", {"favorite_color": "purple"}, "Lily", "Your favorite color is purple! I remember."),
+        ("do you remember my dog", {"dog_max": "Max"}, "Lily", "Of course! Your dog Max! How is Max doing?"),
+        ("do you remember my cat", {"dog_max": "Max"}, "Lily", "Hmm, I don't think you've told me about your cat yet. Tell me!"),
+        ("do you remember me", {}, "Lily", "Of course I remember you, Lily!"),
+    ])
+    def test_recalls_what_the_child_said(self, engine, message, facts, name, expected):
+        reply = engine.generate_response(message, make_personality(), {"known_facts": facts}, user_name=name)
+        assert reply == expected
+
+    def test_whats_my_name_is_not_a_name(self, engine):
+        assert ("basic", "name", "What") not in engine.extract_memories("what's my name")
+
     def test_mine_is_not_a_thing(self, engine):
         rule_of(engine, "my favorite food is sushi")
         assert "mine" not in engine.resolve_references("my mom doesnt like it", 1)
@@ -604,6 +632,15 @@ class TestConversation:
         user_id, conversation_id, _ = start(api)
         send(api, user_id, conversation_id, "IM SAM")
         assert memories(api, user_id)[("basic", "name")] == "Sam"
+
+    def test_remembers_across_conversations(self, api):
+        user_id, conversation_id, _ = start(api)
+        for message in ("im lily", "I have a dog named Max", "my favorite color is purple"):
+            send(api, user_id, conversation_id, message)
+        conversation_id = api.post(f"/api/conversation/start?user_id={user_id}").json()["conversation_id"]
+        assert "Lily" in send(api, user_id, conversation_id, "whats my name")
+        assert "purple" in send(api, user_id, conversation_id, "what is my favorite color")
+        assert "Max" in send(api, user_id, conversation_id, "do you remember my dog")
 
     def test_feeling_is_not_a_name(self, api):
         user_id, conversation_id, _ = start(api)

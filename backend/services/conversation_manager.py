@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from models.user import User
 from models.personality import BotPersonality
 from models.conversation import Conversation, Message
+from models.memory import UserProfile
 
 from services.llm_service import llm_service
 from services.safety_filter import safety_filter
@@ -650,10 +651,19 @@ class ConversationManager:
         # Detect advice request and category
         advice_detection = advice_category_detector.detect_advice_request(user_message)
 
+        # Everything the child has told the bot, by key ("favorite_color": "purple"), so it
+        # can answer "What's my favorite color?" and "Do you remember my dog?"
+        try:
+            known_facts = {m.key: m.value for m in db.query(UserProfile).filter(UserProfile.user_id == user_id).all()}
+        except Exception as e:
+            logger.error(f"Error loading memories: {e}", exc_info=True)
+            known_facts = {}
+
         return {
             "personality": personality,
             "keywords": keywords,
             "relevant_memories": memories,
+            "known_facts": known_facts,
             "recent_messages": recent_messages,
             "detected_mood": detected_mood,
             "advice_request": advice_detection,

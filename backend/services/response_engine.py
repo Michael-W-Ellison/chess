@@ -762,12 +762,14 @@ class ResponseEngine:
             return None
 
         context = context or {}
+        self._context = context  # for computed slots that recall what the child told before
         user_id = getattr(personality, "user_id", 0) or 0
         self._last_mentions.pop(user_id, None)
         level = getattr(personality, "friendship_level", 1) or 1
         globals_ = {
             # Without a name, "Hi {user_name}!" becomes "Hi!" (see _NO_NAME)
             "user_name": user_name or _NO_NAME,
+            "known_name": "yes" if user_name else "",
             "bot_name": getattr(personality, "name", None) or "Buddy",
             "bot_mood": getattr(personality, "mood", None) or "happy",
         }
@@ -915,6 +917,22 @@ class ResponseEngine:
                 if options:
                     slots["category"] = category
                     slots["bot_favorite"] = options[_stable_index(f"{seed_id}:{category}", len(options))]
+            elif name == "recall_favorite":
+                # "What's my favorite color?"
+                facts = getattr(self, "_context", {}).get("known_facts") or {}
+                value = facts.get(f"favorite_{slots.get('category_slug', '')}")
+                if value:
+                    slots["recalled"] = value
+            elif name == "recall_thing":
+                # "Do you remember my dog?": "your dog Max" (a named one), else "your dog"
+                facts = getattr(self, "_context", {}).get("known_facts") or {}
+                thing = slots.get("thing_slug", "")
+                named = next((v for k, v in facts.items() if k.startswith(f"{thing}_")), None) if thing else None
+                if named:
+                    slots["recalled"] = f"your {slots.get('thing', thing)} {named}"
+                    slots["recalled_name"] = named
+                elif thing and any(k in (f"has_{thing}", f"likes_{thing}", f"favorite_{thing}") for k in facts):
+                    slots["recalled"] = f"your {slots.get('thing', thing)}"
             elif name == "gift_container":
                 # "a goody bag" holds something; "a bike" does not
                 if slots.get("gift_raw", "").lower().split()[-1:] in (["bag"], ["box"], ["basket"], ["stocking"]):
@@ -1006,6 +1024,8 @@ class ResponseEngine:
                 continue
             if any(not slots.get(req) for req in spec.get("requires", [])):
                 continue
+            if any(slots.get(slot) for slot in spec.get("unless", [])):
+                continue  # a template for when something is not known
             candidates.append(spec)
 
         # Prefer the most specific templates (those that use the most optional slots)
