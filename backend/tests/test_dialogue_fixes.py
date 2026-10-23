@@ -63,6 +63,15 @@ class TestNewRules:
         ("what if the sun disappeared", "what_if_question"),
         ("my brother knocked the snowman over", "wrecked_my_thing"),
         ("jake broke my pencil", "wrecked_my_thing"),
+        ("i cant sleep", "cant_sleep"),
+        ("goodnight", "goodnight"),
+        ("good night", "goodnight"),
+        ("but also kind of nervous", "feeling_fragment"),
+        ("what if they forget about me", "what_if_forgotten"),
+        ("we called him biscuit", "name_someone"),
+        ("what game do you like", "bot_like_which"),
+        ("why did the chicken cross the road", "child_joke"),
+        ("knock knock", "child_joke"),
         ("coach said I did great", "praise_reported"),
         ("not much you", "not_much"),
         ("yes", "yes_no"),
@@ -317,6 +326,26 @@ class TestReferences:
 
     def test_wind_is_not_a_person_wrecking_things(self, engine):
         assert rule_of(engine, "the wind knocked the tree over")[0] != "wrecked_my_thing"
+
+    def test_it_after_something_made_for_the_child(self, engine):
+        rule_of(engine, "my throat hurts")
+        rule_of(engine, "my dad made me soup")
+        assert engine.resolve_references("it was yummy", 1) == "Soup was yummy"
+        assert rule_of(engine, "it was yummy")[1].startswith("Yay")
+
+    def test_naming_the_new_baby(self, engine):
+        rule_of(engine, "my mom is having a baby")
+        assert rule_of(engine, "i want to name her lily") == (
+            "name_someone", "Lily is a great name! What made you think of it?")
+
+    def test_lowercase_friend_name_is_capitalized(self, engine):
+        assert "your friend Sam" in rule_of(engine, "my friend sam helped me")[1]
+        assert "Group" not in rule_of(engine, "my friend group is big")[1]
+
+    def test_knock_knock_joke(self, engine):
+        assert rule_of(engine, "knock knock")[1] == "Who's there?"
+        assert rule_of(engine, "boo")[1] == "Boo who?"
+        assert rule_of(engine, "dont cry its just a joke")[0] == "child_joke"
 
     def test_opening_word_is_not_echoed(self, engine):
         _, reply = rule_of(engine, "fine ill eat broccoli")
@@ -764,3 +793,10 @@ class TestConversation:
         conversation_id = api.post(f"/api/conversation/start?user_id={user_id}").json()["conversation_id"]
         reply = send(api, user_id, conversation_id, "max learned a new trick")
         assert "Max learned" in reply
+
+    def test_name_correction(self, api):
+        user_id, conversation_id, _ = start(api)
+        send(api, user_id, conversation_id, "im potato")
+        send(api, user_id, conversation_id, "lol jk im finn")
+        assert memories(api, user_id)[("basic", "name")] == "Finn"
+        assert "Finn" in send(api, user_id, conversation_id, "bye")

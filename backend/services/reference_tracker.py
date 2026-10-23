@@ -272,6 +272,8 @@ class ReferenceTracker:
                 # "That's cool" -> "Your fun fact is cool", not the possessive "fact's"
                 parts[-1] = parts[-1].rstrip() + " "
                 replacement = "are" if state.last_plural else "is"
+            if replacement is None and token.is_lower and self._is_relation_name(token):
+                replacement = token.text.capitalize()  # "my friend sam" -> "my friend Sam"
             parts.append((replacement if replacement is not None else token.text) + token.whitespace_)
             replaced_previous = replacement is not None
         resolved = "".join(parts)
@@ -370,6 +372,10 @@ class ReferenceTracker:
     def _antecedent(self, token, state: DiscourseState, resolved_people: set, message: str,
                     named: set, drop: set) -> Optional[str]:
         lower = token.lower_
+        # "name her Lily": the reply is about the name; "name the new baby Lily" parses badly
+        if token.dep_ == "dobj" and token.head.lemma_ in ("name", "call") and any(
+                c.dep_ == "oprd" for c in token.head.children):
+            return None
 
         if lower in _PERSON_PRONOUNS and token.pos_ == "PRON":
             gender = _PERSON_PRONOUNS[lower]
@@ -559,6 +565,17 @@ class ReferenceTracker:
     # Recording
     # ------------------------------------------------------------------
 
+    def _is_relation_name(self, token) -> bool:
+        """ "sam" in "my friend sam", "jake" in "my cousin jake": a name written in lowercase """
+        if not token.is_alpha or token.lemma_.lower() in self.relations:
+            return False
+        if token.dep_ == "appos" and token.pos_ == "PROPN" and token.head.lemma_.lower() in self.relations:
+            return True
+        return (token.pos_ in ("NOUN", "PROPN")
+                and any(c.dep_ == "compound" and c.lemma_.lower() in self.relations for c in token.children)
+                and any(c.dep_ == "poss" and c.lower_ in ("my", "our") for c in token.children)
+                and token.lower_ not in self.parser.known_words())
+
     @staticmethod
     def _clause_subject_owns(token, gender: str) -> bool:
         """True if a "his"/"her" most likely refers to its clause's subject, a noun or name before it"""
@@ -683,6 +700,8 @@ class ReferenceTracker:
                 continue  # "My favorite game is Mario Kart"
             if not self._is_person_name(token):
                 continue
+            if token.lower_ in {t.text.split()[-1].lower() for t in state.things}:
+                continue  # "Soup was yummy" after "it" became the soup: a thing, not a name
             mentioned.append(Person(name=self._full_name(token)))
             group = [c for c in token.conjuncts if c.pos_ == "PROPN"]
             if group and token.dep_ != "conj":

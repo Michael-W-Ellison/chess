@@ -75,6 +75,7 @@ class MemoryManager:
                 .first()
             )
 
+            previous_value = existing.value if existing else None
             if existing:
                 # Update existing memory
                 existing.value = value
@@ -105,7 +106,8 @@ class MemoryManager:
             # Use a name the child tells us in place of the placeholder account name
             if category == "basic" and key == "name":
                 user = db.query(User).filter(User.id == user_id).first()
-                if user and user.name in (None, "", "User"):
+                # Also a correction ("im potato" ... "jk im Finn") of a name the child gave before
+                if user and (user.name in (None, "", "User") or user.name == previous_value):
                     user.name = value
 
         if memories:

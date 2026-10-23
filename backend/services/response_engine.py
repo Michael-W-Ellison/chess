@@ -95,13 +95,20 @@ _PEOPLE_GROUPS = {"kid", "boy", "girl", "classmate", "student", "people", "every
 
 # Making up a story together
 STORY_MAX_TURNS = 10
-STORY_PROMPTS = ["Ooh! And then what happened?", "Wow! What happened next?", "Oh no! What did they do?",
+STORY_PROMPTS = ["Ooh! And then what happened?", "Wow! What happened next?", "Ooh, exciting! What did they do next?",
                  "That's so cool! Then what?", "I love this story! Keep going!"]
 STORY_ENDINGS = ["The end! What a great story. I loved it!", "What a fun story! You're a great storyteller."]
 
 # Replies to a joke the child tells: to the setup question, then to the punchline
-CHILD_JOKE_GUESSES = ["Hmm, I don't know! What?", "I give up! Tell me!", "Ooh, I'm not sure! Why?"]
+CHILD_JOKE_GUESSES = ["Hmm, I don't know! What?", "I give up! Tell me!", "Ooh, I'm not sure! What?"]
 CHILD_JOKE_LAUGHS = ["Haha! That's a good one! You're really funny.", "Hahaha! I didn't see that coming!"]
+
+# A joke the child starts without saying so: "Why did the chicken cross the road?", "Knock knock"
+_JOKE_SETUP_RE = re.compile(
+    r"^\W*(why did the \w+ cross the road|what do you call (a|an)\b|what did the \w+ say to\b|"
+    r"why did the \w+ (go to|bring|sit on|eat|wear)\b|what has \w+ \w+ but)", re.IGNORECASE
+)
+_KNOCK_KNOCK_RE = re.compile(r"^\W*knock,? knock\W*$", re.IGNORECASE)
 
 _ARITHMETIC_RE = re.compile(
     r"\b(\d{1,4}) ?(plus|\+|minus|-|times|x|\*|divided by|/) ?(\d{1,4})\b", re.IGNORECASE
@@ -186,6 +193,13 @@ class ResponseEngine:
         """True if the parser (spaCy and its model) is available"""
         return self.parser.is_available()
 
+    def _thing_words(self, user_id: int) -> frozenset:
+        """Lowercase head nouns of the things this child mentioned, not names of people"""
+        state = self.references.state(user_id)
+        people = {w.lower() for p in state.people if p.name for w in p.name.split()}
+        return frozenset(t.text.split()[-1].lower() for t in state.things
+                         if not t.added and not t.short) - people
+
     def resolve_references(self, message: str, user_id: int) -> str:
         """
         Replace pronouns ("she", "it") with the people and things they refer to from earlier
@@ -233,11 +247,21 @@ class ResponseEngine:
     # Analysis
     # ------------------------------------------------------------------
 
-    def analyze(self, message: str) -> Optional[Analysis]:
-        """Parse a message and match all structural rules against it"""
+    def analyze(self, message: str, thing_words: frozenset = frozenset()) -> Optional[Analysis]:
+        """
+        Parse a message and match all structural rules against it
+
+        thing_words: nouns of things the child mentioned; "Soup was yummy" (after "it" was
+        resolved to the soup) is about the soup, not someone named Soup
+        """
         doc = self.parser.parse(message)
         if doc is None:
             return None
+        if any(t.pos_ == "PROPN" and t.lower_ in thing_words for t in doc):
+            doc = doc.copy()  # parses are cached and shared
+            for token in doc:
+                if token.pos_ == "PROPN" and token.lower_ in thing_words:
+                    token.pos_ = "NOUN"
 
         sentences = list(doc.sents)
         is_question = self._is_question(sentences[-1]) if sentences else False
@@ -764,13 +788,13 @@ class ResponseEngine:
             Reply text, or None if the parser is unavailable
         """
         features = features if features is not None else {}
-        analysis = self.analyze(message)
+        user_id = getattr(personality, "user_id", 0) or 0
+        analysis = self.analyze(message, self._thing_words(user_id))
         if analysis is None:
             return None
 
         context = context or {}
         self._context = context  # for computed slots that recall what the child told before
-        user_id = getattr(personality, "user_id", 0) or 0
         self._last_mentions.pop(user_id, None)
         level = getattr(personality, "friendship_level", 1) or 1
         globals_ = {
@@ -798,12 +822,27 @@ class ResponseEngine:
 
         # The child is telling a joke: "Why did the chicken cross the road?" ... the punchline
         joke_stage = self._child_joke.pop(user_id, 0)
+        if not joke_stage and _KNOCK_KNOCK_RE.match(message):
+            self._child_joke[user_id] = 3
+            if features is not None:
+                features["rule"] = "child_joke"
+            return "Who's there?"
+        if joke_stage == 3:
+            # "Knock knock" - "Who's there?" - "Lettuce" - "Lettuce who?"
+            self._child_joke[user_id] = 2
+            if features is not None:
+                features["rule"] = "child_joke"
+            return f"{message.strip(' ?!.').capitalize()} who?"
+        if not joke_stage and _JOKE_SETUP_RE.match(message):
+            joke_stage = 1
         if joke_stage:
             if features is not None:
                 features["rule"] = "child_joke"
             if joke_stage == 1 and analysis.is_question:
                 self._child_joke[user_id] = 2
-                return self._apply_style(self.rng.choice(CHILD_JOKE_GUESSES), personality)
+                # "Why did ...?" -> "...Why?"; "What do you call ...?" -> "...What?"
+                ending = "Why?" if message.strip().lower().startswith("why") else "What?"
+                return self._apply_style(self.rng.choice(CHILD_JOKE_GUESSES).replace("What?", ending), personality)
             return self._apply_style(self.rng.choice(CHILD_JOKE_LAUGHS), personality)
 
         # "What's 2 plus 2?"

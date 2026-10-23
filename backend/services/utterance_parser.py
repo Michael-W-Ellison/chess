@@ -199,7 +199,42 @@ def repair_parse(doc):
         if root.pos_ == "VERB":
             root.pos_ = "NOUN"
             root.tag_ = "NNS" if root.text.lower().endswith("s") else "NN"
+    _repair_objects(doc)
     return doc
+
+
+_GIVING_VERBS = {"make", "get", "buy", "give", "bring", "send", "show", "cook", "bake", "read", "sing", "draw"}
+
+
+def _repair_objects(doc) -> None:
+    """
+    Three more errors of the small model:
+    "My dad made me soup": "soup" a clause with "me" its subject -> "me" the dative, "soup" the object
+    "I want to name her Lily": "her" Lily's possessive -> "her" the object, "Lily" the name (oprd)
+    "What game do you like": "you" the object of "do" -> the subject of "like"
+    """
+    for token in doc:
+        if (token.dep_ == "ccomp" and token.pos_ == "NOUN" and token.head.lemma_ in _GIVING_VERBS
+                and token.head.i < token.i):
+            pronoun = next((c for c in token.children if c.dep_ == "nsubj"
+                            and c.lower_ in ("me", "him", "her", "us", "them")), None)
+            if pronoun is not None:
+                pronoun.head = token.head
+                pronoun.dep_ = "dative"
+                token.dep_ = "dobj"
+        elif (token.dep_ == "dobj" and token.head.lemma_ in ("name", "call") and token.head.pos_ == "VERB"
+              and token.i == max(t.i for t in doc if not t.is_punct)):
+            pronoun = next((c for c in token.children if c.dep_ == "poss" and c.lower_ == "her"), None)
+            if pronoun is not None:
+                pronoun.head = token.head
+                pronoun.dep_ = "dobj"
+                token.dep_ = "oprd"
+        elif (token.lower_ in ("you", "i") and token.dep_ == "dobj" and token.head.lemma_ == "do"
+              and token.head.dep_ == "aux"):
+            verb = token.head.head
+            if not any(c.dep_ == "nsubj" for c in verb.children):
+                token.head = verb
+                token.dep_ = "nsubj"
 
 
 class UtteranceParser:

@@ -32,7 +32,6 @@
     {"pattern": "\\bis a (spider) an? (insect|bug)\\b", "answer": "Nope! Spiders have 8 legs, so they're arachnids, not insects. Insects have 6 legs."},
     {"pattern": "\\bis a (tomato) a (fruit|vegetable)\\b", "answer": "A tomato is a fruit, because it has seeds inside! But people usually cook with it like a vegetable."},
     {"pattern": "\\bis a (bat) a bird\\b", "answer": "Nope! Bats are mammals, and they're the only mammals that can really fly."},
-    {"pattern": "\\bwhy did the chicken cross the road\\b", "answer": "Hmm, I don't know! Why?"},
     {"pattern": "\\bsky\\b.*\\bblue\\b|\\bblue\\b.*\\bsky\\b", "answer": "The sky looks blue because sunlight bounces off the air, and blue light bounces around the most!"},
     {"pattern": "\\b(sunsets?|sky)\\b.*\\b(orange|red|pink)\\b", "answer": "At sunset, sunlight travels through more air to reach you, so the blue light gets scattered away and the orange and red light is left!"},
     {"pattern": "\\bwhy is it dark at night\\b|\\bwhy does it get dark\\b|\\bwhere does the sun go\\b", "answer": "The Earth spins like a top! When your side of the Earth turns away from the Sun, it's night for you."},

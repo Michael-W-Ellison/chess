@@ -823,6 +823,65 @@
       ]
     },
     {
+      "id": "feeling_fragment",
+      "priority": 77,
+      "patterns": [[
+        {"RIGHT_ID": "emotion", "RIGHT_ATTRS": {"DEP": "ROOT", "POS": "ADJ"}}
+      ]],
+      "conditions": {"emotion": "emotion", "question": false, "max_tokens": 6},
+      "slots": {"emotion": {"node": "emotion", "span": "text"}},
+      "responses_by": {
+        "slot": "emotion_variant",
+        "variants": {
+          "bored": [
+            {"text": "Bored, huh? Want to play a game? Try the Games button, or tell me about something you like!"},
+            {"text": "Let's fix that! What's something you've always wanted to try?"}
+          ],
+          "tired": [
+            {"text": "Sounds like you could use some rest. Did you have a busy day?"},
+            {"text": "Feeling {emotion} is no fun. Make sure you get some good sleep tonight!"}
+          ],
+          "sad": [
+            {"text": "I'm sorry you're feeling {emotion}. It sounds hard that {reason}.", "requires": ["reason"]},
+            {"text": "I'm sorry you're feeling {emotion}. I'm here for you."}
+          ],
+          "angry": [
+            {"text": "It makes sense to feel {emotion} when {reason}.", "requires": ["reason"]},
+            {"text": "Feeling {emotion} is okay. What happened?"}
+          ],
+          "anxious": [
+            {"text": "Feeling {emotion} because {reason} is really normal.", "requires": ["reason"]},
+            {"text": "It's okay to feel {emotion}. Want to tell me what's on your mind?"}
+          ],
+          "happy": [
+            {"text": "Yay, I'm so glad you're feeling {emotion} because {reason}!", "requires": ["reason"]},
+            {"text": "I'm so glad you're feeling {emotion}!"}
+          ],
+          "default": [
+            {"text": "Thanks for telling me you feel {emotion} because {reason}.", "requires": ["reason"]},
+            {"text": "Thanks for telling me how you feel."}
+          ],
+          "fine": [{"text": "Good, I'm glad you're {emotion}!"}, {"text": "Glad to hear you're {emotion}!"}]
+        }
+      },
+      "suppressed_by": ["short_answer"]
+    },
+    {
+      "id": "cant_sleep",
+      "priority": 79,
+      "patterns": [[
+        {"RIGHT_ID": "sleep", "RIGHT_ATTRS": {"LEMMA": {"IN": ["sleep", "fall"]}}},
+        {"LEFT_ID": "sleep", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "i"}},
+        {"LEFT_ID": "sleep", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}}
+      ]],
+      "conditions": {"question": false},
+      "no_jokes": true,
+      "mood": "anxious",
+      "responses": [
+        "Aw, it's hard when you can't sleep. Try taking slow, deep breaths and thinking about your favorite place. If something is bothering you, you can tell a grown-up. What's keeping you awake?"
+      ]
+    },
+    {
       "id": "feeling",
       "priority": 78,
       "patterns": [[
@@ -993,6 +1052,28 @@
       ]
     },
     {
+      "id": "what_if_forgotten",
+      "priority": 69,
+      "patterns": [
+        [
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["forget", "ignore", "replace", "leave", "stop"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}}
+        ],
+        [
+          {"RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what", "DEP": "ROOT"}},
+          {"LEFT_ID": "what", "REL_OP": ">", "RIGHT_ID": "verb", "RIGHT_ATTRS": {"DEP": "advcl", "LEMMA": {"IN": ["forget", "ignore", "replace", "leave", "stop"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "if", "RIGHT_ATTRS": {"DEP": "mark", "LOWER": "if"}}
+        ]
+      ],
+      "conditions": {"first_token": "what"},
+      "no_jokes": true,
+      "mood": "anxious",
+      "responses": [
+        "That's a really normal worry. The people who love you won't forget about you, even when things change. It might help to tell your mom or dad how you feel. They'll want to know!"
+      ]
+    },
+    {
       "id": "what_if_weather",
       "priority": 68,
       "patterns": [
@@ -1026,7 +1107,7 @@
         ]
       ],
       "conditions": {"first_token": "what"},
-      "suppressed_by": ["what_if_worry", "what_if_liked", "what_if_weather"],
+      "suppressed_by": ["what_if_worry", "what_if_liked", "what_if_weather", "what_if_forgotten"],
       "responses": ["Ooh, that's a good what-if! What do you think would happen?"]
     },
     {
@@ -1050,7 +1131,8 @@
       "no_jokes": true,
       "responses": [
         "It's normal to worry about that. Even if it doesn't go perfectly, that's okay. You can always try again. What part feels hardest?"
-      ]
+      ],
+      "suppressed_by": ["what_if_forgotten"]
     },
     {
       "id": "setback",
@@ -1611,9 +1693,21 @@
       "responses": ["Aw, it sounds like you had a really great time!"]
     },
     {
+      "id": "name_someone",
+      "priority": 70,
+      "patterns": [[
+        {"RIGHT_ID": "name", "RIGHT_ATTRS": {"LEMMA": {"IN": ["name", "call"]}, "POS": "VERB"}},
+        {"LEFT_ID": "name", "REL_OP": ">", "RIGHT_ID": "who", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"NOT_IN": ["me", "us"]}}},
+        {"LEFT_ID": "name", "REL_OP": ">", "RIGHT_ID": "value", "RIGHT_ATTRS": {"DEP": "oprd"}}
+      ]],
+      "conditions": {"question": false},
+      "slots": {"value": {"node": "value", "span": "text", "capitalize": true}},
+      "responses": ["{value} is a great name! What made you think of it?"]
+    },
+    {
       "id": "goal",
       "priority": 60,
-      "suppressed_by": ["crying", "offer_content"],
+      "suppressed_by": ["crying", "offer_content", "name_someone"],
       "patterns": [[
         {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["want", "hope", "plan", "wish"]}}},
         {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
@@ -3631,12 +3725,23 @@
       "suppressed_by": ["farewell", "gotta_go"]
     },
     {
+      "id": "goodnight",
+      "priority": 16,
+      "patterns": [[
+        {"RIGHT_ID": "night", "RIGHT_ATTRS": {"LOWER": {"IN": ["goodnight", "night", "nite", "gn", "nighty"]}}}
+      ]],
+      "conditions": {"max_tokens": 4},
+      "no_jokes": true,
+      "responses": ["Goodnight, {user_name}! Sweet dreams!", "Night night, {user_name}! Sleep well!"]
+    },
+    {
       "id": "farewell",
       "priority": 15,
       "patterns": [[{"RIGHT_ID": "f", "RIGHT_ATTRS": {"LOWER": {"IN": "@farewells"}}}]],
       "conditions": {"first_token": "f"},
       "responses": ["Bye, {user_name}! Talk to you soon!", "See you later, {user_name}! I had fun talking with you."],
-      "no_jokes": true
+      "no_jokes": true,
+      "suppressed_by": ["goodnight"]
     },
     {
       "id": "greeting",

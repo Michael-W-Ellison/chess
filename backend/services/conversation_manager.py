@@ -112,6 +112,12 @@ _NAME_INTRO_RE = re.compile(
     r"^\s*(?:(?:hi|hey|hello)[\s,!.]+)?(?:i'?m|i am|call me)\s+([A-Za-z][A-Za-z'-]{1,19})\s*[.!]*\s*$",
     re.IGNORECASE,
 )
+# "lol jk im Finn", "just kidding, my name is Finn": a correction, so a lowercase name counts
+_NAME_CORRECTION_RE = re.compile(
+    r"^\s*(?:(?:lol|haha+|hehe+)[\s,!.]+)?(?:jk|j/k|just kidding|kidding|actually|no wait|wait|not really)"
+    r"[\s,!.]+(?:i'?m|i am|call me|my name is|my name's)\s+([A-Za-z][A-Za-z'-]{1,19})\s*[.!]*\s*$",
+    re.IGNORECASE,
+)
 
 _NOT_NAMES = {
     "hi", "hey", "hello", "yo", "sup", "yes", "no", "yeah", "yep", "nope", "ok", "okay", "maybe",
@@ -1221,7 +1227,10 @@ INSTRUCTIONS:
         """
         awaiting = user_id in self._awaiting_name
         match = _NAME_INTRO_RE.match(message)
-        if match:
+        correction = _NAME_CORRECTION_RE.match(message)
+        if correction:
+            name = correction.group(1)
+        elif match:
             name = match.group(1)
             if not awaiting and not name[0].isupper():
                 return message
