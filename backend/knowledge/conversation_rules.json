@@ -1284,9 +1284,17 @@
       ]],
       "conditions": {"first_token": "because", "question": false},
       "slots": {"clause": {"node": "verb", "span": "clause"}},
-      "responses": ["{clause}? That's a great reason!", "Ooh, that's a good reason! {clause}? Cool!"],
       "no_jokes": true,
-      "examples": ["because it has rings", "because Saturn has rings", "because i didnt do my chores"]
+      "examples": ["because it has rings", "because Saturn has rings", "because i didnt do my chores"],
+      "compute": ["reason_tone"],
+      "responses_by": {
+        "slot": "tone",
+        "variants": {
+          "positive": ["{clause}? That's a great reason!", "Ooh, that's a good reason! {clause}? Cool!"],
+          "negative": ["Oh, I see. {clause}? Thanks for telling me. How do you feel about it?"],
+          "default": ["Ah, I see! {clause}? Thanks for telling me."]
+        }
+      }
     },
     {
       "id": "scary_but_fun",

@@ -796,3 +796,41 @@ class TestRoundThirteen:
     def test_rule(self, engine, text, rule):
         from tests.test_dialogue_fixes import rule_of
         assert rule_of(engine, text)[0] == rule
+
+
+class TestRoundFourteen:
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    @pytest.mark.parametrize("before,message,reply", [
+        ("my mom took away my ipad", "because i didnt do my chores",
+         "Oh, I see. You didn't do your chores? Thanks for telling me. How do you feel about it?"),
+        ("my little brother is so annoying", "he copies everything i do",
+         "Oh, I see. Your little brother copies everything you do? Thanks for telling me. How do you feel about it?"),
+        (None, "because it has rings", "Ah, I see! It has rings? Thanks for telling me."),
+    ])
+    def test_reason_reply_fits_its_tone(self, engine, before, message, reply):
+        from tests.test_dialogue_fixes import rule_of
+        if before:
+            rule_of(engine, before)
+        assert rule_of(engine, message)[1] == reply
+
+    def test_good_reason_is_still_cheered(self, engine):
+        from tests.test_dialogue_fixes import rule_of
+        engine.record_bot_reply(1, "Mine too! Why is Saturn your favorite?")
+        assert rule_of(engine, "because it has rings")[1] == "Ooh, that's a good reason! It has rings? Cool!"
+
+    @pytest.mark.parametrize("message", ["i got back on", "i got him out though", "i just got home from school",
+                                         "we got there late"])
+    def test_getting_somewhere_is_not_lucky(self, engine, message):
+        from tests.test_dialogue_fixes import rule_of
+        assert "lucky you" not in rule_of(engine, message)[1]
+
+    def test_flagged_message_gets_a_reply_without_its_words(self, engine):
+        from tests.test_dialogue_fixes import make_personality
+        features = {}
+        reply = engine.generate_response("do you poop", make_personality(), allow_reflection=False, features=features)
+        assert features["rule"] == "bot_do_question" and "poop" not in reply.lower()

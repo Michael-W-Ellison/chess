@@ -29,6 +29,9 @@ OBLIGATION = "obligation"
 
 _FUTURE_AUX = {"will", "'ll", "wo", "gonna", "shall"}
 _POSSIBLE_AUX = {"can", "could", "might", "may", "ca"}
+# "got back", "got home", "got out": where someone got to
+_DIRECTIONS = {"back", "home", "out", "up", "in", "off", "on", "away", "down", "over", "there", "here", "inside",
+               "outside", "through", "around"}
 _HOPE_VERBS = {"hope", "pray"}
 _WANT_VERBS = {"want", "wanna", "like", "love"}  # "like/love" only as "would like to"
 _OBLIGATION_VERBS = {"have", "need", "must", "got"}
@@ -222,6 +225,12 @@ class Appraiser:
                 return None
         # "the power went out", "the plane flew": things moving are not an outing
         if action == "fun" and self._role(self._subject(verb)) == "thing":
+            return None
+        # "I got back on", "I got home", "I got him out": getting somewhere or getting
+        # something out, not receiving a thing
+        if action == "receive" and lemma == "get" and (
+                any(c.dep_ in ("prt", "advmod") and c.lower_ in _DIRECTIONS for c in verb.children)
+                or obj is None or obj.pos_ == "PRON"):
             return None
         # "My mom made me soup", "I made him a card": made for someone
         if action == "achieve" and any(c.dep_ == "dative" for c in verb.children):

@@ -270,6 +270,18 @@ _ROUTINES = {"school", "practice", "recess", "lunch", "dinner", "breakfast", "cl
              "soccer", "baseball", "basketball", "swimming", "dance", "piano", "karate", "gymnastics", "homework"}
 
 
+# The bot's own consoling words, and words for something liked, in its last reply (_reason_tone)
+_CONSOLING_RE = re.compile(r"\b(oh no|sorry|no fun|doesn't sound fun|not fun|that's hard|frustrating|annoying|"
+                           r"aw,? man|ugh|that's not okay|tough)\b", re.IGNORECASE)
+_LIKED_RE = re.compile(r"\b(favorite|favourite|love|like|fun|cool|best|great|awesome|exciting)\b", re.IGNORECASE)
+# Replies to a reason, by its tone; "{clause}" is the reason in the bot's words
+_REASON_REPLIES = {
+    "positive": ["Ooh, that's a good reason! {clause}? Cool!"],
+    "negative": ["Oh, I see. {clause}? Thanks for telling me. How do you feel about it?"],
+    "neutral": ["Ah, I see! {clause}? Thanks for telling me."],
+}
+
+
 def _number_value(text: str) -> Optional[int]:
     """ "10" or "ten" -> 10; None if it is not a number up to thirty"""
     text = text.strip().lower()
@@ -316,6 +328,7 @@ class ResponseEngine:
         self._expect: Dict[int, Expectation] = {}
         # The child's previous message (resolved), for fragments that continue it ("next week")
         self._previous_message: Dict[int, str] = {}
+        self._last_bot_reply: Dict[int, str] = {}  # for the tone of an answer to it (_reason_tone)
         self._current_message: Dict[int, str] = {}
         self._load_knowledge_base()
         self.references = ReferenceTracker(
@@ -404,6 +417,7 @@ class ResponseEngine:
         """
         if not self.is_available():
             return
+        self._last_bot_reply[user_id] = reply
         expectation = expectation_from_reply(reply)
         if expectation is None:
             self._expect.pop(user_id, None)
@@ -1272,8 +1286,8 @@ class ResponseEngine:
                       # "Did you know how the knight moves?" asks; "Did you know sharks..." tells
                       and not (f.rule.get("unless_world_answer") and self._world_answer(message))]
         if not allow_reflection:
-            # Only rules whose replies use no words taken from the message
-            responding = [f for f in responding if not f.rule.get("slots")]
+            # Only rules with a reply that uses no words taken from the message
+            responding = [f for f in responding if self._echo_free(f.rule, f.slots)]
         # "I built a sandcastle but a wave knocked it down": the part after "but" is the news
         but = self._but_clause_start(analysis.doc) if analysis.doc is not None else None
         if but is not None and any(f.last_token > but for f in responding):
@@ -1291,7 +1305,7 @@ class ResponseEngine:
 
         # "What part are you playing?" - "a tree"; "Why is it your favorite?" - "it has rings"
         if expectation is not None and expectation.kind in ("item", "reason") and allow_reflection and not responding:
-            answered = self._answer_open_question(expectation, analysis)
+            answered = self._answer_open_question(expectation, analysis, user_id)
             if answered is not None:
                 rule_id, reply = answered
                 features["rule"] = rule_id
@@ -1302,7 +1316,8 @@ class ResponseEngine:
             slots = _BlankDict({**globals_, **frame.slots})
             self._compute_slots(frame, slots, personality)
             self._record_answer(frame.rule, slots, user_id)
-            core = self._choose_template(frame.rule, slots, level, user_id, policy, features)
+            core = self._choose_template(frame.rule, slots, level, user_id, policy, features,
+                                         echo_free=not allow_reflection)
             # "What's your favorite animal and why?"
             if frame.rule_id == "bot_favorite_question" and re.search(r"\band why\b|\? why\W*$", message, re.IGNORECASE):
                 split = re.match(r"(.*[.!])\s+([^.!?]*\?)$", core)
@@ -1324,7 +1339,8 @@ class ResponseEngine:
                 second_slots = _BlankDict({**globals_, **second.slots})
                 self._compute_slots(second, second_slots, personality)
                 self._record_answer(second.rule, second_slots, user_id)
-                second_core = self._choose_template(second.rule, second_slots, level, user_id, policy, features)
+                second_core = self._choose_template(second.rule, second_slots, level, user_id, policy, features,
+                                                    echo_free=not allow_reflection)
                 # Answer in the order the sentences were written
                 core = f"{core} {second_core}" if frame.sentence < second.sentence else f"{second_core} {core}"
             valence = frame.valence
@@ -1443,6 +1459,8 @@ class ResponseEngine:
             elif name == "joke_content":
                 # "Tell me something funny"
                 self._requested_content("joke", slots, user_id=getattr(personality, "user_id", 0))
+            elif name == "reason_tone":
+                slots["tone"] = self._reason_tone(slots.get("message_text", ""), getattr(personality, "user_id", 0))
             elif name == "count_to":
                 # "Count to ten": the numbers, up to 30
                 target = _number_value(slots.get("n_raw", ""))
@@ -1528,14 +1546,36 @@ class ResponseEngine:
             return policy.decide(feature, probability)
         return self.rng.random() < probability
 
-    def _choose_template(self, rule: Dict[str, Any], slots: Dict[str, str], level: int, user_id: int,
-                         policy=None, features: Optional[Dict[str, str]] = None) -> str:
+    @staticmethod
+    def _rule_options(rule: Dict[str, Any], slots: Dict[str, str]) -> List[Any]:
+        """The reply templates a rule offers for these slots"""
         if "responses_by" in rule:
             by = rule["responses_by"]
             variants = by["variants"]
-            options = variants.get(slots.get(by["slot"], ""), variants.get("default", []))
-        else:
-            options = rule["responses"]
+            return variants.get(slots.get(by["slot"], ""), variants.get("default", []))
+        return rule.get("responses", [])
+
+    @staticmethod
+    def _echoes(rule: Dict[str, Any], option) -> bool:
+        """True if a reply template repeats words from the message (one of the rule's slots)"""
+        text = option["text"] if isinstance(option, dict) else option
+        message_slots = set(rule.get("slots", {}))
+        for name in re.findall(r"\{(\w+)\}", text):
+            base = re.sub(r"_(raw|s|is|has|them|a|plural|slug)$", "", name)
+            if base in message_slots:
+                return True
+        return False
+
+    def _echo_free(self, rule: Dict[str, Any], slots: Dict[str, str]) -> bool:
+        """True if the rule has a reply for these slots that repeats none of the child's words"""
+        return any(not self._echoes(rule, o) for o in self._rule_options(rule, slots))
+
+    def _choose_template(self, rule: Dict[str, Any], slots: Dict[str, str], level: int, user_id: int,
+                         policy=None, features: Optional[Dict[str, str]] = None, echo_free: bool = False) -> str:
+        options = self._rule_options(rule, slots)
+        if echo_free:
+            # The safety filter flagged the message: no words from it in the reply
+            options = [o for o in options if not self._echoes(rule, o)]
 
         candidates = []
         for option in options:
@@ -1979,7 +2019,26 @@ class ResponseEngine:
             return None
         return "joke_offer_yes", f"Okay, here's one: {content['content']}"
 
-    def _answer_open_question(self, expectation: "Expectation", analysis: Analysis) -> Optional[Tuple[str, str]]:
+    def _reason_tone(self, text: str, user_id: int) -> str:
+        """
+        "positive", "negative" or "neutral": how to answer a reason the child gives. Negative when
+        the bot's last reply was about something bad ("That doesn't sound fun. Why...?") or the
+        reason is (sad news, a negation: "because I didn't do my chores"); positive when the bot
+        asked about something liked ("Why is Saturn your favorite?") or the reason is good news.
+        """
+        last = self._last_bot_reply.get(user_id, "")
+        doc = self.parser.parse(text)
+        appraisal = self.appraiser.appraise(doc) if doc is not None else None
+        if _CONSOLING_RE.search(last) or emoji_quirk_service.is_negative(text) or \
+                re.search(r"\b(not|never|no)\b|n't\b|\b(didnt|dont|cant|wont|wasnt|isnt)\b", text, re.IGNORECASE) or \
+                (appraisal is not None and appraisal.valence == "negative"):
+            return "negative"
+        if _LIKED_RE.search(last) or (appraisal is not None and appraisal.valence == "positive"):
+            return "positive"
+        return "neutral"
+
+    def _answer_open_question(self, expectation: "Expectation", analysis: Analysis,
+                              user_id: int = 0) -> Optional[Tuple[str, str]]:
         """
         (rule id, reply) for a short answer to the bot's "What ...?" or "Why ...?" question,
         or None if the message does not read as one
@@ -1989,13 +2048,15 @@ class ResponseEngine:
         if analysis.is_question or not words or len(words) > 10:
             return None
         if expectation.kind == "reason":
-            # "Why is Saturn your favorite?" - "it has rings" / "because it has rings"
+            # "Why is Saturn your favorite?" - "it has rings" / "because it has rings"; but "Why do
+            # you think your brother is annoying?" - "he copies me" is not a good reason to cheer
+            tone = self._reason_tone(doc.text, user_id)
             root = next((t for t in doc if t.dep_ == "ROOT"), None)
             if root is None or root.pos_ not in ("VERB", "AUX"):
-                return "answer_reason", "Ooh, that's a good reason!"
+                return "answer_reason", _REASON_REPLIES[tone][0].replace("{clause}? ", "")
             _, clause = self._extract_slot(root, "clause")
             clause = re.sub(r"^(because|cuz|cause) ", "", clause, flags=re.IGNORECASE)
-            return "answer_reason", f"Ooh, that's a good reason! {clause[:1].upper()}{clause[1:]}? Cool!"
+            return "answer_reason", _REASON_REPLIES[tone][0].format(clause=f"{clause[:1].upper()}{clause[1:]}")
         # An item: "a tree", "I'm a tree", "a ninja", "probably the red one"
         match = re.match(r"\W*(?:i'm|i am|im|i'll be|it's|its|it is|maybe|probably|um+|uh+)?\s*"
                          r"(?:going to be |gonna be |playing |be )?((?:an?|the|my) )?([a-z][a-z' -]{1,30}?)[.!]*$",
