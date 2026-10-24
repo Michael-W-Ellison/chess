@@ -48,6 +48,12 @@ class CrisisKeywordList:
             "wish i was dead",
             "wish i were dead",
             "better off dead",
+            "would care if i was gone",
+            "would care if i were gone",
+            "would miss me if i was gone",
+            "better off without me",
+            "if i wasn't here anymore",
+            "if i wasnt here anymore",
             "everyone would be better off",
             "world would be better without me",
 
@@ -210,6 +216,8 @@ class CrisisKeywordList:
         # ABUSE_EMOTIONAL keywords - Emotional/psychological abuse indicators
         self.abuse_emotional_keywords = {
             # Threats and fear
+            "scared to go home",
+            "afraid to go home",
             "threatens me",
             "threatening me",
             "makes me scared",
@@ -280,6 +288,14 @@ class CrisisKeywordList:
             "touching my private parts",
             "touched me where",
             "touches me where",
+            "touched me in a bad way",
+            "touches me in a bad way",
+            "touched me in a weird way",
+            "touches me in a weird way",
+            "touched me down there",
+            "touches me down there",
+            "touched my privates",
+            "touches my privates",
 
             # Unwanted contact
             "made me touch",
@@ -317,6 +333,22 @@ class CrisisKeywordList:
             "said not to tell anyone",
             "says not to tell anyone",
             "our little secret",
+            "said its our secret",
+            "said it's our secret",
+            "says its our secret",
+            "says it's our secret",
+            "says not to tell",
+            "said not to tell",
+            "says to not tell",
+            "said to not tell",
+            "pictures of private parts",
+            "pictures of his private",
+            "pictures of her private",
+            "showed me private",
+            "told me to keep it a secret",
+            "tells me to keep it a secret",
+            "told me to keep it secret",
+            "tells me to keep it secret",
         }
 
         # Fear of a family member or caregiver (emotional abuse indicator)

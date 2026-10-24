@@ -83,7 +83,7 @@ _GROUPS = {"kid", "boy", "girl", "classmate", "student", "bully", "teenager", "p
 _NOT_ANSWERS = {"no", "nope", "nah", "yes", "yeah", "ok", "okay", "idk", "nothing", "dunno", "why", "what", "lol",
                 "haha", "same", "cool", "nice", "wow", "maybe", "um", "hmm"}
 # What "it" does when it is a body part: "it stopped bleeding", "it still hurts"
-_BODY_VERBS = {"bleed", "hurt", "ache", "heal", "swell", "itch", "sting", "stop"}
+_BODY_VERBS = {"bleed", "hurt", "ache", "heal", "swell", "itch", "sting", "stop", "feel"}
 _BODY_PARTS = {"arm", "leg", "knee", "foot", "hand", "finger", "toe", "head", "tummy", "stomach", "elbow",
                "wrist", "ankle", "nose", "lip", "tooth", "ear", "eye", "back", "neck", "chin", "cut", "scrape"}
 # Words of a reaction to a joke, fact or answer: "That was funny", not "it was even bigger"
@@ -141,6 +141,10 @@ _PETS = {"dog", "puppy", "cat", "kitten", "kitty", "hamster", "bunny", "rabbit",
          "guinea", "pig", "turtle", "lizard", "baby", "parrot", "gerbil"}
 _PET_WORDS = {"cute", "fluffy", "adorable", "furry", "soft", "cuddly", "tiny", "playful", "naughty"}
 
+_FOOD_ADJECTIVES = {"hot", "iced", "fried", "scrambled", "whipped", "mashed", "grilled", "frozen", "baked", "roasted"}
+_BOT_FILLER_NOUNS = {"change", "idea", "question", "thing", "lot", "way", "part", "kind", "sort", "bit", "fun",
+                     "feeling", "plan", "goal", "step", "reason", "choice", "minds", "mind", "spirit"}
+_WH_TAGS = {"WP", "WDT", "WRB", "WP$"}
 _MAKING_VERBS = {"make", "cook", "bake", "buy", "get", "eat", "bring", "give", "drink", "order"}
 
 
@@ -375,6 +379,9 @@ class ReferenceTracker:
         if doc is not None and state.ambiguity is None:
             for chunk in doc.noun_chunks:
                 root = chunk.root
+                # "Moving is a big change!": a word of the bot's reply, not a thing the child means by "it"
+                if root.lemma_.lower() in _BOT_FILLER_NOUNS:
+                    continue
                 # Only new things the bot brought up, not echoes of the child's words or
                 # anything with "my"/"your" (whose it is depends on who is speaking)
                 # Not an exclamation at the start of a sentence ("Awesome! You built a castle")
@@ -390,7 +397,9 @@ class ReferenceTracker:
                         and root.lemma_.lower() not in _TIME_WORDS
                         and root.lemma_.lower() not in state.last_child_words
                         and not self._describes_bot(root)):
-                    self._remember_thing(self._thing_text(chunk), state, plural=root.tag_ in ("NNS", "NNPS"))
+                    # Short: meant by a reaction ("That's so cool!"), not by the child's own next news
+                    self._remember_thing(self._thing_text(chunk), state, plural=root.tag_ in ("NNS", "NNPS"),
+                                         short=True)
         mentions = list(mentions)
         if told and told_was_added:
             self._remember_thing(f"your {told}", state, added=True)
@@ -533,6 +542,10 @@ class ReferenceTracker:
             # Not an event done by someone this message names: "She started it" is not
             # "My sister started my sister and my brother fighting"
             events = [e for e in self._recent(state.events, state) if not e.actor & named]
+            # Only the bot's own words left ("a nap"), and the child told of something happening:
+            # "It wakes me up" is the baby crying
+            if things and all(t.short for t in things) and events and not reaction:
+                things = []
             thing = things[0] if things else None
             event = events[0] if events else None
             if lower in _EVENT_PRONOUNS:
@@ -632,6 +645,10 @@ class ReferenceTracker:
             return False
         if token.dep_ == "appos" and token.pos_ == "PROPN" and token.head.lemma_.lower() in self.relations:
             return True
+        # "my friends maya and zoe": the second name, joined to the first
+        if token.dep_ == "conj" and token.head.pos_ == "PROPN" and token.pos_ in ("PROPN", "NOUN") and (
+                self._is_relation_name(token.head) or token.head.text[:1].isupper()):
+            return token.lower_ not in self.parser.known_words() or token.pos_ == "PROPN"
         relation = next((c for c in token.children
                          if c.dep_ == "compound" and c.lemma_.lower() in self.relations), None)
         # "my" on the name ("my cousin jake") or on the relation ("my friend lucas")
@@ -649,6 +666,9 @@ class ReferenceTracker:
         if not ((noun.dep_ == "attr" and verb.lemma_ == "be") or (noun.dep_ == "dobj" and verb.lemma_ == "have")):
             return False
         subject = next((c for c in verb.children if c.dep_ == "nsubj"), None)
+        # "My favorite planet is Saturn": Saturn is what the child is talking about
+        if subject is not None and any(c.lower_ in ("favorite", "favourite") for c in subject.children):
+            return False
         return (subject is not None and subject.pos_ == "NOUN"
                 and subject.lemma_.lower() not in self.relations and subject.lemma_.lower() not in _GROUPS)
 
@@ -668,7 +688,8 @@ class ReferenceTracker:
         """The name in "a dog named Max" / "my cat called Luna", if any"""
         for clause in token.children:
             if clause.dep_ == "acl" and clause.lemma_ in ("name", "call"):
-                return next((c for c in clause.children if c.dep_ in ("oprd", "dobj") and c.pos_ == "PROPN"), None)
+                return next((c for c in clause.children if c.dep_ in ("oprd", "dobj")
+                             and (c.pos_ == "PROPN" or c.text[:1].isupper())), None)
         return None
 
     def _record(self, doc, state: DiscourseState) -> None:
@@ -729,7 +750,8 @@ class ReferenceTracker:
                     and any(c.lower_ in ("my", "our", "the") for c in token.children)):
                 # "The snowman's name is Frosty": Frosty, a he or she the child may talk about
                 name_token = next((c for c in head.head.children if c.dep_ in ("attr", "acomp")), None)
-                if name_token is not None and name_token.is_alpha and not any(c.dep_ == "det" for c in name_token.children):
+                if (name_token is not None and name_token.is_alpha and name_token.tag_ not in _WH_TAGS
+                        and not any(c.dep_ == "det" for c in name_token.children)):
                     named_tokens.add(name_token.i)
                     named_tokens.update(c.i for c in name_token.children if c.dep_ == "compound")
                     name = self._full_name(name_token)
@@ -739,7 +761,8 @@ class ReferenceTracker:
                     and any(c.lower_ in ("my", "our", "the") for c in token.children)):
                 name_token = next((c for c in head.head.children
                                    if c.dep_ in ("attr", "acomp", "npadvmod")), None)
-                if name_token is not None and name_token.is_alpha:
+                # Not "What is my cat's name?"
+                if name_token is not None and name_token.is_alpha and name_token.tag_ not in _WH_TAGS:
                     named_tokens.add(name_token.i)
                     mentioned.append(Person(
                         name=name_token.text[:1].upper() + name_token.text[1:],
@@ -880,7 +903,9 @@ class ReferenceTracker:
         # not adjectives other than "favorite"/"best" ("the test", not "the hard test")
         words = [t.text for t in chunk
                  if t == root or t.dep_ in ("det", "poss", "compound", "nummod", "case")
-                 or (t.dep_ == "amod" and t.lower_ in ("favorite", "favourite", "best"))]
+                 or (t.dep_ == "amod" and t.lower_ in ("favorite", "favourite", "best"))
+                 # "hot chocolate", "mashed potatoes": part of the food's name
+                 or (t.dep_ == "amod" and t.lower_ in _FOOD_ADJECTIVES)]
         for index in range(len(words) - 1, 0, -1):
             if words[index] in ("'s", "'"):
                 words[index - 1] += words.pop(index)
@@ -893,8 +918,11 @@ class ReferenceTracker:
 
     def _remember_thing(self, text: str, state: DiscourseState, plural: bool = False, added: bool = False,
                         short: bool = False, made: bool = False, detail: bool = False) -> None:
+        same = [t for t in state.things if t.text.lower() == text.lower()]
         # Once a detail of something else ("a unicorn" the picture shows), still a detail when named again
-        detail = detail or any(t.detail for t in state.things if t.text.lower() == text.lower())
+        detail = detail or any(t.detail for t in same)
+        # The bot repeating the child's own word ("Saturn? Mine too!") does not make it the bot's answer
+        short = short and not any(not t.short and not t.added for t in same)
         state.things = [t for t in state.things if t.text.lower() != text.lower()]
         state.things.insert(0, Thing(text=text, turn=state.turn, plural=plural, order=state.tick(), added=added,
                                      short=short, made=made, detail=detail))

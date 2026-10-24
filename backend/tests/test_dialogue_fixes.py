@@ -55,12 +55,12 @@ class TestNewRules:
         ("can you give me advice", "ask_for_advice"),
         ("what if nobody likes me", "what_if_liked"),
         ("what if no one wants to play with me", "what_if_liked"),
-        ("what if I fail the test", "what_if_worry"),
+        ("what if I fail the test", "fallback_appraisal_setback_hypothetical"),
         ("my mom said we can get a new one", "get_new_later"),
         ("I don't want a new one", "not_want_new"),
         ("I got a new bike", "got_gift"),
         ("what if it rains", "what_if_weather"),
-        ("what if the sun disappeared", "what_if_question"),
+        ("what if the sun disappeared", "fallback_appraisal_any_hypothetical"),
         ("my brother knocked the snowman over", "wrecked_my_thing"),
         ("jake broke my pencil", "wrecked_my_thing"),
         ("i cant sleep", "cant_sleep"),
@@ -98,13 +98,73 @@ class TestNewRules:
         ("i had no cavities", "no_cavities_det"),
         ("i dont have any cavities", "no_cavities"),
         ("we lost our soccer game", "lost_game"),
-        ("next time we will win", "will_win"),
+        ("next time we will win", "fallback_appraisal_achieve_future"),
         ("we won", "we_won"),
         ("i helped my mom bake cookies", "helped_someone"),
         ("theres a spider in my room", "creepy_crawly"),
         ("my dad got rid of it", "got_rid_of"),
         ("i had to sleep with the light on", "light_on"),
         ("they gave me a new toothbrush", "got_gift"),
+        ("it was 3 to 1", "score"),
+        ("my cat is so fluffy", "pet_cute"),
+        ("my tooth is wiggly", "loose_tooth"),
+        ("can we still be friends", "still_friends"),
+        ("can we be friends", "bot_friends_question"),
+        ("she did it on purpose", "on_purpose"),
+        ("i yelled at her", "i_yelled"),
+        ("best day ever", "best_ever"),
+        ("i scraped my knee", "got_hurt"),
+        ("my knee was bleeding", "body_bleeding"),
+        ("my mom put a bandaid on it", "bandaid"),
+        ("it was scary but fun", "scary_but_fun"),
+        ("my teacher gave me a high five", "high_five"),
+        ("halloween is soon", "holiday_soon"),
+        ("christmas is coming", "holiday_soon"),
+        ("what would you be", "what_would_you_be"),
+        ("because it has rings", "because_reason"),
+        ("because", "just_because"),
+        ("next week", "time_fragment"),
+        ("i want to meet mickey", "want_to_experience"),
+        ("my brother is scared of roller coasters", "person_scared_of"),
+        ("im not scared", "not_scared"),
+        ("do you want to hear it", "want_to_hear"),
+        ("i hope my dog gets better", "hope_better"),
+        ("my grandma is feeling better", "person_better"),
+        ("i said sorry", "said_sorry"),
+        ("are you smarter than me", "smarter_than_me"),
+        ("im in the school play", "in_a_play"),
+        ("ok that makes sense", "makes_sense"),
+        ("i get my own room", "own_room"),
+        ("i found a shell", "found_new"),
+        ("i found it", "found_it"),
+        ("leave me alone", "leave_me_alone"),
+        ("i want to build a robot", "want_to_make"),
+        ("im the fastest kid in my class", "best_in_class"),
+        ("i beat everyone in a race", "beat_everyone"),
+        ("my baby brother cries a lot", "baby_cries"),
+        ("i help feed him", "helped_someone"),
+        ("i dont get fractions", "dont_get"),
+        ("i ate too much candy", "ate_too_much"),
+        ("my mom said no more candy", "said_no_more"),
+        ("is 1/2 bigger than 1/4", "arithmetic"),
+        ("do you like pancakes", "bot_like_food"),
+        ("what if she dies", "what_if_dies"),
+        ("i dont want her to die", "dont_want_die"),
+        ("i have to get a shot tomorrow", "getting_a_shot"),
+        ("ok i will be brave", "will_be_brave"),
+        ("i didnt get one", "didnt_get_one"),
+        ("she always gets everything", "always_gets"),
+        ("a kid called me a baby", "called_me_names"),
+        ("i didnt say anything", "didnt_say_anything"),
+        ("i have to go to bed", "go_to_bed"),
+        ("see you tomorrow", "see_you"),
+        ("lets play pretend", "play_pretend"),
+        ("im happy and sad at the same time", "mixed_feelings"),
+        ("whiskers knocked over a cup", "knocked_over"),
+        ("my brother knocked over my tower", "wrecked_my_thing"),
+        ("🎉🎉", "yay_alone"),
+        ("my brother pushed me on the swing", "pushed_on_swing"),
+        ("my favorite food is tacos", "favorite_is"),
         ("coach said I did great", "praise_reported"),
         ("not much you", "not_much"),
         ("yes", "yes_no"),
@@ -168,7 +228,7 @@ class TestNewRules:
         ("my cat bit me", "pet_bite"),
         ("at soccer a boy pushed me", "pushed_me"),
         ("I fell and scraped my knee", "got_hurt"),
-        ("what if I fail", "what_if_worry"),
+        ("what if I fail", "fallback_appraisal_setback_hypothetical"),
         ("I don't know what to do", "dont_know_what"),
         ("I lost a tooth today", "lost_tooth"),
         ("my best friend said I was mean", "person_says_about_me"),
@@ -189,7 +249,7 @@ class TestNewRules:
         ("why is the sky blue", "fallback_world_answer"),
         ("how far is the moon", "fallback_world_answer"),
         ("do you know about planets", "fallback_world_question_fact"),
-        ("what time is it", "fallback_world_question"),
+        ("who invented the stapler", "fallback_world_question"),
         ("why do penguins not fly", "fallback_world_answer"),
         ("nobody picked me for their team", "left_out"),
         ("its raining", "weather"),
@@ -324,7 +384,7 @@ class TestReflectionTense:
         features = {}
         reply = engine.generate_response("I made him a card", make_personality(), {"sensitive": True},
                                          features=features)
-        assert features["rule"] == "fallback_reflection_gentle"
+        assert features["rule"] in ("fallback_reflection_gentle", "fallback_appraisal_kindness_real")
         assert "What happened next" not in reply
 
     def test_reported_future(self, engine):
@@ -434,6 +494,110 @@ class TestReferences:
     def test_did_you_know_with_a_known_answer(self, engine):
         assert rule_of(engine, "did you know how the knight moves")[0] == "fallback_world_answer"
 
+    def test_no_jokes_after_a_reflection(self, engine):
+        assert engine.rule_flag("fallback_reflection_be", "no_jokes")
+        assert not engine.rule_flag("like_thing", "no_jokes")
+
+    def test_cute_named_pet(self, engine):
+        for message in ("we got a puppy", "her name is honey", "my mom was mad"):
+            rule_of(engine, message)
+        rule, reply = rule_of(engine, "but she is so cute")
+        assert rule == "pet_cute" and "your puppy Honey" in reply
+
+    def test_question_word_is_not_echoed(self, engine):
+        assert "what sounds" not in rule_of(engine, "what do you eat")[1]
+
+    def test_with_fragment_joins_the_last_food(self, engine):
+        rule_of(engine, "and had hot chocolate")
+        assert rule_of(engine, "with marshmallows")[1].startswith("Ooh, hot chocolate with marshmallows?")
+
+    def test_it_feels_better_is_the_body_part(self, engine):
+        for message in ("i scraped my knee", "my mom put a bandaid on it"):
+            rule_of(engine, message)
+        assert rule_of(engine, "it feels better now")[0] == "body_better"
+
+    def test_miss_follow_up_names_the_person(self, engine):
+        rule = engine.rules["miss_person"]
+        assert all("them" not in f for f in rule["follow_ups"])
+
+    def test_no_jokes_after_bot_identity_answers(self, engine):
+        assert engine.rule_flag("bot_identity_question", "no_jokes")
+
+    def test_silly_combination(self, engine):
+        assert rule_of(engine, "purple monkey dishwasher")[0] == "fallback_silly"
+        assert rule_of(engine, "red fire truck")[0] != "fallback_silly"
+
+    def test_applause_after_hearing_a_line(self, engine):
+        rule_of(engine, "do you want to hear it")
+        assert rule_of(engine, "i am a tall tree")[0] == "performance"
+
+    def test_or_save_it(self, engine):
+        for message in ("i got 5 dollars", "i want to buy a toy"):
+            rule_of(engine, message)
+        assert rule_of(engine, "or save it")[0] == "or_save"
+
+    def test_it_after_a_favorite_is_the_answer(self, engine):
+        rule_of(engine, "my favorite planet is saturn")
+        assert "Saturn has rings" in rule_of(engine, "because it has rings")[1]
+
+    def test_role_in_the_play(self, engine):
+        rule_of(engine, "im in the school play")
+        assert rule_of(engine, "i am a tree") == ("answer_item", "A tree! That sounds like a fun part!")
+
+    def test_fraction_comparison(self, engine):
+        assert rule_of(engine, "is 1/4 bigger than 1/2")[1].startswith("Nope! 1/4 is smaller than 1/2.")
+
+    def test_more_of_the_plan(self, engine):
+        rule_of(engine, "we are going to watch a movie")
+        assert rule_of(engine, "and stay up late")[1].startswith("Stay up late too?")
+
+    def test_bot_filler_word_is_not_it(self, engine):
+        rule_of(engine, "we are moving to a new house")
+        assert "change" not in engine.resolve_references("its bigger", 1)
+
+    def test_wave_knocked_down_the_castle(self, engine):
+        rule_of(engine, "i built a sand castle")
+        assert rule_of(engine, "a wave knocked it down")[0] == "knocked_down"
+
+    def test_second_friend_name_is_capitalized(self, engine):
+        assert "Maya and Zoe" in rule_of(engine, "my friends maya and zoe are coming")[1]
+
+    def test_no_jokes_after_praise(self, engine):
+        assert engine.rule_flag("achievement", "no_jokes") and engine.rule_flag("can_now", "no_jokes")
+
+    def test_pretend_play(self, engine):
+        rule_of(engine, "lets play pretend")
+        assert rule_of(engine, "you are a dragon")[1] == "Rawr! Okay, I'm a dragon! Who are you?"
+        assert rule_of(engine, "i am a knight")[1] == "Ooh, a knight! What happens next?"
+        assert rule_of(engine, "stop")[1].startswith("Okay! That was so fun.")
+
+    def test_bot_words_are_not_the_childs_it(self, engine):
+        rule_of(engine, "i have to get a shot tomorrow")
+        assert engine.resolve_references("will it hurt", 1) == "will the shot hurt"
+
+    def test_feeling_after_teasing_is_not_the_teasing_again(self, engine):
+        rule_of(engine, "a kid called me a baby")
+        assert rule_of(engine, "it made me sad")[0] != "called_me_names"
+
+    def test_it_is_the_event_not_the_bots_word(self, engine):
+        rule_of(engine, "my baby brother cries a lot")
+        assert "nap" not in engine.resolve_references("it wakes me up", 1)
+
+    def test_hear_my_line_after_it_is_resolved(self, engine):
+        rule_of(engine, "i only have one line")
+        assert rule_of(engine, "do you want to hear it")[0] == "want_to_hear"
+
+    def test_ask_pet_name_recalls_it(self, engine):
+        rule_of(engine, "i have a cat named whiskers")
+        assert rule_of(engine, "what is my cats name")[1] == "Your cat's name is Whiskers! I remember."
+
+    def test_plural_favorite_takes_are(self, engine):
+        texts = [r["text"] if isinstance(r, dict) else r for r in engine.rules["favorite_is"]["responses"]]
+        assert "{value} {value_is} great! My favorite {category} is {bot_favorite}." in texts
+
+    def test_favorite_and_why(self, engine):
+        assert "really cool" in rule_of(engine, "what is your favorite animal and why")[1]
+
     def test_rule_ids_are_unique(self, engine):
         ids = [r["id"] for r in engine.kb["rules"]]
         assert len(ids) == len(set(ids))
@@ -442,7 +606,8 @@ class TestReferences:
         for message in ("i have two cats", "their names are luna and milo", "luna is black", "milo is orange"):
             rule_of(engine, message)
         assert rule_of(engine, "he scratched me")[1].startswith("Oh no, are you okay?")
-        assert rule_of(engine, "milo")[0] == "fallback_reflection_sad"
+        rule, reply = rule_of(engine, "milo")
+        assert rule in ("fallback_reflection_sad", "fallback_appraisal_harm_real") and "Milo scratched you" in reply
 
     def test_named_pet_chewing(self, engine):
         for message in ("we got a puppy", "her name is honey"):
@@ -595,7 +760,7 @@ class TestReferences:
 
     def test_his_name_for_a_thing_the_child_made(self, engine):
         rule_of(engine, "we built a snowman")
-        assert engine.resolve_references("his name is frosty", 1) == "The snowman's name is frosty"
+        assert engine.resolve_references("his name is frosty", 1) == "The snowman's name is Frosty"
         assert engine.resolve_references("he has a carrot nose", 1) == "Frosty has a carrot nose"
 
     def test_the_best_is_not_a_reaction_to_an_added_joke(self, engine):
@@ -713,6 +878,19 @@ class TestNormalization:
         ("he lives in florida", "he lives in Florida"),
         ("its math", "it's math"),
         ("theres a spider", "there's a spider"),
+        ("im playing fur elise", "I'm playing Für Elise"),
+        ("i like frozen yogurt", "I like frozen yogurt"),
+        ("my favorite planet is saturn", "my favorite planet is Saturn"),
+        ("i want to meet mickey", "I want to meet Mickey"),
+        ("its blue and green", "it's blue and green"),
+        ("his name was nemo", "his name was Nemo"),
+        ("the name is not right", "the name is not right"),
+        ("helo", "hello"),
+        ("my nme is jak", "my name is Jak"),
+        ("k", "ok"),
+        ("lets play pretend", "let's play pretend"),
+        ("he lets me play", "he lets me play"),
+        ("what is my cats name", "what is my cat's name"),
         ("named after my grandpa", "named after my grandpa"),
         ("I feel ill", "I feel ill"),
         ("ur weird", "you're weird"),
@@ -724,7 +902,7 @@ class TestNormalization:
         ("heyyy", "hey"),
         ("I GOT A PUPPY TODAY", "I got a puppy today"),
         ("my cat is fluffy 😻", "my cat is fluffy"),
-        ("i lik minecraft alot", "I like minecraft a lot"),
+        ("i lik minecraft alot", "I like Minecraft a lot"),
         ("its rlly big", "it's really big"),
         ("whats your name and how old are you", "what's your name? how old are you"),
         ("I went home and what a day", "I went home and what a day"),
@@ -748,6 +926,25 @@ class TestSafetyAndEmojis:
     def test_what_if_worry_is_not_bullying(self):
         assert "bullying" not in safety_filter.check_message("what if nobody likes me")["flags"]
         assert "bullying" in safety_filter.check_message("nobody likes me")["flags"]
+
+    @pytest.mark.parametrize("text,flag", [
+        ("someone touched me in a bad way", "abuse"),
+        ("he told me to keep it a secret", "abuse"),
+        ("a stranger asked me to get in his car", "stranger_danger"),
+        ("a stranger offered me candy", "stranger_danger"),
+        ("a man i dont know wanted me to come with him", "stranger_danger"),
+        ("he asked me to get in his car", "stranger_danger"),
+    ])
+    def test_safety_concerns_are_flagged(self, text, flag):
+        result = safety_filter.check_message(text)
+        assert flag in result["flags"] and not result["safe"]
+
+    @pytest.mark.parametrize("text", [
+        "i talked to a stranger at the park", "we learned about strangers at school",
+        "my mom told me to get in her car", "my uncle asked me to come with him to the store",
+    ])
+    def test_ordinary_mentions_are_not_stranger_danger(self, text):
+        assert "stranger_danger" not in safety_filter.check_message(text)["flags"]
 
     def test_where_do_you_live_is_allowed(self):
         assert safety_filter.check_message("where do you live")["safe"]
@@ -938,3 +1135,22 @@ class TestConversation:
         send(api, user_id, conversation_id, "my parents are getting divorced")
         reply = send(api, user_id, conversation_id, "i dont know")
         assert "a lot to think about" in reply
+
+    def test_teasing_advice_a_few_messages_later(self, api):
+        user_id, conversation_id, _ = start(api)
+        for message in ("a kid called me a baby", "it made me sad", "i didnt say anything"):
+            send(api, user_id, conversation_id, message)
+        assert "Please stop" in send(api, user_id, conversation_id, "what should i say")
+
+    def test_stranger_danger_reply(self, api):
+        user_id, conversation_id, _ = start(api)
+        reply = send(api, user_id, conversation_id, "a stranger asked me to get in his car")
+        assert "Never go anywhere with" in reply
+
+    def test_returning_child_favorite_and_pet_name(self, api):
+        user_id, conversation_id, _ = start(api)
+        for message in ("im rex", "i have a cat named whiskers", "my favorite food is tacos"):
+            send(api, user_id, conversation_id, message)
+        conversation_id = api.post(f"/api/conversation/start?user_id={user_id}").json()["conversation_id"]
+        assert "tacos" in send(api, user_id, conversation_id, "do you remember my favorite food")
+        assert "Whiskers" in send(api, user_id, conversation_id, "what is my cats name")

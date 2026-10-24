@@ -44,6 +44,9 @@ _GAME_WORDS = {
 _SOFT_OBJECTS = (r"\bwith (a|the|his|her|their|my) (ball|dodgeball|frisbee|pillow|balloon|water balloon|"
                  r"snowball|nerf \w+|foam \w+|beach ball|stuffed animal|plushie)\b")
 
+_PLAY_PUSHES = (r"\bpush(ed|es|ing)? me (on|in|around in) (the|a|my|his|her) (swings?|tire swing|wagon|sled|stroller|"
+                r"cart|merry-go-round|scooter|go-kart|wheelbarrow|chair)\b")
+
 _PEERS = re.compile(
     r"\b(kids?|boys?|girls?|classmates?|students?|bull(y|ies)|other kids|someone at school|"
     r"people at school|everyone at school|older kids)\b|\bat (school|recess|lunch|the playground|practice)\b|"
@@ -121,6 +124,9 @@ def classify(message: str, matched: Iterable[str], recent_messages: Iterable[str
 
     # "My sister hit me with a pillow", "a kid hit me with the ball": play, whoever did it
     if matched <= PEER_PHYSICAL_PHRASES and re.search(_SOFT_OBJECTS, text):
+        return "game"
+    # "My brother pushed me on the swing": helping on playground things
+    if matched <= PEER_PHYSICAL_PHRASES and re.search(_PLAY_PUSHES, text):
         return "game"
 
     if matched <= PEER_PHYSICAL_PHRASES and _PEERS.search(text) and not _ADULTS_AND_FAMILY.search(text):

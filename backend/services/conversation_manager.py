@@ -52,6 +52,7 @@ logger = logging.getLogger("chatbot.conversation_manager")
 
 
 RECENT_MESSAGES = 3  # earlier messages the safety check reads crisis phrases against
+TOPIC_MESSAGES = 5  # messages whose topic generic advice can be about
 SENSITIVE_REPLIES = 4  # replies without jokes after a sad message, including its own
 
 ASK_NAME_AGAIN = ["Hi! What's your name?", "Hey there! What's your name?"]
@@ -82,6 +83,14 @@ _CHEERFUL_RE = re.compile(r"\b(laugh\w*|fun|happy|great|awesome|excited|yay|haha
 
 # Advice by topic when no advice template matches (checked in order)
 GENERIC_ADVICE_BY_TOPIC = [
+    (r"\b(called me|calls me|teas\w*|made fun|making fun|laughed at me|names)\b", [
+        "You could say, \"Please stop, I don't like that,\" in a strong, calm voice, and then walk away. If it keeps "
+        "happening, tell a teacher or a grown-up you trust. You deserve to be treated kindly!",
+    ]),
+    (r"\b(money|dollars?|save|saving|spend|allowance)\b", [
+        "That's a big choice! You could buy something small now and save the rest, or save it all for something "
+        "bigger later. What would make you happiest?",
+    ]),
     (r"\b(speech|presentation|present|recital|perform\w*|stage|audition|tryouts?)\b", [
         "Lots of people get nervous about that! Try practicing a few times in front of your family or a mirror, "
         "and take slow, deep breaths before you start. You've got this! What part feels scariest?",
@@ -103,7 +112,7 @@ GENERIC_ADVICE_BY_TOPIC = [
 # "What should I do?", "can you help me", not "What ride should I go on?"
 _ASKS_WHAT_TO_DO_RE = re.compile(
     r"\bwhat (should|can|could|do) I do\b|\bwhat\b[^?.!]*\bI (should|can|could) do\b|\bhelp me\b|\badvice\b"
-    r"|\btips\b|\bhow (do|can|should) I (deal|handle|stop|fix|tell|get|make|help)\b",
+    r"|\btips\b|\bhow (do|can|should) I (deal|handle|stop|fix|tell|get|make|help)\b|\bwhat (should|can|do) I say\b",
     re.IGNORECASE,
 )
 
@@ -154,6 +163,8 @@ class ConversationManager:
         # The child's last few messages, for reading crisis phrases in context ("beats me"
         # after talking about Mario Kart)
         self._recent_messages: Dict[int, deque] = {}
+        # A longer window for the topic of generic advice ("what should I say?" a few messages after the teasing)
+        self._topic_messages: Dict[int, deque] = {}
         # Messages like "my sister always beats me" whose meaning the bot asked about
         self._pending_clarification: Dict[int, str] = {}
 
@@ -214,6 +225,7 @@ class ConversationManager:
         self._set_awaiting_name(user_id, greeting)
         self._sensitive_replies.pop(user_id, None)
         self._recent_messages.pop(user_id, None)
+        self._topic_messages.pop(user_id, None)
         self._pending_clarification.pop(user_id, None)
 
         logger.info(f"Started conversation {conversation.id} for user {user_id}")
@@ -248,6 +260,7 @@ class ConversationManager:
         recent = self._recent_messages.setdefault(user_id, deque(maxlen=RECENT_MESSAGES))
         recent_messages = list(recent)
         recent.append(user_message)
+        self._topic_messages.setdefault(user_id, deque(maxlen=TOPIC_MESSAGES)).append(user_message)
 
         # The answer to "Do you mean she wins at games, or that she hits you?"
         clarified = self._pending_clarification.pop(user_id, None)
@@ -1217,12 +1230,16 @@ INSTRUCTIONS:
         return self._fallback_response(context)
 
     def _generic_advice(self, user_message: str, user_id: int) -> str:
-        """Short advice for the topic of the last two messages, when no advice template matches"""
-        recent = list(self._recent_messages.get(user_id, []))
-        text = " ".join(recent[-2:] or [user_message]).lower()
-        for pattern, replies in GENERIC_ADVICE_BY_TOPIC:
-            if re.search(pattern, text):
-                return random.choice(replies)
+        """
+        Short advice for the topic of the last two messages, or else of the last few, when no
+        advice template matches
+        """
+        recent = list(self._topic_messages.get(user_id, [])) or [user_message]
+        for window in (recent[-2:], recent):
+            text = " ".join(window).lower()
+            for pattern, replies in GENERIC_ADVICE_BY_TOPIC:
+                if re.search(pattern, text):
+                    return random.choice(replies)
         return random.choice(GENERIC_ADVICE)
 
     def _set_awaiting_name(self, user_id: int, reply: str) -> None:

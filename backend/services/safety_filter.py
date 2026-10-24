@@ -43,6 +43,50 @@ _FAMILY_WORDS = {
 }
 
 
+# Someone the child doesn't know trying to get them to go somewhere, or offering things
+_STRANGER_RE = re.compile(
+    r"\bstrangers?\b[^.!?]{0,40}\b(car|van|candy|come with|go with|follow\w*|touch\w*|grab\w*|pick(ed)? me up|"
+    r"took|take me|asked me|offered|wanted me|told me|said to)\b"
+    r"|\b(a man|a lady|a woman|someone|somebody|a guy|a person|a kid|an adult) (that |who )?(i|we) (don'?t|didn'?t|do not|did not) know\b"
+    r"[^.!?]{0,40}\b(car|candy|come|go|follow\w*|touch\w*|grab\w*|asked|offered|wanted|told)\b"
+    # The lost-puppy lure: "a man in a car asked me to help find his puppy"
+    r"|\b(a man|a lady|a woman|someone|somebody|a guy|a person)\b[^.!?]{0,30}\b(in a|in his|in her|in their) (car|van|truck)\b"
+    r"[^.!?]{0,30}\b(asked|told|wanted|offered|tried|said|called)\b"
+    r"|\bhelp (him |her |them )?(find|look for) (his|her|their) (lost )?(puppy|dog|cat|kitten)\b",
+    re.IGNORECASE,
+)
+# Someone online asking for personal details, pictures or to meet
+_ONLINE_RE = re.compile(
+    r"\b(online|on the internet|in a game|in the game|on roblox|in roblox|on fortnite|in fortnite|on minecraft|"
+    r"in minecraft|on youtube|in the chat|on discord|on tiktok)\b[^.!?]{0,50}\b(asked|asks|wants|wanted|told|said)\b"
+    r"[^.!?]{0,40}\b(address|where i live|my school|what school|phone number|pictures?|photos?|pics?|meet|my age|"
+    r"my name)\b",
+    re.IGNORECASE,
+)
+ONLINE_SAFETY_RESPONSE = (
+    "Thank you for telling me. That's really important. Never share your address, school, phone number, or "
+    "pictures with someone online, and never agree to meet them. Please tell your mom, dad, or another grown-up "
+    "you trust right away. You did the right thing by telling. 💙"
+)
+_KNOWN_PEOPLE = _FAMILY_WORDS | {"uncle", "aunt", "auntie", "parents", "grandparents", "teacher", "coach",
+                                 "babysitter", "nanny", "friend", "friends", "neighbor"}
+def _names_known_person(message: str, resolved_message: Optional[str]) -> bool:
+    """The message names family or another known grown-up ("my teacher asked me to send my homework")"""
+    return bool(set(re.findall(r"[a-z]+", f"{message} {resolved_message or ''}".lower())) & _KNOWN_PEOPLE)
+
+
+# The same request from someone not named: "he asked me to get in his car" (not "my mom told me to")
+_GO_WITH_RE = re.compile(
+    r"\b(asked|told|wanted|tried to get) me to (get in|come with|go with|follow) (him|her|them)\b"
+    r"|\bget in(to)? (his|her|their) (car|van|truck)\b",
+    re.IGNORECASE,
+)
+STRANGER_DANGER_RESPONSE = (
+    "Thank you for telling me. That's really important. Never go anywhere with, or get into a car with, someone "
+    "you don't know, even if they offer candy or say they need help. Please tell your mom, dad, or another grown-up "
+    "you trust right away. You did the right thing by telling. 💙"
+)
+
 # "What if nobody likes me?": a worry about something that has not happened, not bullying
 _WHAT_IF_RE = re.compile(r"^\W*(but |and |so )?(what if|what happens if)\b", re.IGNORECASE)
 
@@ -212,6 +256,24 @@ class SafetyFilter:
             action = "fear_support"
             response_message = crisis_context.indirect_fear_reply(message, recent_messages, resolved_message)
             details["crisis_context"] = {"decision": context_decision}
+
+        # ============================================================
+        # Stranger danger (HIGH): "a stranger asked me to get in his car"
+        # ============================================================
+        elif _ONLINE_RE.search(message) and not _names_known_person(message, resolved_message):
+            flags.append("stranger_danger")
+            severity = "high"
+            action = self.severity_scorer.get_action_recommendation(severity)
+            response_message = ONLINE_SAFETY_RESPONSE
+            details["stranger_danger"] = {"detected": True, "online": True}
+
+        elif _STRANGER_RE.search(message) or (
+                _GO_WITH_RE.search(message) and not _names_known_person(message, resolved_message)):
+            flags.append("stranger_danger")
+            severity = "high"
+            action = self.severity_scorer.get_action_recommendation(severity)
+            response_message = STRANGER_DANGER_RESPONSE
+            details["stranger_danger"] = {"detected": True}
 
         # ============================================================
         # PRIORITY 2: Inappropriate Request Detection (MEDIUM to CRITICAL)

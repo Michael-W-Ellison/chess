@@ -24,9 +24,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from services import appraisal as appraisal_module
+from services.appraisal import Appraisal, Appraiser
 from services.emoji_quirk_service import emoji_quirk_service
 from services.reference_tracker import ReferenceTracker, gerund
-from services.utterance_parser import utterance_parser
+from services.utterance_parser import _NAMED_KINDS, utterance_parser
 
 logger = logging.getLogger("chatbot.response_engine")
 
@@ -43,7 +45,7 @@ _REFLECT_WORDS = {
 }
 
 _QUESTION_STARTERS = {"what", "who", "where", "when", "why", "how", "which", "do", "does", "did",
-                      "are", "is", "can", "could", "would", "will", "should", "have", "has"}
+                      "are", "is", "am", "was", "were", "can", "could", "would", "will", "should", "have", "has"}
 
 # Interjections ("um", "oh") are dropped from echoed phrases; punctuation is trimmed only at the ends
 _SKIP_DEPS = {"intj"}
@@ -74,6 +76,7 @@ class Frame:
     valence: str = "neutral"
     sentence: int = 0
     rule: Dict[str, Any] = field(default_factory=dict, repr=False)
+    last_token: int = -1  # the last matched token, for "... but ..." (see _before_but)
 
 
 @dataclass
@@ -97,11 +100,65 @@ _PEOPLE_GROUPS = {"kid", "boy", "girl", "classmate", "student", "people", "every
 STORY_MAX_TURNS = 10
 STORY_PROMPTS = ["Ooh! And then what happened?", "Wow! What happened next?", "Ooh, exciting! What did they do next?",
                  "That's so cool! Then what?", "I love this story! Keep going!"]
+# Pretend play: replies when the child's message gives no role
+PRETEND_MAX_TURNS = 8
+PRETEND_PROMPTS = ["Whoa! What happens next?", "Ooh, exciting! Your turn!", "Haha, I didn't see that coming! What next?",
+                   "Quick, what do we do now?"]
+_PRETEND_SOUNDS = {"dragon": "Rawr!", "lion": "Roar!", "tiger": "Roar!", "dinosaur": "Rawr!", "monster": "Grrr!",
+                   "robot": "Beep boop!", "cat": "Meow!", "dog": "Woof!", "wolf": "Awoooo!", "ghost": "Boo!",
+                   "pirate": "Arrr!", "owl": "Hoot hoot!", "unicorn": "Neigh!", "horse": "Neigh!"}
 STORY_ENDINGS = ["The end! What a great story. I loved it!", "What a fun story! You're a great storyteller."]
 
 # Replies to a joke the child tells: to the setup question, then to the punchline
 CHILD_JOKE_GUESSES = ["Hmm, I don't know! What?", "I give up! Tell me!", "Ooh, I'm not sure! What?"]
 CHILD_JOKE_LAUGHS = ["Haha! That's a good one! You're really funny.", "Hahaha! I didn't see that coming!"]
+
+# Fragments that continue the previous message: "and stay up late", "to the zoo", "next week"
+_CONTINUATION_WORDS = {"and", "then", "also", "but", "or", "with", "to", "at", "in", "on", "for", "after", "before",
+                       "next", "last", "this", "tomorrow", "yesterday", "tonight", "today", "so"}
+
+
+@dataclass
+class Expectation:
+    """What the bot's last reply asked for"""
+    kind: str                       # offer, choice, listen, reason, item
+    offer: Optional[str] = None     # for "offer": "joke", or "again" (the same kind as last time)
+    options: List[str] = field(default_factory=list)  # for "choice"
+    noun: Optional[str] = None      # for "item": "part" in "What part are you playing?"
+
+
+# "What part are you playing?", "What costume are you wearing?", "What kind of cake?"
+_ITEM_QUESTION_RE = re.compile(
+    r"\bwhat (?:kind of )?(part|costume|game|song|book|movie|show|animal|sport|color|colour|flavor|cake|pet|name|"
+    r"instrument|character|team|toy)\b[^?]*\byou(?:'re)?\b[^?]*\?$"
+    r"|\bwhat (?:are|were) you (?:going to be|gonna be|being|dressing up as)\b",
+    re.IGNORECASE)
+
+
+def expectation_from_reply(reply: str) -> Optional[Expectation]:
+    """What a bot reply asks the child for, from its closing question or request"""
+    if "I'd love to hear it" in reply:
+        return Expectation("listen")
+    questions = re.findall(r"[^.!?]*\?", reply)
+    if not questions:
+        return None
+    question = questions[-1].strip()
+    # The options may come before the question: "We could tell jokes, solve riddles, or share fun facts! Which one?"
+    if _CHOICE_OFFER_RE.search(question) or (_CHOICE_OFFER_RE.search(reply) and re.match(r"which\b", question,
+                                                                                          re.IGNORECASE)):
+        return Expectation("choice", options=["joke", "riddle", "fact"])
+    if _JOKE_OFFER_RE.search(question):
+        return Expectation("offer", offer="joke")
+    if re.search(r"\bwant another( one)?\?", question, re.IGNORECASE):
+        return Expectation("offer", offer="again")
+    if re.match(r"why\b", question, re.IGNORECASE) and not re.search(r"\bwhy not\b", question, re.IGNORECASE):
+        return Expectation("reason")
+    item = _ITEM_QUESTION_RE.search(question)
+    if item:
+        noun = item.group(1)
+        return Expectation("item", noun=(noun.lower() if noun else "costume"))
+    return None
+
 
 # A joke the child starts without saying so: "Why did the chicken cross the road?", "Knock knock"
 _JOKE_SETUP_RE = re.compile(
@@ -129,11 +186,25 @@ RIDDLES = [
 ]
 _KNOCK_KNOCK_RE = re.compile(r"^\W*knock,? knock\W*$", re.IGNORECASE)
 
+# Kinds of words that make a silly combination when mixed ("purple monkey dishwasher")
+_SILLY_GROUPS = {
+    "color": {"red", "orange", "yellow", "green", "blue", "purple", "pink", "brown", "black", "white", "rainbow"},
+    "animal": {"monkey", "cat", "dog", "pig", "cow", "duck", "chicken", "llama", "unicorn", "dinosaur", "fish",
+               "frog", "elephant", "giraffe", "penguin", "banana", "potato", "taco", "pickle", "noodle"},
+    "object": {"dishwasher", "toaster", "sock", "spoon", "fridge", "toilet", "shoe", "chair", "lamp", "pants",
+               "underwear", "bucket", "couch", "microwave", "spaceship", "robot"},
+}
+
 # Things someone (or a pet) can do that hurt the child: "He scratched me"
 _HURT_VERBS = {"scratch", "bite", "hit", "push", "kick", "hurt", "pinch", "bump", "punch", "slap", "trip", "shove"}
 
 # "How do you spell because?"
 _SPELL_RE = re.compile(r"\b(?:how (?:do|would|can) (?:you|i|we) spell|can you spell|spell) ([a-z]{2,20})\b", re.IGNORECASE)
+
+# "is 1/2 bigger than 1/4"
+_FRACTION_COMPARE_RE = re.compile(
+    r"\b(\d{1,3})/(\d{1,3}) (?:is )?(bigger|larger|more|greater|smaller|less) than (\d{1,3})/(\d{1,3})\b",
+    re.IGNORECASE)
 
 _ARITHMETIC_RE = re.compile(
     r"\b(\d{1,4}) ?(plus|\+|minus|-|times|x|\*|divided by|/) ?(\d{1,4})\b", re.IGNORECASE
@@ -161,6 +232,56 @@ class _BlankDict(dict):
         return ""
 
 
+# Things pets do: "he chewed my shoes" is likely about a pet
+_PET_VERBS = {"chew", "lick", "bark", "meow", "purr", "sniff", "wag", "growl", "pee", "poop", "nibble", "peck"}
+
+_NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+                 "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16,
+                 "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20, "thirty": 30}
+
+# Rhyme families for common words children ask about
+_RHYME_FAMILIES = [
+    ["cat", "hat", "bat", "rat", "mat", "sat", "flat", "that"], ["dog", "log", "frog", "fog", "jog", "hog"],
+    ["bee", "tree", "see", "three", "free", "me", "knee", "sea"], ["car", "star", "far", "jar", "guitar"],
+    ["sun", "fun", "run", "bun", "one", "done"], ["cake", "lake", "snake", "bake", "make", "shake"],
+    ["night", "light", "kite", "bite", "white", "bright", "right"], ["king", "ring", "sing", "wing", "swing", "thing"],
+    ["box", "fox", "socks", "rocks", "blocks"], ["fish", "dish", "wish", "swish"], ["bed", "red", "sled", "head", "bread"],
+    ["bell", "shell", "well", "smell", "yell"], ["clock", "sock", "rock", "block", "lock"],
+    ["bug", "hug", "rug", "mug", "slug"], ["ball", "wall", "tall", "fall", "call", "small"],
+    ["day", "play", "say", "way", "hay", "stay", "gray"], ["rain", "train", "brain", "chain", "plane"],
+    ["house", "mouse", "blouse"], ["hair", "chair", "bear", "pear", "air", "stair"], ["moon", "spoon", "soon", "balloon"],
+    ["boat", "goat", "coat", "float"], ["book", "cook", "look", "hook"], ["pig", "big", "dig", "wig", "twig"],
+    ["pen", "hen", "ten", "men", "when"], ["cow", "now", "how", "wow"], ["bear", "chair", "hair", "pear"],
+    ["blue", "shoe", "two", "zoo", "glue", "moo"], ["mice", "rice", "nice", "ice", "dice"],
+    ["cookie", "rookie", "bookie"], ["kitten", "mitten", "bitten"], ["toy", "boy", "joy", "enjoy"],
+    ["cheese", "please", "trees", "knees", "bees"], ["duck", "truck", "luck", "stuck"], ["mom", "bomb", "calm"],
+    ["dad", "sad", "glad", "mad", "bad"], ["snow", "go", "slow", "grow", "show", "bow"], ["frog", "dog", "log"],
+]
+
+
+# Things that happen on a schedule, named without "the": "school starts at 8:30"
+_ROUTINES = {"school", "practice", "recess", "lunch", "dinner", "breakfast", "class", "camp", "church", "bedtime",
+             "soccer", "baseball", "basketball", "swimming", "dance", "piano", "karate", "gymnastics", "homework"}
+
+
+def _number_value(text: str) -> Optional[int]:
+    """ "10" or "ten" -> 10; None if it is not a number up to thirty"""
+    text = text.strip().lower()
+    if text.isdigit():
+        return int(text)
+    return _NUMBER_WORDS.get(text)
+
+
+def _same_thing(a: str, b: str) -> bool:
+    """ "a dolphin" and "dolphins", "The Moon" and "moon": the same thing, named differently"""
+    def base(text):
+        words = re.sub(r"^(a|an|the|my)\s+", "", text.strip().lower()).split()
+        if words and len(words[-1]) > 3 and words[-1].endswith("s") and not words[-1].endswith("ss"):
+            words[-1] = words[-1][:-2] if words[-1].endswith(("ches", "shes", "xes")) else words[-1][:-1]
+        return " ".join(words)
+    return bool(a.strip()) and base(a) == base(b)
+
+
 class ResponseEngine:
     """Structural rule matcher and reply composer"""
 
@@ -181,11 +302,15 @@ class ResponseEngine:
         self._child_joke: Dict[int, int] = {}
         # Turns of a story the child and the bot are making up together
         self._story_mode: Dict[int, int] = {}  # the favorite category last talked about
+        # Turns left of a game of pretend
+        self._pretend: Dict[int, int] = {}
         # The answer to a riddle the bot asked, while the child guesses
         self._riddle: Dict[int, Tuple[str, str]] = {}
-        # What the bot's last reply offered: "joke" ("Want to hear a funny joke?") or
-        # "again" ("Want another one?", the same kind as the last joke, riddle or fact)
-        self._offered: Dict[int, str] = {}
+        # What the bot's last reply asked for, so a short next message can be read as its answer
+        self._expect: Dict[int, Expectation] = {}
+        # The child's previous message (resolved), for fragments that continue it ("next week")
+        self._previous_message: Dict[int, str] = {}
+        self._current_message: Dict[int, str] = {}
         self._load_knowledge_base()
         self.references = ReferenceTracker(
             parser, self.kb["lexicons"]["relations"], self.kb["lexicons"]["common_capitalized"],
@@ -205,6 +330,8 @@ class ResponseEngine:
                 self.answers = [(re.compile(a["pattern"], re.IGNORECASE), a["answer"]) for a in json.load(f)["answers"]]
         else:
             self.answers = []
+        # Whole-message set phrases: (id, pattern, replies)
+        self._phrases = [(p["id"], re.compile(p["pattern"]), p["responses"]) for p in self.kb.get("phrases", [])]
         lexicons = self.kb.get("lexicons", {})
 
         def resolve(value):
@@ -219,6 +346,7 @@ class ResponseEngine:
         for rule in self.kb.get("rules", []):
             rule["patterns"] = resolve(rule["patterns"])
             self.rules[rule["id"]] = rule
+        self.appraiser = Appraiser(self.kb)
 
     def is_available(self) -> bool:
         """True if the parser (spaCy and its model) is available"""
@@ -239,7 +367,11 @@ class ResponseEngine:
         """
         if not self.is_available():
             return message
-        return self.references.resolve(message, user_id)
+        resolved = self.references.resolve(message, user_id)
+        if user_id in self._current_message:
+            self._previous_message[user_id] = self._current_message[user_id]
+        self._current_message[user_id] = resolved
+        return resolved
 
     def reset_references(self, user_id: int) -> None:
         """Forget earlier people and things (new conversation)"""
@@ -249,7 +381,10 @@ class ResponseEngine:
         self._child_joke.pop(user_id, None)
         self._story_mode.pop(user_id, None)
         self._riddle.pop(user_id, None)
-        self._offered.pop(user_id, None)
+        self._pretend.pop(user_id, None)
+        self._expect.pop(user_id, None)
+        self._previous_message.pop(user_id, None)
+        self._current_message.pop(user_id, None)
 
     def record_bot_reply(self, user_id: int, reply: str, humor: Optional[str] = None) -> None:
         """
@@ -258,14 +393,11 @@ class ResponseEngine:
         """
         if not self.is_available():
             return
-        if _CHOICE_OFFER_RE.search(reply):
-            self._offered[user_id] = "choice"
-        elif _JOKE_OFFER_RE.search(reply):
-            self._offered[user_id] = "joke"
-        elif re.search(r"\bwant another( one)?\?", reply, re.IGNORECASE):
-            self._offered[user_id] = "again"
+        expectation = expectation_from_reply(reply)
+        if expectation is None:
+            self._expect.pop(user_id, None)
         else:
-            self._offered.pop(user_id, None)
+            self._expect[user_id] = expectation
         told = self._last_told.pop(user_id, None)
         added = {"pun": "joke", "fact": "fun fact"}.get(humor or "") if told is None else None
         mentions = self._last_mentions.pop(user_id, [])
@@ -327,10 +459,51 @@ class ResponseEngine:
         return Analysis(frames=frames, is_question=is_question, mood=mood, doc=doc)
 
     @staticmethod
+    def _embedded_modality(token) -> str:
+        """
+        The modality the matched words sit under, from outside them: "win" in "I want to win"
+        is wanted, in "what if we win" imagined, in "we might win" possible; "want" in
+        "I want a dog" is itself real
+        """
+        sentence = token.sent
+        words = [t.lower_ for t in sentence]
+        if words[:2] == ["what", "if"] and token.lower_ != "what":
+            return appraisal_module.HYPOTHETICAL
+        for ancestor in list(token.ancestors)[:3]:
+            if ancestor.lemma_ in ("hope", "wish", "pray"):
+                return appraisal_module.HOPE
+            if ancestor.lemma_ in ("want", "wanna") and token.dep_ in ("xcomp", "ccomp") or (
+                    ancestor.lemma_ in ("want", "wanna") and ancestor.i == token.head.i):
+                return appraisal_module.WANT
+        # "If I'm good I get a treat", "I would've won": imagined, not what happened
+        if any(c.dep_ == "mark" and c.lower_ in ("if", "unless") for c in (*token.children, *token.head.children)
+               if c.head.dep_ == "advcl"):
+            return appraisal_module.HYPOTHETICAL
+        auxes = [c.lower_ for c in token.children if c.dep_ == "aux"]
+        if any(a in ("would", "could", "should", "might", "'d") for a in auxes) and any(a in ("have", "'ve", "of") for a in auxes):
+            return appraisal_module.HYPOTHETICAL
+        if any(c.dep_ == "aux" and c.lower_ in ("might", "may", "could") for c in token.children):
+            return appraisal_module.POSSIBLE
+        # "I will score a goal tomorrow": not happened yet
+        if any(c.dep_ == "aux" and c.lower_ in ("will", "'ll", "gonna", "shall") for c in token.children) and \
+                not any(c.dep_ == "neg" for c in token.children):
+            return appraisal_module.FUTURE
+        if any(c.dep_ == "aux" and c.lower_ in ("can", "ca") for c in token.children) and \
+                not sentence.text.strip().endswith("?") and token.lemma_ in ("get", "have", "buy", "adopt"):
+            return appraisal_module.POSSIBLE
+        return appraisal_module.REAL
+
+    @staticmethod
     def _is_question(span) -> bool:
         """Question if the sentence ends with "?" or starts with a question word"""
         text = span.text.strip()
-        return text.endswith("?") or (len(span) > 0 and span[0].lower_ in _QUESTION_STARTERS)
+        if text.endswith("?"):
+            return True
+        # "when I'm sad I hug my dog": a time clause, not a question
+        if len(span) > 2 and span[0].lower_ in ("when", "where", "while", "whenever") and span[0].head.dep_ == "advcl" \
+                and span[1].lower_ in ("i", "we", "he", "she", "they", "it", "my", "our", "you", "the"):
+            return False
+        return len(span) > 0 and span[0].lower_ in _QUESTION_STARTERS
 
     def _build_frame(self, rule: Dict[str, Any], nodes: Dict[str, Any], doc) -> Optional[Frame]:
         conditions = rule.get("conditions", {})
@@ -346,6 +519,38 @@ class ResponseEngine:
             slots["past"] = "yes"
 
         if "question" in conditions and conditions["question"] != self._is_question(sentence):
+            return None
+        # A reaction to something happening does not fit something only hoped for, wanted,
+        # possible or imagined: "we can get a new one" is not "Yay, a new one!", and "I hope he
+        # gets better" is not "I'm so glad he's better" (rules meant for these say "modality_ok")
+        # A rule's tone that contradicts what the matched words say happened: "my brother made
+        # fun of my drawing" is teasing, not the kindness of "made"
+        if valence in ("positive", "negative") and not rule.get("valence_ok"):
+            first = next(iter(nodes.values()))
+            if first.pos_ in ("VERB", "AUX"):
+                appraised = self.appraiser.appraise_tokens(first)
+                if (appraised.action and appraised.notes.get("source") == "phrasal"
+                        and appraised.valence in ("positive", "negative") and appraised.valence != valence):
+                    return None
+        if valence in ("positive", "negative") and not rule.get("modality_ok"):
+            embedded = self._embedded_modality(next(iter(nodes.values())))
+            if embedded in rule.get("modality_ok_for", []):
+                pass
+            elif embedded in (appraisal_module.HOPE, appraisal_module.WANT, appraisal_module.POSSIBLE,
+                              appraisal_module.HYPOTHETICAL, appraisal_module.FUTURE):
+                return None
+        first = next(iter(nodes.values()))
+        # "the teacher I like the most is Mr. Smith": "like" describes the teacher
+        if first.dep_ == "relcl" and not rule.get("relcl_ok"):
+            return None
+        # "If I'm good I get a treat": words inside an if-clause did not happen
+        if not rule.get("modality_ok") and appraisal_module.HYPOTHETICAL not in rule.get("modality_ok_for", []) \
+                and [t.lower_ for t in sentence[:2]] != ["what", "if"] \
+                and (any(c.dep_ == "mark" and c.lower_ in ("if", "unless") and c.head.dep_ == "advcl"
+                         for t in (first, *list(first.ancestors)[:2]) for c in t.children)
+                     # the main clause of "if I'm good, I get a treat" depends on it too
+                     or any(c.dep_ == "advcl" and any(m.dep_ == "mark" and m.lower_ in ("if", "unless") for m in c.children)
+                            for c in (first if first.dep_ == "ROOT" else first.head).children)):
             return None
         if "max_tokens" in conditions and \
                 sum(1 for t in doc if not t.is_punct) > conditions["max_tokens"]:
@@ -397,9 +602,11 @@ class ResponseEngine:
             if spec["node"] not in nodes:  # optional node absent from this pattern
                 continue
             raw, reflected = self._extract_slot(nodes[spec["node"]], spec["span"])
+            if raw.lower() in ("what", "which", "who", "whom", "whatever"):
+                raw = reflected = ""  # "What do you eat?": no "but what sounds yummy"
             node = nodes[spec["node"]]
             # "capitalize": "names" capitalizes only a name ("jake" -> "Jake", "my brother" stays)
-            if spec.get("capitalize") and raw and (spec["capitalize"] is True or node.pos_ == "PROPN"):
+            if spec.get("capitalize") and raw and (spec["capitalize"] is True or node.left_edge.pos_ == "PROPN"):
                 raw = raw[:1].upper() + raw[1:]
                 reflected = reflected[:1].upper() + reflected[1:]
             # Lowercase a capitalized common word ("School was boring", "Today was fun"), not a name
@@ -414,11 +621,14 @@ class ResponseEngine:
             node = nodes[spec["node"]]
             # A bare "pancakes" can be mistagged as singular
             plural = node.tag_ in ("NNS", "NNPS") or (
-                node.pos_ in ("NOUN", "VERB") and node.lower_.endswith("s") and node.lemma_.lower() != node.lower_)
+                node.pos_ in ("NOUN", "VERB") and node.lower_.endswith("s") and node.lemma_.lower() != node.lower_) \
+                or any(c.dep_ == "conj" for c in node.children)  # "blue and green"
             if plural:
                 slots[f"{slot_name}_plural"] = "yes"
             slots[f"{slot_name}_s"] = "" if plural else "s"
             slots[f"{slot_name}_them"] = "them" if plural else "it"
+            slots[f"{slot_name}_is"] = "are" if plural else "is"
+            slots[f"{slot_name}_has"] = "have" if plural else "has"
             slots[f"{slot_name}_a"] = "an" if reflected[:1].lower() in "aeiou" and reflected else "a"
 
         slots["message_text"] = doc.text
@@ -461,6 +671,7 @@ class ResponseEngine:
             valence=valence,
             sentence=sentence.start,
             rule=rule,
+            last_token=max(t.i for t in nodes.values()),
         )
 
     @staticmethod
@@ -596,7 +807,10 @@ class ResponseEngine:
                       if t == token or (t.head == token and t.dep_ in ("amod", "compound"))]
         elif span == "clause":
             tokens = [t for t in token.subtree if not _skipped(t)]
-            while tokens and tokens[0].dep_ == "mark":
+            # "because", and "when"/"while" (read as adverbs): "I cried when my fish died"
+            while tokens and ((tokens[0].dep_ == "mark" and tokens[0].head.i == token.i)
+                              or (tokens[0].tag_ == "WRB" and tokens[0].head.i == token.i
+                                                             and tokens[0].lower_ in ("when", "while", "whenever"))):
                 tokens = tokens[1:]
         elif span == "predicate":
             excluded = set()
@@ -694,6 +908,8 @@ class ResponseEngine:
             text = token.text
             if reflect:
                 text = ResponseEngine._reflect_token(token)
+            if ResponseEngine._lowercase_person_name(token):
+                text = text.capitalize()  # "you and lily played tag" -> "you and Lily"
             # Lowercase a sentence-initial capital unless it is a name or "I"
             if index == 0 and token.i == 0 and token.pos_ != "PROPN" and text not in ("I",):
                 text = text[:1].lower() + text[1:]
@@ -701,11 +917,56 @@ class ResponseEngine:
         return "".join(parts).strip()
 
     @staticmethod
+    def _lowercase_person_name(token) -> bool:
+        """A name the child typed in lowercase, in a place only a person fits"""
+        if token.pos_ != "PROPN" or not token.is_alpha or not token.text.islower() or len(token.text) < 3:
+            return False
+        if token.ent_type_ == "PERSON":
+            return True
+        people = ("i", "me", "you", "we")
+        linked = [token.head, *token.children]
+        def named(t):
+            # "my friends are maya, jake and zoe": names of the people or pets just mentioned
+            head = t
+            while head.dep_ == "conj":
+                head = head.head
+            return head.dep_ == "attr" and head.head.lemma_ == "be" and any(
+                c.dep_ == "nsubj" and c.lemma_.lower() in _NAMED_KINDS for c in head.head.children)
+        if named(token):
+            return True
+        if token.dep_ == "conj" or any(t.dep_ == "conj" for t in token.children):
+            # "me, maya and jake": a list with a person in it
+            chain = {token.i}
+            frontier = [token]
+            while frontier:
+                t = frontier.pop()
+                for n in (t.head, *t.children):
+                    if n.dep_ in ("conj", "appos") or t.dep_ in ("conj", "appos") and n.i == t.head.i:
+                        if n.i not in chain and n.pos_ in ("PROPN", "PRON", "NOUN"):
+                            chain.add(n.i)
+                            frontier.append(n)
+            members = [token.doc[i] for i in chain if i != token.i]
+            return any(t.lower_ in people or t.ent_type_ == "PERSON" or (t.pos_ == "PROPN" and t.text[:1].isupper())
+                       or (t.pos_ == "PROPN" and t.dep_ in ("nsubj", "attr")) for t in members) or \
+                any(t.lower_ in people for t in linked)
+        if token.dep_ == "poss" and token.i + 1 < len(token.doc) and token.doc[token.i + 1].lower_ == "'s":
+            return True  # "jake's house"
+        if token.dep_ == "attr" and token.head.lemma_ == "be" and any(
+                c.dep_ == "nsubj" and c.lower_ == "i" for c in token.head.children):
+            return True  # "I'm ted"
+        if token.dep_ == "appos" or (token.i > 0 and token.doc[token.i - 1].dep_ == "compound"
+                                     and token.doc[token.i - 1].head.i == token.i
+                                     and token.doc[token.i - 1].lower_ in _NAMED_KINDS):
+            return True  # "my friend ava", "my sister emma"
+        return (token.dep_ == "nsubj" and token.head.pos_ in ("VERB", "AUX")) or (
+            token.dep_ == "pobj" and token.head.lower_ == "with")
+
+    @staticmethod
     def _reflect_token(token) -> str:
         lower = token.lower_
         if lower == "you":
             return "I" if token.dep_ in ("nsubj", "nsubjpass") else "me"
-        if lower == "was" and ResponseEngine._first_person_subject(token):
+        if lower == "was" and ResponseEngine._own_first_person_subject(token):
             return "were"
         if lower in ("are", "'re") and any(c.dep_ == "nsubj" and c.lower_ == "you"
                                            for c in (*token.children, *token.head.children)):
@@ -718,9 +979,13 @@ class ResponseEngine:
     def _definite_thing_subject(token) -> bool:
         """True if the clause's subject is a specific thing ("the tower broke", "my bike is broken")"""
         # The noun can be mistagged ("The starfish felt bumpy" tags "starfish" as an adjective)
+        def owned(noun):
+            # "my bike", "the tower", "my grandma's cookies"
+            return any(d.dep_ in ("det", "poss") and (d.lower_ in ("the", "my", "our", "your", "his", "her", "their")
+                                                       or (d.dep_ == "poss" and owned(d)))
+                       for d in noun.children)
         return any(c.dep_ == "nsubj" and c.pos_ in ("NOUN", "ADJ", "PROPN")
-                   and any(d.dep_ in ("det", "poss") and d.lower_ in ("the", "my", "our", "your", "his", "her", "their")
-                           for d in c.children)
+                   and (owned(c) or (c.lower_ in _ROUTINES and not any(d.dep_ == "det" for d in c.children)))
                    for c in token.children)
 
     @staticmethod
@@ -765,11 +1030,25 @@ class ResponseEngine:
         return False
 
     @staticmethod
+    def _own_first_person_subject(token) -> bool:
+        """True if this verb's own subject is I/we ("I was scared", not "it was dark" after it)"""
+        verb = token.head if token.dep_ in ("aux", "auxpass") else token
+        return any(c.dep_ in ("nsubj", "nsubjpass") and c.lower_ in ("i", "we") for c in verb.children) or (
+            verb.dep_ == "conj" and not any(c.dep_ in ("nsubj", "nsubjpass") for c in verb.children)
+            and ResponseEngine._first_person_subject(verb.head))
+
+    @staticmethod
+    def _done_to_child(root) -> bool:
+        """ "a bee chased me", "a boy in my class likes me": someone or something acting on the child"""
+        return any(c.dep_ in ("dobj", "dative") and c.lower_ in ("me", "us") for c in root.children) and any(
+            c.dep_ == "nsubj" and c.pos_ in ("NOUN", "PROPN") for c in root.children)
+
+    @staticmethod
     def _first_person_subject(token) -> bool:
         """True if the token's clause has I/we as subject, including conjuncts ("my mom and I")"""
         for candidate in (token, token.head):
             for child in candidate.children:
-                if child.dep_ != "nsubj":
+                if child.dep_ not in ("nsubj", "nsubjpass"):  # "I got stung by a bee"
                     continue
                 subject = {t.i for t in child.subtree}
                 # "I", or "I" coordinated in the subject; not "I" inside "the game that I played"
@@ -851,6 +1130,22 @@ class ResponseEngine:
             "bot_mood": getattr(personality, "mood", None) or "happy",
         }
 
+        # Playing pretend: the child gives the bot a role and plays theirs
+        pretend_turns = self._pretend.pop(user_id, 0)
+        if pretend_turns and re.match(r"\W*(ok |okay )?(stop|the end|i'?m done|done playing|let'?s stop)\W*$", message,
+                                      re.IGNORECASE):
+            if features is not None:
+                features["rule"] = "pretend"
+            return self._apply_style("Okay! That was so fun. Thanks for playing pretend with me!", personality)
+        if pretend_turns and not re.search(r"\b(stop|the end|i'?m done|done playing|bye|goodbye)\b", message,
+                                           re.IGNORECASE):
+            reply = self._pretend_reply(message)
+            if reply:
+                self._pretend[user_id] = pretend_turns - 1
+                if features is not None:
+                    features["rule"] = "pretend"
+                return self._apply_style(reply, personality)
+
         # Making up a story together: prompts for the child's lines until "the end"
         story_turns = self._story_mode.pop(user_id, 0)
         if story_turns:
@@ -885,19 +1180,22 @@ class ResponseEngine:
                 reply = f"Good guess! The answer is: {answer} Want another one?"
             return self._apply_style(reply, personality)
 
-        # "Want to hear a funny joke?" / "Want another one?" - "yes"
-        offered = self._offered.pop(user_id, None)
-        kind = "joke" if offered in ("joke", "choice") else self._last_request.get(user_id) if offered else None
-        chosen = re.search(r"\b(joke|riddle|fact)s?\b", message, re.IGNORECASE) if offered == "choice" else None
-        if chosen and len(message.split()) <= 6:
-            kind = {"fact": "fact"}.get(chosen.group(1).lower(), chosen.group(1).lower())
-        if kind and (_YES_RE.match(message) or chosen):
-            content = {}
-            self._requested_content(kind, content, user_id)
-            if content.get("content"):
-                if features is not None:
-                    features["rule"] = "joke_offer_yes"
-                return self._apply_style(f"Okay, here's one: {content['content']}", personality)
+        # The answer to what the bot just asked or offered
+        expectation = self._expect.pop(user_id, None)
+        answered = self._answer_expectation(expectation, message, analysis, user_id) if expectation else None
+        if answered is not None:
+            rule_id, reply = answered
+            if features is not None:
+                features["rule"] = rule_id
+            return self._apply_style(reply, personality)
+
+        # Set phrases that are the whole message ("me too", "nvm", "you're right")
+        phrase = self._phrase_reply(message, user_id)
+        if phrase is not None:
+            rule_id, reply = phrase
+            if features is not None:
+                features["rule"] = rule_id
+            return self._apply_style(reply, personality)
 
         # The child is telling a joke: "Why did the chicken cross the road?" ... the punchline
         joke_stage = self._child_joke.pop(user_id, 0)
@@ -925,6 +1223,13 @@ class ResponseEngine:
             return self._apply_style(self.rng.choice(CHILD_JOKE_LAUGHS), personality)
 
         # "What's 2 plus 2?"
+        # "Is 1/2 bigger than 1/4?"
+        fraction_match = _FRACTION_COMPARE_RE.search(message)
+        if fraction_match:
+            if features is not None:
+                features["rule"] = "arithmetic"
+            return self._apply_style(self._compare_fractions(fraction_match), personality)
+
         half_match = _HALF_RE.search(message)
         if half_match and not analysis.frames:
             part = half_match.group(1).lower().split()[-1]
@@ -956,6 +1261,18 @@ class ResponseEngine:
         if not allow_reflection:
             # Only rules whose replies use no words taken from the message
             responding = [f for f in responding if not f.rule.get("slots")]
+        # "I built a sandcastle but a wave knocked it down": the part after "but" is the news
+        but = self._but_clause_start(analysis.doc) if analysis.doc is not None else None
+        if but is not None and any(f.last_token > but for f in responding):
+            responding = [f for f in responding if f.last_token > but]
+
+        # "What part are you playing?" - "a tree"; "Why is it your favorite?" - "it has rings"
+        if expectation is not None and expectation.kind in ("item", "reason") and allow_reflection and not responding:
+            answered = self._answer_open_question(expectation, analysis)
+            if answered is not None:
+                rule_id, reply = answered
+                features["rule"] = rule_id
+                return self._apply_style(reply, personality)
 
         if responding:
             frame = responding[0]
@@ -963,9 +1280,16 @@ class ResponseEngine:
             self._compute_slots(frame, slots, personality)
             self._record_answer(frame.rule, slots, user_id)
             core = self._choose_template(frame.rule, slots, level, user_id, policy, features)
+            # "What's your favorite animal and why?"
+            if frame.rule_id == "bot_favorite_question" and re.search(r"\band why\b|\? why\W*$", message, re.IGNORECASE):
+                split = re.match(r"(.*[.!])\s+([^.!?]*\?)$", core)
+                core = (f"{split.group(1)} I just think they're really cool! {split.group(2)}" if split
+                        else f"{core} I just think they're really cool!")
             features["rule"] = frame.rule_id
             if frame.rule_id == "offer_content" and slots.get("kind") in ("joke", "riddle", "pun"):
                 self._child_joke[user_id] = 1  # the next message is the child's joke
+            if frame.rule_id == "play_pretend":
+                self._pretend[user_id] = PRETEND_MAX_TURNS
             if frame.rule_id == "story_together" or (frame.rule_id == "request" and slots.get("kind") == "story"):
                 self._story_mode[user_id] = 1  # the next messages are the child's story
 
@@ -1042,7 +1366,7 @@ class ResponseEngine:
                     mention = f"the {slots['category']} {favorite}" if slots["category"] in ("color", "number") else favorite
                     self._last_mentions[getattr(personality, "user_id", 0)] = [mention]
                     self._last_category[getattr(personality, "user_id", 0)] = slots["category"]
-                    if favorite.lower() == slots.get("value_raw", "").lower():
+                    if _same_thing(favorite, slots.get("value_raw", "")):
                         slots["same_favorite"] = "yes"
                     else:
                         slots["bot_favorite"] = favorite
@@ -1064,6 +1388,11 @@ class ResponseEngine:
                 facts = getattr(self, "_context", {}).get("known_facts") or {}
                 thing = slots.get("thing_slug", "")
                 named = next((v for k, v in facts.items() if k.startswith(f"{thing}_")), None) if thing else None
+                if not named and thing:
+                    # Named earlier in this conversation ("I have a cat named Whiskers")
+                    state = self.references.state(getattr(personality, "user_id", 0) or 0)
+                    named = next((p.name for p in state.people
+                                  if p.name and p.relation and p.relation.split()[-1] == thing), None)
                 if named:
                     slots["recalled"] = f"your {slots.get('thing', thing)} {named}"
                     slots["recalled_name"] = named
@@ -1091,6 +1420,21 @@ class ResponseEngine:
             elif name == "joke_content":
                 # "Tell me something funny"
                 self._requested_content("joke", slots, user_id=getattr(personality, "user_id", 0))
+            elif name == "count_to":
+                # "Count to ten": the numbers, up to 30
+                target = _number_value(slots.get("n_raw", ""))
+                if target is not None and 1 <= target <= 30:
+                    slots["counting"] = ", ".join(str(k) for k in range(1, target + 1))
+            elif name == "rhymes":
+                # "What rhymes with cat?": words from the same rhyme family
+                word = slots.get("word_raw", "").lower()
+                family = next((f for f in _RHYME_FAMILIES if word in f), None)
+                if family:
+                    others = [w for w in family if w != word][:4]
+                    slots["rhymes"] = ", ".join(others[:-1]) + (" and " if len(others) > 1 else "") + others[-1]
+            elif name == "fact_content":
+                # "Tell me something cool"
+                self._requested_content("fact", slots, user_id=getattr(personality, "user_id", 0))
             elif name == "repeat_request":
                 kind = self._last_request.get(getattr(personality, "user_id", 0))
                 if kind:
@@ -1143,7 +1487,11 @@ class ResponseEngine:
     def rule_flag(self, rule_id: Optional[str], flag: str) -> bool:
         """A rule's boolean option from the knowledge base (e.g. "no_jokes")"""
         # Answers to questions about the world and the child's own joke get no joke added
-        if flag == "no_jokes" and rule_id and (rule_id.startswith("fallback_world") or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes", "spelling")):
+        # and replies repeating back the child's news ("The present was a book about sharks?")
+        if flag == "no_jokes" and rule_id and (
+                rule_id.startswith(("fallback_world", "fallback_reflection", "fallback_long_reflection", "fallback_fragment",
+                                    "fallback_appraisal", "fallback_continuation"))
+                or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes", "spelling", "performance", "play_role", "pretend")):
             return True
         return bool(rule_id and self.rules.get(rule_id, {}).get(flag))
 
@@ -1223,12 +1571,22 @@ class ResponseEngine:
         def pick(kind: str) -> str:
             return self._pick(fallbacks[kind], user_id, f"template:fallback_{kind}", policy, features)
 
+        # "What if I get lost?": a worry, answered by the appraisal templates
+        if analysis.is_question and allow_reflection:
+            appraisal = self.appraiser.appraise(doc)
+            if appraisal is not None and appraisal.modality == appraisal_module.HYPOTHETICAL:
+                composed = self._appraisal_reply(doc, slots, user_id, policy, features, gentle)
+                if composed is not None:
+                    return composed
+
         if analysis.is_question:
             # "Why is the sky blue?": a known answer, a fact on the topic, or "let's look it up"
             about_bot = any(t.lower_ in ("you", "your", "yours", "yourself") for t in doc)
             # "How do I get him to stop?" is about the child's life, not the world
             personal = any(t.lower_ in ("i", "me", "my", "mine") for t in doc) and not self._world_answer(doc.text)
-            if (not about_bot or re.match(r"(do|did) you know\b", doc.text, re.IGNORECASE)) and not personal:
+            # An answer written for a "you" question ("How much money do you get from the tooth fairy?")
+            generic_you = any(p.search(doc.text) and "you" in p.pattern for p, _ in self.answers)
+            if (not about_bot or generic_you or re.match(r"(do|did) you know\b", doc.text, re.IGNORECASE)) and not personal:
                 answer = self._world_answer(doc.text)
                 if answer:
                     return answer, "neutral", "world_answer"
@@ -1242,13 +1600,51 @@ class ResponseEngine:
                         return pick("world_question"), "neutral", "world_question"
             return pick("question"), "neutral", "question"
 
+        # "with marshmallows" right after "and had hot chocolate": part of that thing
+        words = [t for t in doc if not t.is_punct]
+        # "and stay up late" after "we are going to watch a movie": more of the plan
+        if (allow_reflection and 2 <= len(words) <= 6 and words[0].lower_ in ("and", "then", "also")
+                and words[1].pos_ == "VERB" and words[1].tag_ == "VB"):
+            rest = " ".join(self._reflect_token(t) for t in words[1:])
+            return f"{rest[:1].upper()}{rest[1:]} too? That sounds like so much fun!", "positive", "fragment"
+        if allow_reflection and 2 <= len(words) <= 4 and words[0].lower_ == "with":
+            state = self.references.state(user_id)
+            # The thing from an earlier message, not this one's own "marshmallows"
+            thing = next((t for t in state.things if not t.added and not t.short and t.turn < state.turn), None)
+            _, extra = self._extract_slot(words[0], "subtree")
+            if thing is not None and thing.text.split()[-1].lower() in self.kb["lexicons"].get("foods", []):
+                name = " ".join(w for w in thing.text.split() if w.lower() not in ("the", "a", "an"))
+                return f"Ooh, {name} {extra}? Yum, that sounds so good!", "positive", "fragment"
+            return f"{extra[:1].upper()}{extra[1:]}? That sounds fun!", "positive", "fragment"
+
+        # A fragment continuing the previous message ("next week", "to the zoo")
+        if allow_reflection:
+            continued = self._continuation_reply(doc, slots, user_id, policy, features, gentle)
+            if continued is not None:
+                return continued
+
+        # What happened, in general terms: a reply for its kind of event and modality
+        if allow_reflection:
+            composed = self._appraisal_reply(doc, slots, user_id, policy, features, gentle)
+            if composed is not None:
+                return composed
+            # "The dog that bit me was big": what happened is in the relative clause
+            event = self._event_in_description(doc)
+            if event is not None:
+                relcl, clause = event
+                composed = self._appraisal_reply(doc, slots, user_id, policy, features, gentle, clause=clause, root=relcl)
+                if composed is not None:
+                    return composed
+
         # Reflect the last sentence that is short and about the child
         if allow_reflection:
             for sentence in reversed(list(doc.sents)):
                 root = sentence.root
                 if (len(sentence) <= 15 and root.pos_ in ("VERB", "AUX")
                         and (self._first_person_subject(root) or self._known_person_subject(root, user_id)
-                             or self._definite_thing_subject(root))):
+                             or self._definite_thing_subject(root) or self._done_to_child(root)
+                             or any(c.dep_ == "nsubj" and c.pos_ == "PROPN" and c.lower_ != "buddy"
+                                    for c in root.children))):
                     _, clause = self._extract_slot(root, "clause")
                     slots["clause"] = clause
                     # A follow-up that fits: "How did that go?" only for what already happened
@@ -1268,6 +1664,9 @@ class ResponseEngine:
                             and not self._first_person_subject(root))
                         if describes and kind in ("reflection_present", "reflection"):
                             kind = "reflection_be"
+                        # "Santa is coming", "my cat sleeps on my bed": not "What's that like?"
+                        elif kind == "reflection_present" and not self._first_person_subject(root):
+                            kind = "reflection_present_other"
                         # "We can't go to the park", "I don't have one"
                         elif self._is_negated(root) and (
                                 any(c.lower_ in ("ca", "can", "could") for c in root.children)
@@ -1297,20 +1696,300 @@ class ResponseEngine:
         if any(t.lower_ in ("he", "she", "they") and t.dep_ in ("nsubj", "nsubjpass")
                and not (t.lower_ == "they" and t.head.lemma_ in ("give", "bring", "let", "show", "teach", "hand"))
                for t in doc):
+            # "She told me to stop": answer what happened, then ask who
+            root = list(doc.sents)[-1].root
+            subject = next((c for c in root.children if c.dep_ in ("nsubj", "nsubjpass")), None)
+            if allow_reflection and subject is not None and subject.lower_ in ("he", "she", "they") \
+                    and root.pos_ in ("VERB", "AUX") and root.lemma_ != "be" and len(doc) <= 14 \
+                    and (any(t.lower_ in ("me", "us", "my", "our", "we", "i", "mine") for t in root.subtree if t.i != subject.i)
+                         or any(t.lemma_ in _HURT_VERBS for t in doc)):
+                _, clause = self._extract_slot(root, "clause")
+                if clause.lower().startswith(("he ", "she ")):
+                    clause = "someone" + clause[clause.index(" "):]
+                slots["clause"] = clause
+                upset = any(t.lemma_ in _HURT_VERBS for t in doc) or emoji_quirk_service.is_negative(doc.text)
+                kind = "unknown_person_upset" if upset else "unknown_person_event"
+                # "he chewed my shoes": often a pet, not a person
+                if root.lemma_ in _PET_VERBS and clause.lower().startswith("someone "):
+                    slots["clause"] = "who" + clause[len("someone"):]
+                    kind = "unknown_person_pet"
+                return pick(kind).format_map(slots), ("negative" if upset else "neutral"), kind
             return pick("unknown_person"), "neutral", "unknown_person"
 
         if allow_reflection:
             chunks = [c for c in doc.noun_chunks if c.root.pos_ != "PRON"]
             if chunks:
                 slots["topic"] = self._join(list(chunks[-1]), reflect=True)
+                # "purple monkey dishwasher": words that don't go together, said for fun
+                words = [t.lower_ for t in doc if t.is_alpha]
+                kinds = {kind for word in words for kind, group in _SILLY_GROUPS.items() if word in group}
+                if 3 <= len(words) <= 5 and len(kinds) >= 2 and not any(t.pos_ in ("VERB", "AUX", "DET") for t in doc):
+                    slots["topic"] = slots["topic"][:1].upper() + slots["topic"][1:]
+                    return pick("silly").format_map(slots), "positive", "silly"
                 return pick("topic").format_map(slots), "neutral", "topic"
 
         return pick("generic"), "neutral", "generic"
 
+    @staticmethod
+    def _but_clause_start(doc) -> Optional[int]:
+        """The position of a "but" that starts a clause with its own verb in the last sentence, else None"""
+        sentence = list(doc.sents)[-1]
+        # "I lost my tooth. But I found it!"
+        if sentence.start > 0 and sentence[0].lower_ == "but":
+            return sentence[0].i
+        for token in sentence:
+            if token.lower_ == "but" and token.dep_ == "cc" and any(
+                    t.pos_ in ("VERB", "AUX") and t.dep_ == "conj" and t.i > token.i for t in sentence):
+                return token.i
+        return None
+
+    def _event_in_description(self, doc):
+        """
+        (relative-clause verb, "the dog bit you") when the message describes something with a
+        relative clause about what it did to the child ("the dog that bit me was big"), else None
+        """
+        root = list(doc.sents)[-1].root
+        if root.lemma_ != "be":
+            return None
+        subject = next((c for c in root.children if c.dep_ == "nsubj"), None)
+        relcl = next((c for c in subject.children if c.dep_ == "relcl"), None) if subject is not None else None
+        if relcl is None or not any(t.lower_ in ("me", "us") for t in relcl.subtree):
+            return None
+        inside = {t.i for t in relcl.subtree}
+        noun = [t for t in subject.subtree if t.i not in inside]
+        verb = [t for t in relcl.subtree if not (t.dep_ in ("nsubj", "nsubjpass") and t.head.i == relcl.i
+                                                 and t.lower_ in ("that", "who", "which"))]
+        return relcl, f"{self._join(noun, reflect=True)} {self._join(verb, reflect=True)}"
+
+    def _appraisal_reply(self, doc, slots: Dict[str, str], user_id: int, policy=None,
+                         features: Optional[Dict[str, str]] = None, gentle: bool = False,
+                         clause: Optional[str] = None, kind_prefix: str = "appraisal",
+                         root=None) -> Optional[Tuple[str, str, str]]:
+        """
+        A reply from the appraisal of the message (see services/appraisal.py): templates by kind
+        of event, modality and who did what to whom, tried from most to least specific. None
+        when the message names no kind of event the knowledge base knows, so plainer
+        fallbacks (echoing the child's words) can reply.
+        """
+        if root is not None:
+            appraisal = self.appraiser.appraise_tokens(root, self._pet_names(user_id))
+        else:
+            appraisal = self.appraiser.appraise(doc, self._pet_names(user_id))
+        if appraisal is None:
+            return None
+        root = appraisal.root
+        # Someone the reference tracker could not resolve: ask who first
+        subject = next((c for c in root.children if c.dep_ in ("nsubj", "nsubjpass")), None)
+        if subject is not None and subject.lower_ in ("he", "she", "they"):
+            return None
+        if appraisal.question and appraisal.modality != appraisal_module.HYPOTHETICAL:
+            return None
+        # Long or mixed messages ("he fell down but he was ok"): plainer replies pick out a part
+        sentence = root.sent
+        if clause is None and (len(sentence) > 15 or any(
+                t.lower_ == "but" and t.dep_ == "cc" for t in sentence)):
+            return None
+        # Nothing known about what happened: plainer replies echo it ("We're having a party? Tell me more!")
+        if appraisal.action is None and appraisal.modality in (appraisal_module.REAL, appraisal_module.FUTURE,
+                                                               appraisal_module.OBLIGATION):
+            return None
+        # After sad news, "we visited him" (in the hospital) is not "That sounds like so much fun!"
+        if gentle and appraisal.valence == "positive" and appraisal.modality == appraisal_module.REAL \
+                and appraisal.action == "fun" and (appraisal.target in ("person", "pet") or root.lemma_ == "visit"):
+            return None
+        templates = self.kb.get("appraisal", {}).get("templates", {})
+        key = self._appraisal_template_key(appraisal, templates)
+        if key is None:
+            return None
+        if clause is None:
+            # "You have to clean your room?", not "To clean your room?"
+            clause_root = root if appraisal.modality == appraisal_module.REAL else (
+                next((t for t in [root, *root.ancestors] if t.dep_ == "ROOT"), root))
+            _, clause = self._extract_slot(clause_root, "clause")
+        slots["clause"] = clause
+        text = self._pick(templates[key], user_id, f"template:appraisal_{key}", policy, features).format_map(slots)
+        text = text[:1].upper() + text[1:]
+        return text, appraisal.valence, f"{kind_prefix}_{appraisal.action or 'any'}_{appraisal.modality}"
+
+    def _pet_names(self, user_id: int) -> List[str]:
+        """Names of the child's pets the reference tracker knows ("Milo")"""
+        pets = set(self.kb.get("appraisal", {}).get("pets", []))
+        return [p.name for p in self.references.state(user_id).people
+                if p.name and p.relation and p.relation.split()[-1] in pets]
+
+    @staticmethod
+    def _appraisal_template_key(a: Appraisal, templates: Dict[str, List[str]]) -> Optional[str]:
+        """The most specific template key for an appraisal, or None"""
+        modality = "negated" if a.modality == appraisal_module.REAL and a.negated else a.modality
+        candidates = []
+        if a.notes.get("conditional"):
+            candidates += [f"*.conditional.{a.valence}", "*.conditional"]
+        if a.notes.get("refuse"):
+            candidates += [f"{a.action}.refuse", "*.refuse"]
+        if a.notes.get("counterfactual"):
+            candidates += [f"{a.action}.counterfactual", "*.counterfactual"]
+        if a.notes.get("accident") and modality == appraisal_module.REAL:
+            candidates += [f"{a.action}.accident", "*.accident"]
+        if a.notes.get("habit") and modality == "negated":
+            candidates += [f"{a.action}.never", "*.never"]
+        if a.action:
+            base = f"{a.action}.{modality}"
+            # a valence-specific template first ("receive.real.negative": "I got a splinter")
+            candidates += [f"{base}.{a.valence}", f"{base}.{a.actor}>{a.target}", f"{base}.{a.actor}>",
+                           f"{base}.>{a.target}", f"{base}.{a.tense}", base]
+        if a.notes.get("wanter") == "other":
+            candidates.insert(0, f"*.{modality}.other")
+        if modality != "negated" and modality != appraisal_module.REAL:
+            candidates += [f"*.{modality}.{a.actor}>", f"*.{modality}.{a.valence}", f"*.{modality}"]
+        return next((c for c in candidates if c in templates), None)
+
+    def _phrase_reply(self, message: str, user_id: int) -> Optional[Tuple[str, str]]:
+        """(phrase id, reply) when the whole message is a set phrase from the knowledge base, else None"""
+        text = re.sub(r"[^\w' ]+", " ", message.lower()).replace("\u2019", "'")
+        text = re.sub(r"\s+(buddy|bud)$", "", " ".join(text.split()))
+        if not text or len(text.split()) > 7:
+            return None
+        for phrase_id, pattern, replies in self._phrases:
+            if pattern.fullmatch(text):
+                return f"phrase_{phrase_id}", self._pick(replies, user_id, f"phrase:{phrase_id}")
+        return None
+
+    def _answer_expectation(self, expectation: "Expectation", message: str, analysis: Analysis,
+                            user_id: int) -> Optional[Tuple[str, str]]:
+        """
+        (rule id, reply) when the message answers an offer or a listening request: "yes" to
+        "Want to hear a funny joke?", "a riddle" to "a joke, a riddle, or a fun fact?", the
+        child's line after "I'd love to hear it". None otherwise.
+        """
+        if expectation.kind == "listen" and not analysis.is_question and len(message.split()) <= 25:
+            return "performance", "Bravo! That was great! You're going to do awesome."
+        if expectation.kind not in ("offer", "choice"):
+            return None
+        kind = None
+        if expectation.kind == "choice":
+            chosen = next((o for o in expectation.options if re.search(rf"\b{o}s?\b", message, re.IGNORECASE)), None)
+            if chosen and len(message.split()) <= 6:
+                kind = chosen
+            elif _YES_RE.match(message):
+                kind = expectation.options[0]
+        elif _YES_RE.match(message):
+            kind = expectation.offer if expectation.offer != "again" else self._last_request.get(user_id)
+        if not kind:
+            return None
+        content = {}
+        self._requested_content(kind, content, user_id)
+        if not content.get("content"):
+            return None
+        return "joke_offer_yes", f"Okay, here's one: {content['content']}"
+
+    def _answer_open_question(self, expectation: "Expectation", analysis: Analysis) -> Optional[Tuple[str, str]]:
+        """
+        (rule id, reply) for a short answer to the bot's "What ...?" or "Why ...?" question,
+        or None if the message does not read as one
+        """
+        doc = analysis.doc
+        words = [t for t in doc if not t.is_punct]
+        if analysis.is_question or not words or len(words) > 10:
+            return None
+        if expectation.kind == "reason":
+            # "Why is Saturn your favorite?" - "it has rings" / "because it has rings"
+            root = next((t for t in doc if t.dep_ == "ROOT"), None)
+            if root is None or root.pos_ not in ("VERB", "AUX"):
+                return "answer_reason", "Ooh, that's a good reason!"
+            _, clause = self._extract_slot(root, "clause")
+            clause = re.sub(r"^(because|cuz|cause) ", "", clause, flags=re.IGNORECASE)
+            return "answer_reason", f"Ooh, that's a good reason! {clause[:1].upper()}{clause[1:]}? Cool!"
+        # An item: "a tree", "I'm a tree", "a ninja", "probably the red one"
+        match = re.match(r"\W*(?:i'm|i am|im|i'll be|it's|its|it is|maybe|probably|um+|uh+)?\s*"
+                         r"(?:going to be |gonna be |playing |be )?((?:an?|the|my) )?([a-z][a-z' -]{1,30}?)[.!]*$",
+                         doc.text, re.IGNORECASE)
+        if match is None or any(t.pos_ == "VERB" and t.lemma_ not in ("be", "play") for t in doc):
+            return None
+        item = f"{(match.group(1) or '').lower()}{match.group(2).strip()}"
+        item = re.sub(r"^my ", "your ", item)
+        noun = expectation.noun
+        tail = f"That sounds like a fun {noun}!" if noun else "That sounds awesome!"
+        return "answer_item", f"{item[:1].upper()}{item[1:]}! {tail}"
+
+    def _continuation_reply(self, doc, slots: Dict[str, str], user_id: int, policy=None,
+                            features: Optional[Dict[str, str]] = None,
+                            gentle: bool = False) -> Optional[Tuple[str, str, str]]:
+        """
+        A fragment that continues the child's previous message ("next week" after "we're going
+        to Disneyland", "to the zoo" after "we went on a field trip"): appraised together with
+        it, with the fragment echoed back
+        """
+        words = [t for t in doc if not t.is_punct]
+        if not words or len(words) > 6 or any(
+                t.pos_ in ("VERB", "AUX") and any(c.dep_ in ("nsubj", "nsubjpass") for c in t.children) for t in doc):
+            return None
+        previous = self._previous_message.get(user_id)
+        if not previous or not (words[0].lower_ in _CONTINUATION_WORDS or not any(
+                t.pos_ in ("VERB", "AUX") for t in doc)):
+            return None
+        previous = previous.rstrip(" .!?")
+        combined = self.parser.parse(f"{previous} {doc.text}")
+        previous_doc = self.parser.parse(previous)
+        if combined is None or previous_doc is None or len(combined) != len(previous_doc) + len(doc):
+            return None
+        fragment_words = [t for t in words if t.lower_ not in ("and", "then", "also", "so")]
+        fragment = self._join(fragment_words, reflect=True)
+        if not fragment:
+            return None
+        verb = next((t for t in doc if t.pos_ == "VERB"), None)
+        if verb is not None:
+            # "and had hot chocolate" after "we made snow angels": about having the hot chocolate
+            if fragment_words[0].i != verb.i:
+                return None
+            combined_verb = combined[len(previous_doc) + verb.i]
+            subject = self.appraiser.subject(combined_verb)
+            who = self._reflect_token(subject) if subject is not None else ""
+            clause = f"{who} {fragment}".strip()
+            return self._appraisal_reply(combined, slots, user_id, policy, features, gentle,
+                                         clause=clause, kind_prefix="continuation",
+                                         root=combined_verb)
+        return self._appraisal_reply(combined, slots, user_id, policy, features, gentle,
+                                     clause=fragment, kind_prefix="continuation")
+
+    def _pretend_reply(self, message: str) -> Optional[str]:
+        """A line in a game of pretend: take the role the child gives, cheer the child's role, or keep it going"""
+        text = message.lower()
+        bot_role = re.search(r"\byou(?:'re| are|re) (a|an|the) ([a-z ]{2,25}?)[.!?]*$", text)
+        if bot_role:
+            role = bot_role.group(2).strip()
+            sound = _PRETEND_SOUNDS.get(role.split()[-1], "")
+            return f"{sound + ' ' if sound else ''}Okay, I'm {bot_role.group(1)} {role}! Who are you?"
+        child_role = re.search(r"\bi(?:'m| am|m) (a|an|the) ([a-z ]{2,25}?)[.!?]*$", text)
+        if child_role:
+            return f"Ooh, {child_role.group(1)} {child_role.group(2).strip()}! What happens next?"
+        if re.search(r"\b(attack|fight|hit|zap|chase)\b", text) and re.search(r"\byou\b", text):
+            return "Whoosh! I dodge out of the way! Your turn!"
+        return self._pick(PRETEND_PROMPTS, 0)
+
+    @staticmethod
+    def _compare_fractions(match) -> str:
+        """ "Is 1/2 bigger than 1/4?" -> "Yes! 1/2 is bigger than 1/4." """
+        a, b, word, c, d = match.groups()
+        if int(b) == 0 or int(d) == 0:
+            return "Hmm, you can't split something into zero parts! Try another one?"
+        left, right = int(a) / int(b), int(c) / int(d)
+        bigger = word.lower() in ("bigger", "larger", "more", "greater")
+        first, second = f"{a}/{b}", f"{c}/{d}"
+        if left == right:
+            return f"They're the same size! {first} and {second} are equal."
+        true = (left > right) == bigger
+        relation = "bigger" if left > right else "smaller"
+        reply = f"{'Yes' if true else 'Nope'}! {first} is {relation} than {second}."
+        if a == c == "1":
+            reply += " When you split something into more pieces, each piece gets smaller!"
+        return reply
+
     def _world_answer(self, text: str) -> Optional[str]:
         """The answer to a common question about the world ("Why is the sky blue?"), if known"""
+        # "What's a fraction?" matches patterns written as "what is"
+        expanded = re.sub(r"\b(what|where|who|how|when|why)'s\b", r"\1 is", text, flags=re.IGNORECASE)
         for pattern, answer in self.answers:
-            if pattern.search(text):
+            if pattern.search(text) or pattern.search(expanded):
                 return answer
         return None
 

@@ -59,6 +59,16 @@ def reply(engine, message):
     ("what is checkmate", "Checkmate is"),
     ("do cats like milk", "Lots of cats like the taste of milk"),
     ("how long do dogs live", "Most dogs live"),
+    ("will the tooth fairy come", "Lots of kids put their tooth"),
+    ("how much money do you get", "It's different for every family"),
+    ("how do i build a castle in minecraft", "Start with a strong base"),
+    ("how long do tomato seeds take to grow", "Most seeds sprout"),
+    ("whats a fraction", "A fraction is"),
+    ("how do robots work", "Robots have a computer"),
+    ("where does snow come from", "Snow forms"),
+    ("can fish go to heaven", "That's a really big question"),
+    ("why do butterflies have wings", "Butterflies use their wings"),
+    ("will the shot hurt", "A shot might pinch"),
 ])
 def test_known_questions(engine, question, start):
     text, rule = reply(engine, question)

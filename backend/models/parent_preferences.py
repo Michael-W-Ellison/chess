@@ -160,6 +160,8 @@ class ParentNotificationPreferences(Base):
 
         type_filters = {
             "crisis": self.notify_on_crisis,
+            # A stranger trying to get the child to go with them: notified like a crisis
+            "stranger_danger": self.notify_on_crisis,
             "abuse": self.notify_on_abuse,
             "bullying": self.notify_on_bullying,
             "profanity": self.notify_on_profanity,
