@@ -20,7 +20,7 @@ from services.llm_service import llm_service
 from services.safety_filter import safety_filter
 from services.bullying_keyword_list import bullying_keyword_list
 from services.crisis_keyword_list import crisis_keyword_list
-from services import crisis_context
+from services import correction_handler, crisis_context
 from services.memory_manager import memory_manager
 from services.personality_manager import personality_manager
 from services.conversation_tracker import conversation_tracker
@@ -167,6 +167,9 @@ class ConversationManager:
         self._topic_messages: Dict[int, deque] = {}
         # Messages like "my sister always beats me" whose meaning the bot asked about
         self._pending_clarification: Dict[int, str] = {}
+        # The bot's last reply to each user, for telling a correction ("no its Sammy") from an
+        # answer to a yes/no question ("Do you like tacos too?" "no, burgers")
+        self._last_reply: Dict[int, str] = {}
 
     def start_conversation(self, user_id: int, db: Session) -> Dict:
         """
@@ -419,6 +422,20 @@ class ConversationManager:
         if safety_result["severity"] != "none":
             safety_filter.log_safety_event(db, user_id, safety_result, message_id=user_msg.id)
 
+        # "no its Sammy", "I didn't say that": the bot got something wrong, so the message is
+        # not scored as engagement with its last reply
+        if memory_manager.awaiting_correction(user_id):
+            correction = correction_handler.answer(user_message)  # "frogs" after "What did you mean?"
+            if correction is None:
+                memory_manager.forget_retracted(user_id)
+        else:
+            correction = correction_handler.detect(user_message)
+            if (correction and correction.plain_no
+                    and correction_handler.asks_yes_no(self._last_reply.get(user_id))):
+                correction = None
+        if correction and (correction.value or correction.kind != correction_handler.REPLACE):
+            engagement_tracker.discard_pending(user_id)
+
         # Score how engaged this message is and credit the choices in the bot's last reply
         self._record_engagement(user_id, user_message, db)
 
@@ -437,8 +454,11 @@ class ConversationManager:
         analysis_message = self._resolve_references(
             self._capitalize_known_names(self._name_introduction(user_message, user_id), user_id, db), user_id)
 
-        # 5. Extract and store memories
+        # 5. Extract and store memories, and change the ones the child corrected
+        previous_memories = memory_manager.last_written(user_id)
         memory_manager.extract_and_store_memories(analysis_message, user_id, db)
+        corrected = (self._apply_correction(correction, previous_memories, user_id, analysis_message, db)
+                     if correction else None)
         awaiting_name = user_id in self._awaiting_name
 
         # 6. Build context
@@ -465,7 +485,11 @@ class ConversationManager:
         allow_reflection = safety_result["severity"] == "none"
         reply_features: Dict[str, str] = {}
         try:
-            if settings.USE_LLM and llm_service.ensure_loaded(timeout=60.0):
+            if corrected:
+                # Say what the bot now remembers ("Oops, got it! Your dog is named Rex.")
+                raw_response = corrected["reply"]
+                reply_features["rule"] = "correction"
+            elif settings.USE_LLM and llm_service.ensure_loaded(timeout=60.0):
                 reply_plan = self._plan_llm_reply(context, personality, db)
                 prompt = self._build_prompt(context, user_message, personality, reply_plan)
                 raw_response = llm_service.generate(prompt, max_tokens=300, temperature=0.7)
@@ -493,7 +517,7 @@ class ConversationManager:
             raw_response, personality, user_message, features=reply_features,
             # A requested joke or fact does not get another one added, and advice gets none
             allow_jokes=not response_engine.rule_flag(reply_features.get("rule"), "no_jokes")
-            and not context.get("advice") and not sensitive
+            and not corrected and not context.get("advice") and not sensitive
             and not self._mentions_person(user_id),
             emoji_mood="concerned" if upset else None,
             allow_emojis=upset or not sensitive,
@@ -519,6 +543,7 @@ class ConversationManager:
 
         # 10. Store assistant response
         self._store_message(conversation_id, "assistant", final_response, db)
+        self._last_reply[user_id] = final_response
 
         # 11. Update conversation count
         conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
@@ -1173,6 +1198,26 @@ INSTRUCTIONS:
             logger.error(f"Error resolving references: {e}", exc_info=True)
             return user_message
 
+    @staticmethod
+    def _apply_correction(correction, previous_memories: List[Dict], user_id: int, message: str,
+                          db: Session) -> Optional[Dict]:
+        """
+        Change the memories a correction is about (see MemoryManager.apply_correction), and
+        the name of a pet or person the child is talking about ("oops his name is Rex")
+        """
+        try:
+            corrected = memory_manager.apply_correction(user_id, correction, previous_memories, db, message)
+        except Exception as e:
+            logger.error(f"Error applying a correction: {e}", exc_info=True)
+            db.rollback()
+            return None
+        if corrected and corrected.get("renamed"):
+            old, new = corrected["renamed"]
+            for person in response_engine.references.state(user_id).people:
+                if person.name and person.name.lower() == old.lower():
+                    person.name = new
+        return corrected
+
     def _record_engagement(self, user_id: int, user_message: str, db: Session) -> None:
         """Score the child's message against the bot's previous reply (never blocks a reply)"""
         try:
@@ -1264,8 +1309,10 @@ INSTRUCTIONS:
             name = match.group(1)
             if not awaiting and not name[0].isupper():
                 return message
-        elif awaiting and re.fullmatch(r"\s*[A-Za-z][A-Za-z'-]{1,19}\s*[.!]*\s*", message):
-            name = message.strip(" .!")
+        elif awaiting and re.fullmatch(r"\s*(?:it'?s\s+|it is\s+)?[A-Za-z][A-Za-z'-]{1,19}\s*[.!]*\s*", message,
+                                       re.IGNORECASE):
+            # "lily", "it's Lily"
+            name = re.sub(r"^\s*(?:it'?s|it is)\s+", "", message, flags=re.IGNORECASE).strip(" .!")
         else:
             return message
         # "hii" is a greeting; "SAM" is Sam

@@ -5,12 +5,15 @@ Extracts and manages user memories and profile information
 
 from typing import List, Dict, Optional
 import logging
+import re
 from datetime import datetime
 import json
 
 from sqlalchemy.orm import Session
 from models.user import User
 from models.memory import UserProfile
+from services import correction_handler
+from services.correction_handler import Correction
 from services.prompts import MemoryExtractionPrompt
 from services.response_engine import response_engine
 from utils.config import settings
@@ -32,6 +35,12 @@ class MemoryManager:
     def __init__(self):
         self.extraction_enabled = True
         self.use_llm_extraction = True  # Enable LLM-based extraction by default
+        # What the child's last message stored, for corrections ("no its Sammy", "I didn't say
+        # that"): each write's category, key, value, the value it replaced (None if new) and
+        # the opposite preferences it deleted
+        self._last_written: Dict[int, List[Dict]] = {}
+        # Memories removed by "I didn't say that", for the child's answer to "What did you mean?"
+        self._retracted: Dict[int, List[Dict]] = {}
 
     def extract_and_store_memories(
         self, user_message: str, user_id: int, db: Session, use_llm: bool = None
@@ -52,6 +61,7 @@ class MemoryManager:
             return []
 
         memories = []
+        writes = []
 
         # Use instance setting if not specified
         if use_llm is None:
@@ -101,7 +111,9 @@ class MemoryManager:
                 logger.debug(f"Created memory: {category}/{key}")
 
             # A new like replaces an earlier dislike of the same thing, and vice versa
-            self._remove_opposite_preference(user_id, category, key, db)
+            removed = self._remove_opposite_preference(user_id, category, key, db)
+            writes.append({"category": category, "key": key, "value": value,
+                           "previous": previous_value, "removed": removed})
 
             # Use a name the child tells us in place of the placeholder account name
             if category == "basic" and key == "name":
@@ -113,23 +125,247 @@ class MemoryManager:
         if memories:
             db.commit()
             logger.info(f"Stored {len(memories)} memories for user {user_id}")
+        self._last_written[user_id] = writes
 
         return memories
 
-    def _remove_opposite_preference(self, user_id: int, category: str, key: str, db: Session) -> None:
-        """Delete likes_X when dislikes_X is stored (and the reverse)"""
+    def last_written(self, user_id: int) -> List[Dict]:
+        """What the child's last message stored (see extract_and_store_memories)"""
+        return list(self._last_written.get(user_id, []))
+
+    def _remove_opposite_preference(self, user_id: int, category: str, key: str, db: Session) -> List[tuple]:
+        """Delete likes_X when dislikes_X is stored (and the reverse); returns what was deleted"""
         if category == "favorite" and key.startswith("likes_"):
             opposite = ("dislike", "dislikes_" + key[len("likes_"):])
         elif category == "dislike" and key.startswith("dislikes_"):
             opposite = ("favorite", "likes_" + key[len("dislikes_"):])
         else:
-            return
+            return []
 
-        db.query(UserProfile).filter(
+        rows = db.query(UserProfile).filter(
             UserProfile.user_id == user_id,
             UserProfile.category == opposite[0],
             UserProfile.key == opposite[1],
-        ).delete()
+        ).all()
+        removed = [(row.category, row.key, row.value) for row in rows]
+        for row in rows:
+            db.delete(row)
+        return removed
+
+    # ------------------------------------------------------------------
+    # Corrections
+    # ------------------------------------------------------------------
+
+    def apply_correction(
+        self, user_id: int, correction: Correction, previous: List[Dict], db: Session, message: str = ""
+    ) -> Optional[Dict]:
+        """
+        Change or remove memories the child corrected.
+
+        Args:
+            user_id: User ID
+            correction: What the correction message says (correction_handler.detect)
+            previous: What the message before it stored (last_written, read before this
+                message's memories were stored)
+            db: Database session
+            message: The correction with pronouns resolved ("my dog Max's name is actually
+                rex"), to find a pet or person named in an earlier conversation
+
+        Returns:
+            None if the correction changed nothing, else {"reply": what the bot says,
+            "renamed": (old name, new name) or None}
+        """
+        current = self._last_written.get(user_id, [])
+        # "I didn't say that" ... "I said frogs" (or just "frogs")
+        retracted = self._retracted.pop(user_id, [])
+        previous = previous or retracted
+        if correction.kind == correction_handler.NOT_NAME:
+            return self._correct_name(user_id, correction, db)
+
+        if correction.kind == correction_handler.REPLACE:
+            # "no wait im 8", "actually i hate broccoli": the message itself stored the right value
+            changed = [w for w in current if (w["previous"] is not None and w["previous"] != w["value"])
+                       or w["removed"]]
+            if changed:
+                w = changed[-1]
+                return {"reply": correction_handler.reply(w["category"], w["key"], w["value"]), "renamed": None}
+            # "oops i have a cat" after "i have a dog", "no his name is Rex" after "i have a dog
+            # named Max": the new memory replaces the last one of its kind (likes are not replaced:
+            # the child can like both)
+            for w in reversed(current):
+                if w["category"] != "person" and not (w["key"].startswith("has_") and not correction.plain_no):
+                    continue
+                old = next((p for p in reversed(previous) if p["category"] == w["category"] and p["key"] != w["key"]
+                            and self._key_prefix(p) == self._key_prefix(w)), None)
+                if old:
+                    self._delete(user_id, old["category"], old["key"], db)
+                    db.commit()
+                    renamed = (old["value"], w["value"]) if w["category"] == "person" else None
+                    return {"reply": correction_handler.reply(w["category"], w["key"], w["value"]), "renamed": renamed}
+            if current or not correction.value:
+                return None
+            target = self._correction_target(previous, correction) or \
+                (self._stored_person(user_id, message, db) if correction.about_name else None)
+            return self._replace(user_id, target, correction.value, db) if target else None
+
+        # "I didn't say that" (and maybe what the child did say)
+        if correction.value:
+            target = self._correction_target(previous, correction)
+            if target:
+                return self._replace(user_id, target, correction.value, db)
+        if previous:
+            self._undo(user_id, previous, db)
+            self._last_written[user_id] = []
+            self._retracted[user_id] = [dict(w, retracted=True) for w in previous]
+            return {"reply": correction_handler.RETRACTED_REPLY, "renamed": None}
+        return {"reply": correction_handler.MISUNDERSTOOD_REPLY, "renamed": None}
+
+    @staticmethod
+    def _slug(text: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
+
+    def _key_prefix(self, write: Dict) -> str:
+        """"likes_" for likes_dogs, "dog_" for a dog's name (dog_max)"""
+        key = write["key"]
+        if write["category"] == "person":
+            slug = self._slug(write["value"])
+            return key[: -len(slug)] if slug and key.endswith("_" + slug) else key
+        return key.split("_", 1)[0] + "_" if "_" in key else key
+
+    def awaiting_correction(self, user_id: int) -> bool:
+        """Whether the bot just forgot something the child said it got wrong ("What did you mean?")"""
+        return bool(self._retracted.get(user_id))
+
+    def forget_retracted(self, user_id: int) -> None:
+        self._retracted.pop(user_id, None)
+
+    def _stored_person(self, user_id: int, message: str, db: Session) -> Optional[Dict]:
+        """
+        The stored pet or person a name correction is about when it was not named in the last
+        message: the one named in the message ("my dog Max's name is actually rex"), else the
+        only one stored
+        """
+        rows = db.query(UserProfile).filter(UserProfile.user_id == user_id, UserProfile.category == "person").all()
+        named = [r for r in rows if r.value and re.search(rf"\b{re.escape(r.value)}\b", message, re.IGNORECASE)]
+        row = named[0] if len(named) == 1 else (rows[0] if len(rows) == 1 else None)
+        if row is None:
+            return None
+        return {"category": row.category, "key": row.key, "value": row.value, "previous": row.value, "removed": []}
+
+    def _correction_target(self, previous: List[Dict], correction: Correction) -> Optional[Dict]:
+        """The memory from the last message that a new value replaces"""
+        new = correction.value.lower()
+        candidates = [w for w in previous if correction_handler.same_kind(w["value"], new)
+                      and w["value"].lower() != new]
+        if correction.old:
+            named = [w for w in candidates if correction.old in w["value"].lower()]
+            candidates = named or candidates
+        if correction.about_name:
+            names = [w for w in candidates if w["category"] == "person" or w["key"] == "name"]
+            candidates = names or candidates
+        return candidates[-1] if candidates else None
+
+    def _renamed_key(self, key: str, old: str, new: str) -> str:
+        """likes_dogs -> likes_frogs, has_dog -> has_cat, dog_max -> dog_rex; name and age stay"""
+        def bare(text):
+            words = text.split()
+            return " ".join(words[1:]) if len(words) > 1 and words[0].lower() in correction_handler._DETERMINERS else text
+
+        pairs = [(old, new), (bare(old), bare(new)), (old.split()[-1], new.split()[-1])]
+        pairs.append((pairs[-1][0].rstrip("s"), pairs[-1][1].rstrip("s")))
+        for o, n in pairs:
+            so, sn = self._slug(o), self._slug(n)
+            if so and sn and key.endswith("_" + so):
+                return key[: -len(so)] + sn
+        return key
+
+    def _row(self, user_id: int, category: str, key: str, db: Session) -> Optional[UserProfile]:
+        return db.query(UserProfile).filter(
+            UserProfile.user_id == user_id, UserProfile.category == category, UserProfile.key == key
+        ).first()
+
+    def _delete(self, user_id: int, category: str, key: str, db: Session) -> None:
+        row = self._row(user_id, category, key, db)
+        if row is not None:
+            db.delete(row)
+
+    def _replace(self, user_id: int, write: Dict, value: str, db: Session) -> Optional[Dict]:
+        """Give a memory from the last message a new value ("Max" -> "Rex")"""
+        row = self._row(user_id, write["category"], write["key"], db)
+        if row is None and write.get("retracted"):
+            # "I didn't say that" removed it; "I said frogs" puts it back with the right value
+            row = UserProfile(user_id=user_id, category=write["category"], key=write["key"], value=write["value"],
+                              confidence=0.8, first_mentioned=datetime.now(), last_mentioned=datetime.now(),
+                              mention_count=1)
+            db.add(row)
+        if row is None:
+            return None
+        old_value = row.value
+        new_value = correction_handler.styled(value, old_value)
+        new_key = self._renamed_key(row.key, old_value, new_value)
+        if new_key != row.key:
+            existing = self._row(user_id, row.category, new_key, db)
+            if existing is not None:
+                db.delete(row)
+                row = existing
+            else:
+                row.key = new_key
+        row.value = new_value
+        row.last_mentioned = datetime.now()
+        removed = self._remove_opposite_preference(user_id, row.category, row.key, db)
+        if row.category == "basic" and row.key == "name":
+            user = db.query(User).filter(User.id == user_id).first()
+            if user and (user.name in (None, "", "User") or user.name == old_value):
+                user.name = new_value
+        db.commit()
+        # A second correction, or "I didn't say that", undoes this one too
+        self._last_written[user_id] = [{"category": row.category, "key": row.key, "value": new_value,
+                                        "previous": None if write.get("retracted") else write["previous"],
+                                        "removed": write["removed"] + removed}]
+        renamed = (old_value, new_value) if row.category == "person" else None
+        return {"reply": correction_handler.reply(row.category, row.key, new_value), "renamed": renamed}
+
+    def _undo(self, user_id: int, writes: List[Dict], db: Session) -> None:
+        """Remove what the last message stored, putting back any values it replaced"""
+        user = db.query(User).filter(User.id == user_id).first()
+        for w in writes:
+            row = self._row(user_id, w["category"], w["key"], db)
+            if row is not None:
+                if w["previous"] is None:
+                    db.delete(row)
+                else:
+                    row.value = w["previous"]
+            for category, key, value in w["removed"]:
+                if self._row(user_id, category, key, db) is None:
+                    db.add(UserProfile(user_id=user_id, category=category, key=key, value=value, confidence=0.8,
+                                       first_mentioned=datetime.now(), last_mentioned=datetime.now(),
+                                       mention_count=1))
+            if w["category"] == "basic" and w["key"] == "name" and user and user.name == w["value"]:
+                user.name = w["previous"] or "User"
+        db.commit()
+
+    def _correct_name(self, user_id: int, correction: Correction, db: Session) -> Optional[Dict]:
+        """"That's not my name": forget the stored name (or use the one the child gives)"""
+        row = self._row(user_id, "basic", "name", db)
+        user = db.query(User).filter(User.id == user_id).first()
+        stored = row.value if row is not None else (user.name if user and user.name not in (None, "", "User") else None)
+        if stored is None or (correction.old and correction.old != stored.lower()):
+            return None
+        if correction.value:
+            if row is None:
+                row = UserProfile(user_id=user_id, category="basic", key="name", value=stored, confidence=0.8,
+                                  first_mentioned=datetime.now(), last_mentioned=datetime.now(), mention_count=1)
+                db.add(row)
+                db.flush()
+            return self._replace(user_id, {"category": "basic", "key": "name", "value": stored,
+                                           "previous": stored, "removed": []}, correction.value, db)
+        if row is not None:
+            db.delete(row)
+        if user and user.name == stored:
+            user.name = "User"
+        db.commit()
+        self._last_written[user_id] = []
+        return {"reply": correction_handler.NAME_REMOVED_REPLY, "renamed": None}
 
     def _fallback_extraction(self, message: str) -> List[tuple]:
         """Extraction without the LLM: sentence-structure rules if available, else keywords"""

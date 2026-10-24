@@ -508,8 +508,10 @@ def _repair_objects(doc) -> None:
             token.head, token.dep_ = doc[token.i - 1], "xcomp"
             token.pos_, token.tag_ = "VERB", "VBG"
             continue
-        # "Do you like pancakes": "like" read as an interjection on "pancakes"
-        if (token.dep_ == "intj" and token.lemma_ in ("like", "love", "want", "hate") and token.head.dep_ == "ROOT"
+        # "Do you like pancakes": "like" read as an interjection on "pancakes" ("I hate broccoli":
+        # "hate" read as a side clause of "broccoli")
+        if (token.dep_ in ("intj", "parataxis") and token.lemma_ in ("like", "love", "want", "hate")
+                and token.head.dep_ == "ROOT"
                 and token.head.pos_ == "NOUN" and token.i < token.head.i
                 and any(c.dep_ == "nsubj" for c in token.children)):
             noun = token.head

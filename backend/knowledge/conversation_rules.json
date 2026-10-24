@@ -2162,8 +2162,9 @@
       "memories": [{"category": "basic", "key": "name", "value": "{name_raw}"}],
       "responses": ["Nice to meet you, {name}! I'm {bot_name}.", "{name} is a great name! I'll remember that."],
       "follow_ups": ["What do you like to do for fun, {name}?"],
-      "conditions": {"no_det": "name", "question": false},
-      "examples": ["my name is Sam", "My name is Sam.", "My name is Rex."]
+      "conditions": {"no_det": "name", "question": false, "not_negated": "be"},
+      "examples": ["my name is Sam", "My name is Sam.", "My name is Rex."],
+      "non_examples": ["my name isnt lily", "my name is not Sam"]
     },
     {
       "id": "age_is",
@@ -3985,7 +3986,7 @@
       "follow_ups": ["What do you like instead?"],
       "no_jokes": true,
       "suppressed_by": ["hate_you"],
-      "examples": ["I hate math", "I don't like broccoli anymore", "i hate math"],
+      "examples": ["I hate math", "I don't like broccoli anymore", "i hate math", "i hate broccoli"],
       "non_examples": ["i dont like you"]
     },
     {
@@ -4009,7 +4010,7 @@
         {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": {"IN": ["dobj", "xcomp"]}, "LOWER": {"NOT_IN": ["it", "that", "this", "them", "you"]}}}
       ]],
       "suppressed_by": ["love_person", "like_more", "crush_boy", "crush_girl"],
-      "conditions": {"not_negated": "verb"},
+      "conditions": {"not_negated": "verb", "question": false},
       "slots": {"thing": {"node": "obj", "span": "activity"}, "verb": {"node": "verb", "span": "lemma"}},
       "compute": ["bot_shares_like"],
       "memories": [{"category": "favorite", "key": "likes_{thing_slug}", "value": "{thing_raw}"}],
@@ -4022,7 +4023,7 @@
       ],
       "follow_ups": ["What do you like most about {thing_them}?", "Is there anything else you really like?"],
       "examples": ["I love pizza", "but i like science", "I like soccer"],
-      "non_examples": ["the teacher i like the most is mr smith"]
+      "non_examples": ["the teacher i like the most is mr smith", "do i like broccoli"]
     },
     {
       "id": "person_named",
