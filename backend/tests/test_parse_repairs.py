@@ -777,3 +777,22 @@ class TestRoundTwelve:
     def test_wording(self, engine, text, words):
         from tests.test_dialogue_fixes import rule_of
         assert words in rule_of(engine, text)[1]
+
+
+class TestRoundThirteen:
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    @pytest.mark.parametrize("text,rule", [
+        ("my dog ate my sandwich", "fallback_appraisal_eat_real"),
+        ("my dog ate my homework", "pet_chewed"),
+        ("my cat had kittens last night and there are five of them", "pet_babies"),
+        ("i watched my dad fix the car", "fallback_reflection"),
+        ("i watched a movie", "fallback_appraisal_fun_real"),
+    ])
+    def test_rule(self, engine, text, rule):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text)[0] == rule

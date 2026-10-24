@@ -213,6 +213,9 @@ class Appraiser:
                                                     or self._role(obj) in ("person", "pet")):
             return "loss"
         # "We went to the dentist": going somewhere is not always fun
+        # "I watched my dad fix the car": watching someone do a job is not a show
+        if action == "fun" and lemma in ("watch", "see") and any(c.dep_ in ("ccomp", "xcomp") for c in verb.children):
+            return None
         if action == "fun" and lemma in ("go", "visit"):
             place = next((g for c in verb.children if c.dep_ == "prep" for g in c.children if g.dep_ == "pobj"), None)
             if place is not None and place.lemma_.lower() in self.chore_places:

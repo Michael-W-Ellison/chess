@@ -1510,18 +1510,31 @@
         [
           {"RIGHT_ID": "chew", "RIGHT_ATTRS": {"LEMMA": {"IN": ["chew", "eat", "rip"]}}},
           {"LEFT_ID": "chew", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": ["puppy", "dog", "kitten", "cat", "bunny", "rabbit", "hamster"]}}},
-          {"LEFT_ID": "chew", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj"}}
+          {"LEFT_ID": "chew", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"NOT_IN": ["cupcake", "cake", "cookie", "pizza", "ice", "cream", "candy", "chocolate", "pancake", "taco", "burger", "fries", "pasta", "spaghetti", "sushi", "apple", "banana", "strawberry", "watermelon", "popcorn", "donut", "doughnut", "sandwich", "cheese", "broccoli", "carrot", "chicken", "nugget", "nuggets", "noodles", "soup", "cereal", "muffin", "pie", "brownie", "waffle", "bacon", "egg", "eggs", "rice", "milk", "juice", "soda", "syrup", "toast", "oatmeal", "yogurt", "grapes", "salad", "hotdog", "burrito", "dumplings", "ramen", "sausage", "lunch", "dinner", "breakfast", "snack", "food", "steak", "meat", "treat"]}}}
         ],
         [
           {"RIGHT_ID": "chew", "RIGHT_ATTRS": {"LEMMA": {"IN": ["chew", "eat", "rip"]}}},
           {"LEFT_ID": "chew", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj"}},
-          {"LEFT_ID": "chew", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj"}},
+          {"LEFT_ID": "chew", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"NOT_IN": ["cupcake", "cake", "cookie", "pizza", "ice", "cream", "candy", "chocolate", "pancake", "taco", "burger", "fries", "pasta", "spaghetti", "sushi", "apple", "banana", "strawberry", "watermelon", "popcorn", "donut", "doughnut", "sandwich", "cheese", "broccoli", "carrot", "chicken", "nugget", "nuggets", "noodles", "soup", "cereal", "muffin", "pie", "brownie", "waffle", "bacon", "egg", "eggs", "rice", "milk", "juice", "soda", "syrup", "toast", "oatmeal", "yogurt", "grapes", "salad", "hotdog", "burrito", "dumplings", "ramen", "sausage", "lunch", "dinner", "breakfast", "snack", "food", "steak", "meat", "treat"]}}},
           {"LEFT_ID": "subj", "REL_OP": ">", "RIGHT_ID": "kind", "RIGHT_ATTRS": {"DEP": {"IN": ["compound", "amod"]}, "LEMMA": {"IN": ["puppy", "dog", "kitten", "cat", "bunny", "rabbit", "hamster"]}}}
         ]
       ],
       "conditions": {"question": false, "not_negated": "chew"},
       "slots": {"obj": {"node": "obj", "span": "subtree"}},
       "responses": ["Uh oh! Puppies and pets love to chew. Maybe give them a chew toy instead of {obj}!"]
+    },
+    {
+      "id": "pet_babies",
+      "priority": 75,
+      "patterns": [[
+        {"RIGHT_ID": "have", "RIGHT_ATTRS": {"LEMMA": "have"}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "pet", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": ["dog", "cat", "hamster", "bunny", "rabbit", "fish", "guinea", "bird", "mouse", "gerbil", "horse", "goat", "cow", "pig", "sheep", "chicken", "hen"]}}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "babies", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["kitten", "puppy", "baby", "bunny", "chick", "egg", "piglet", "lamb", "kid", "foal", "calf"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "have"},
+      "slots": {"babies": {"node": "babies", "span": "noun_phrase"}},
+      "no_jokes": true,
+      "responses": ["Aww, {babies}? That's so exciting! What do they look like?"]
     },
     {
       "id": "do_it_again",
