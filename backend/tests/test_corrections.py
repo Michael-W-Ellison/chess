@@ -185,3 +185,34 @@ def test_no_answering_a_yes_no_question_is_not_a_correction(api):
     conversation_manager._last_reply[child.user_id] = "Pizza is great! Do you like tacos too?"
     child.say("no, burgers")
     assert child.memories().get("likes_pizza") == "pizza"
+
+
+@needs_model
+def test_misread_sad_reading_is_corrected(api):
+    child = Child(api, 7311)
+    child.say("my grandma is in the hospital")
+    reply = child.say("no she works there")
+    assert reply.startswith("Oh, sorry, I misunderstood!")
+    assert "I'm here for you" not in child.say("shes a nurse")
+
+
+@needs_model
+def test_a_real_loss_is_not_called_a_misreading(api):
+    child = Child(api, 7312)
+    child.say("my dog died")
+    assert "misunderstood" not in child.say("no he was really old")
+
+
+@needs_model
+def test_name_that_is_also_shorthand(api):
+    child = Child(api, 7313)
+    child.say("my name is ty")
+    assert child.memories()["name"] == "Ty"
+
+
+@needs_model
+def test_corrected_memory_is_recalled(api):
+    child = Child(api, 7314)
+    child.say("i have a dog")
+    child.say("oops i meant a cat")
+    assert "a cat" in child.say("what pet do i have")

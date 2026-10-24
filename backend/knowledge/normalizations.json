@@ -206,6 +206,7 @@
     "favirite": "favorite",
     "pritty": "pretty"
   },
+  "names": ["ty"],
   "digit_shorthand": {
     "b4": "before",
     "2day": "today",
@@ -289,6 +290,18 @@
         [
           "jk",
           "just kidding"
+        ],
+        [
+          "ty",
+          "thank you"
+        ],
+        [
+          "im ty",
+          "I'm ty"
+        ],
+        [
+          "my name is ty",
+          "my name is Ty"
         ]
       ]
     },

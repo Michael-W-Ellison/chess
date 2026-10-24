@@ -834,3 +834,33 @@ class TestRoundFourteen:
         features = {}
         reply = engine.generate_response("do you poop", make_personality(), allow_reflection=False, features=features)
         assert features["rule"] == "bot_do_question" and "poop" not in reply.lower()
+
+
+class TestCorrectionsAndRecall:
+    """Parse errors found while letting the child correct the bot and ask what it remembers"""
+
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    def test_hate_before_a_food_is_the_main_verb(self, engine):
+        assert engine.extract_memories("i hate broccoli") == [("dislike", "dislikes_broccoli", "broccoli")]
+
+    @pytest.mark.parametrize("message,memory", [
+        ("my best friend is maya", ("person", "best_friend_maya", "Maya")),
+        ("my sister is emma", ("person", "sister_emma", "Emma")),
+        ("my bff is zoe", ("person", "bff_zoe", "Zoe")),
+    ])
+    def test_lowercase_name_after_a_relation_is_a_name(self, engine, message, memory):
+        assert engine.extract_memories(message) == [memory]
+
+    @pytest.mark.parametrize("message", ["my mom is home", "my friend is nice", "my friend is a girl",
+                                         "my mom is a nurse"])
+    def test_other_words_after_a_relation_are_not_names(self, engine, message):
+        assert engine.extract_memories(message) == []
+
+    @pytest.mark.parametrize("message", ["do i like broccoli", "what do i hate", "my name isnt lily"])
+    def test_questions_and_denials_store_nothing(self, engine, message):
+        assert engine.extract_memories(message) == []

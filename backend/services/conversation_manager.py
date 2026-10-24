@@ -128,6 +128,14 @@ _NAME_CORRECTION_RE = re.compile(
     re.IGNORECASE,
 )
 
+# "no she works there" after a caring reply to "my grandma is in the hospital": the bot read
+# something as sad that was not (not "no I don't want to", "no thanks")
+_MISREAD_RE = re.compile(
+    r"^\s*(?:no+|nope|nah|actually|wait)\b[\s,!.]+"
+    r"(?!(?:i\s+)?(?:don'?t|do not|not|never|thanks|thank|way|more|i'?m\s+(?:not|okay|ok|fine))\b)\w+\s+\w+",
+    re.IGNORECASE,
+)
+
 _NOT_NAMES = {
     "hi", "hey", "hello", "yo", "sup", "yes", "no", "yeah", "yep", "nope", "ok", "okay", "maybe",
     "fine", "good", "great", "bad", "back", "here", "home", "done", "ready", "sorry", "bored",
@@ -170,6 +178,9 @@ class ConversationManager:
         # The bot's last reply to each user, for telling a correction ("no its Sammy") from an
         # answer to a yes/no question ("Do you like tacos too?" "no, burgers")
         self._last_reply: Dict[int, str] = {}
+        # Users whose last message got a caring reply only for its words ("hospital"), with no
+        # sad, scared or angry event in its parse: the reading may have been wrong
+        self._upset_by_words: set = set()
 
     def start_conversation(self, user_id: int, db: Session) -> Dict:
         """
@@ -260,6 +271,8 @@ class ConversationManager:
         Returns:
             Dictionary with response and metadata
         """
+        was_upset_by_words = user_id in self._upset_by_words
+        self._upset_by_words.discard(user_id)
         recent = self._recent_messages.setdefault(user_id, deque(maxlen=RECENT_MESSAGES))
         recent_messages = list(recent)
         recent.append(user_message)
@@ -468,8 +481,14 @@ class ConversationManager:
         # cheerful emojis or "What happened next?" in this reply and the next few
         upset = (context.get("detected_mood") in ("sad", "anxious", "angry")
                  or emoji_quirk_service.is_negative(user_message))
+        # "no she works there": the caring reply was a misreading, so the gentle replies stop
+        misread = bool(was_upset_by_words and not upset and not corrected and _MISREAD_RE.match(user_message))
         if upset:
             self._sensitive_replies[user_id] = SENSITIVE_REPLIES
+            if not self._parsed_mood(analysis_message):
+                self._upset_by_words.add(user_id)
+        elif misread:
+            self._sensitive_replies.pop(user_id, None)
         elif context.get("detected_mood") == "happy" or _CHEERFUL_RE.search(user_message):
             self._sensitive_replies.pop(user_id, None)  # "but then we laughed"
         sensitive = self._sensitive_replies.get(user_id, 0) > 0
@@ -506,6 +525,10 @@ class ConversationManager:
             raw_response = self._rule_based_response(
                 analysis_message, context, personality, allow_reflection, db, reply_features
             )
+
+        if misread:
+            raw_response = "Oh, sorry, I misunderstood! " + re.sub(r"^Oh,\s+(\w)", lambda m: m.group(1).upper(),
+                                                                   raw_response)
 
         # "Hi" after the bot asked the child's name: ask again
         if awaiting_name and reply_features.get("rule") == "greeting":
@@ -735,18 +758,22 @@ class ConversationManager:
         advice_detection = advice_category_detector.detect_advice_request(user_message)
 
         # Everything the child has told the bot, by key ("favorite_color": "purple"), so it
-        # can answer "What's my favorite color?" and "Do you remember my dog?"
+        # can answer "What's my favorite color?" and "Do you remember my dog?"; with categories
+        # too ("person": a pet's or person's name), for "What pets do I have?"
         try:
-            known_facts = {m.key: m.value for m in db.query(UserProfile).filter(UserProfile.user_id == user_id).all()}
+            rows = db.query(UserProfile).filter(UserProfile.user_id == user_id).all()
+            known_facts = {m.key: m.value for m in rows}
+            known_memories = [(m.category, m.key, m.value) for m in rows]
         except Exception as e:
             logger.error(f"Error loading memories: {e}", exc_info=True)
-            known_facts = {}
+            known_facts, known_memories = {}, []
 
         return {
             "personality": personality,
             "keywords": keywords,
             "relevant_memories": memories,
             "known_facts": known_facts,
+            "known_memories": known_memories,
             "recent_messages": recent_messages,
             "detected_mood": detected_mood,
             "advice_request": advice_detection,
@@ -1217,6 +1244,17 @@ INSTRUCTIONS:
                 if person.name and person.name.lower() == old.lower():
                     person.name = new
         return corrected
+
+    @staticmethod
+    def _parsed_mood(message: str) -> Optional[str]:
+        """The mood of an event in the message's parse ("my dog died": sad), if any"""
+        if not response_engine.is_available():
+            return None
+        try:
+            return response_engine.detect_mood(message)
+        except Exception as e:
+            logger.error(f"Error detecting mood from parse: {e}")
+            return None
 
     def _record_engagement(self, user_id: int, user_message: str, db: Session) -> None:
         """Score the child's message against the bot's previous reply (never blocks a reply)"""

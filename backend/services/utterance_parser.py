@@ -25,6 +25,9 @@ _NORMALIZATION_DATA = json.loads((Path(__file__).resolve().parent.parent / "know
                                  .read_text(encoding="utf-8"))
 # Common spellings in children's messages, mapped to standard forms the parser knows
 NORMALIZATIONS = _NORMALIZATION_DATA["words"]
+# Shorthand that is also a name ("ty"), kept as it is where a name goes ("im ty")
+_NAME_SHORTHAND = set(_NORMALIZATION_DATA.get("names", []))
+_NAME_CONTEXT_RE = re.compile(r"\b(?:i'?m|i am|name is|name's|names|call me|named|called)\s+$", re.IGNORECASE)
 
 _EMOJI_WORDS = {
     **dict.fromkeys("😂🤣😆😄😁😹", "haha"),
@@ -102,6 +105,7 @@ def repair_parse(doc):
     _repair_objects(doc)
     _extend_person_names(doc)
     _repair_tags(doc)
+    _repair_relation_name(doc)
     return doc
 
 
@@ -273,6 +277,37 @@ def _extend_person_names(doc) -> None:
                         t.pos_, t.tag_ = "PROPN", "NNP"
         except Exception as e:  # overlapping entities: keep the model's
             logger.debug(f"Could not extend name: {e}")
+
+
+# People whose name follows "my ... is" ("my best friend is maya"), and words in that place
+# that are not names ("my mom is home")
+_PERSON_RELATIONS = {"friend", "bff", "brother", "sister", "cousin", "teacher", "coach", "neighbor", "classmate",
+                     "mom", "dad", "mother", "father", "aunt", "uncle", "grandma", "grandpa", "babysitter", "crush"}
+_NOT_RELATION_NAMES = {"home", "school", "work", "outside", "inside", "asleep", "awake", "away", "here", "there",
+                       "back", "gone", "upstairs", "downstairs", "everything", "nobody", "someone", "everyone",
+                       "boss", "best", "ok", "okay", "fine", "sick", "busy", "nice", "mean", "cool", "weird", "funny",
+                       "teacher", "nurse", "doctor", "coach", "mine", "yours", "his", "hers", "it", "that", "who",
+                       "what", "now", "today", "tomorrow", "late", "early", "bored", "sad", "mad", "happy", "tall"}
+
+
+def _repair_relation_name(doc) -> None:
+    """
+    "my best friend is maya": the lowercase name at the end read as a common noun -> a name,
+    so the name is stored. Only one word, with nothing attached, after a person's relation.
+    """
+    for sentence in doc.sents:
+        words = [t for t in sentence if not t.is_punct]
+        if len(words) < 4:
+            continue
+        name, be = words[-1], words[-2]
+        if not (name.dep_ == "attr" and name.pos_ == "NOUN" and name.is_lower and name.is_alpha
+                and name.head.i == be.i and be.lemma_ == "be" and not list(name.children)
+                and name.lower_ not in _NOT_RELATION_NAMES and name.lower_ not in _COMMON_NOUNS):
+            continue
+        subject = next((c for c in be.children if c.dep_ == "nsubj"), None)
+        if (subject is not None and subject.lemma_ in _PERSON_RELATIONS
+                and any(c.lower_ == "my" for c in subject.children)):
+            name.pos_, name.tag_ = "PROPN", "NNP"
 
 
 def _repair_tags(doc) -> None:
@@ -726,6 +761,8 @@ def _replace_word(match) -> str:
     word = match.group(0)
     if word.lower() == "ur":
         return word  # "ur weird" (you're) or "ur dog" (your): decided by a later step from the next word
+    if word.lower() in _NAME_SHORTHAND and _NAME_CONTEXT_RE.search(match.string[:match.start()]):
+        return word
     return NORMALIZATIONS.get(word.lower(), word)
 
 

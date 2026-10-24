@@ -356,6 +356,10 @@ class ResponseEngine:
             key=lambda item: -item[0]["rank"])
         # Whole-message set phrases: (id, pattern, replies)
         self._phrases = [(p["id"], re.compile(p["pattern"]), p["responses"]) for p in self.kb.get("phrases", [])]
+        # Questions about what the child told the bot ("how old am i?"): (entry, pattern)
+        recall = self.kb.get("recall", {})
+        self._recall_questions = [(q, re.compile(q["pattern"])) for q in recall.get("questions", [])]
+        self._pet_words = set(recall.get("pets", []))
         lexicons = self.kb.get("lexicons", {})
 
         def resolve(value):
@@ -1216,6 +1220,14 @@ class ResponseEngine:
                 features["rule"] = rule_id
             return self._apply_style(reply, personality)
 
+        # Questions about what the child told the bot ("how old am i?", "what pets do i have?")
+        recalled = self._recall_reply(message, user_id, user_name)
+        if recalled is not None:
+            rule_id, reply = recalled
+            if features is not None:
+                features["rule"] = rule_id
+            return self._apply_style(reply, personality)
+
         # Set phrases that are the whole message ("me too", "nvm", "you're right")
         phrase = self._phrase_reply(message, user_id)
         if phrase is not None:
@@ -1428,6 +1440,10 @@ class ResponseEngine:
                 thing = slots.get("thing_slug", "")
                 named = next((v for k, v in facts.items() if k.startswith(f"{thing}_")), None) if thing else None
                 if not named and thing:
+                    # "my best friend Maya" (best_friend_maya) for "what's my friend's name?"
+                    named = next((n for rel, n in self._named(self._memories())
+                                  if rel.endswith(" " + thing.replace("_", " "))), None)
+                if not named and thing:
                     # Named earlier in this conversation ("I have a cat named Whiskers")
                     state = self.references.state(getattr(personality, "user_id", 0) or 0)
                     named = next((p.name for p in state.people
@@ -1532,6 +1548,7 @@ class ResponseEngine:
         if flag == "no_jokes" and rule_id and (
                 rule_id.startswith(("fallback_world", "fallback_reflection", "fallback_long_reflection", "fallback_fragment",
                                     "fallback_appraisal", "fallback_continuation"))
+                or rule_id.startswith("recall_")
                 or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes", "spelling", "performance", "play_role", "pretend")):
             return True
         return bool(rule_id and self.rules.get(rule_id, {}).get(flag))
@@ -1989,6 +2006,161 @@ class ResponseEngine:
         for phrase_id, pattern, replies in self._phrases:
             if pattern.fullmatch(text):
                 return f"phrase_{phrase_id}", self._pick(replies, user_id, f"phrase:{phrase_id}")
+        return None
+
+    def _recall_reply(self, message: str, user_id: int, user_name: Optional[str]) -> Optional[Tuple[str, str]]:
+        """
+        ("recall_<id>", reply) when the message asks about something the child told the bot
+        (the "recall" section of the knowledge base), answered from the stored memories, else None
+        """
+        text = re.sub(r"[^\w ]+", " ", message.lower().replace("'", "").replace("\u2019", ""))
+        text = re.sub(r"\s+(buddy|bud)$", "", " ".join(text.split()))
+        if not text or len(text.split()) > 12:
+            return None
+        for question, pattern in self._recall_questions:
+            match = pattern.fullmatch(text)
+            if not match:
+                continue
+            groups = {k: v.strip() for k, v in match.groupdict().items() if v}
+            answer = self._recall(question["kind"], groups, user_name)
+            if answer is None:  # "do i have homework": not about something the bot stores
+                continue
+            outcome, slots = answer
+            replies = question.get(outcome) or question["unknown"]
+            reply = self._pick(replies, user_id, f"recall:{question['id']}")
+            return f"recall_{question['id']}", reply.format_map(_BlankDict(slots))
+        return None
+
+    def _memories(self) -> List[Tuple[Optional[str], str, str]]:
+        """The stored memories from the conversation context: (category, key, value)"""
+        context = getattr(self, "_context", None) or {}
+        if context.get("known_memories") is not None:
+            return list(context["known_memories"])
+        return [(None, k, v) for k, v in (context.get("known_facts") or {}).items()]
+
+    @staticmethod
+    def _singular(word: str) -> str:
+        if word.endswith("ies") and len(word) > 4:
+            return word[:-3] + "y"
+        if word.endswith(("ches", "shes", "xes")):
+            return word[:-2]
+        return word[:-1] if word.endswith("s") and not word.endswith("ss") else word
+
+    @staticmethod
+    def _with_article(phrase: str) -> str:
+        return ("an " if phrase[:1] in "aeiou" else "a ") + phrase
+
+    @staticmethod
+    def _and_list(items: List[str]) -> str:
+        if len(items) <= 2:
+            return " and ".join(items)
+        return ", ".join(items[:-1]) + ", and " + items[-1]
+
+    def _named(self, memories) -> List[Tuple[str, str]]:
+        """Pets and people the child named: (relation, name), as "dog", "Rex" for dog_rex"""
+        named = []
+        for category, key, value in memories:
+            slug = _slug(value or "")
+            if category == "person" and slug and key.endswith("_" + slug) and len(key) > len(slug) + 1:
+                named.append((key[: -len(slug) - 1].replace("_", " "), value))
+        return named
+
+    def _is_pet(self, relation: str) -> bool:
+        words = relation.split()
+        return bool(words) and (relation in self._pet_words or self._singular(words[-1]) in self._pet_words)
+
+    def _pets(self, memories) -> List[str]:
+        """The child's pets, as "a dog named Rex", "two cats" """
+        pets = [f"{self._with_article(rel)} named {name}" for rel, name in self._named(memories) if self._is_pet(rel)]
+        named_kinds = {self._singular(rel.split()[-1]) for rel, _ in self._named(memories) if self._is_pet(rel)}
+        for _, key, value in memories:
+            if key.startswith("has_"):
+                kind = key[len("has_"):].replace("_", " ")
+                if self._is_pet(kind) and self._singular(kind.split()[-1]) not in named_kinds:
+                    pets.append(value)
+        return pets
+
+    @staticmethod
+    def _favorites(facts: Dict[str, str]) -> List[str]:
+        return [f"your favorite {k[len('favorite_'):].replace('_', ' ')} is {v}"
+                for k, v in facts.items() if k.startswith("favorite_")]
+
+    def _recall(self, kind: str, groups: Dict[str, str], user_name: Optional[str]):
+        """("known" | "opposite" | "unknown", slots) for a recall question, or None if it is not one"""
+        memories = self._memories()
+        facts = {key: value for _, key, value in memories}
+        relations = set(self.kb.get("lexicons", {}).get("relations", [])) | self._pet_words
+
+        if kind == "age":
+            return ("known", {"value": facts["age"]}) if facts.get("age") else ("unknown", {})
+
+        if kind == "like":
+            thing = re.sub(r"^(?:a|an|the|my|some)\s+", "", groups.get("thing", ""))
+            if not thing or thing.split()[0] in ("you", "it", "that", "this", "them", "to"):
+                return None
+            slugs = {_slug(thing), _slug(self._singular(thing)), _slug(thing + "s")}
+            if any(f"likes_{s}" in facts for s in slugs) or any(
+                    k.startswith("favorite_") and v.lower() == thing for k, v in facts.items()):
+                return "known", {"thing": thing}
+            if any(f"dislikes_{s}" in facts for s in slugs):
+                return "opposite", {"thing": thing}
+            return "unknown", {"thing": thing}
+
+        if kind in ("likes", "dislikes"):
+            prefix = "likes_" if kind == "likes" else "dislikes_"
+            values = list(dict.fromkeys(v for k, v in facts.items() if k.startswith(prefix)))[:4]
+            parts = [("you like " if kind == "likes" else "you don't like ") + self._and_list(values)] if values else []
+            if kind == "likes":
+                parts += self._favorites(facts)[:2]
+            return ("known", {"value": ", and ".join(parts) if len(parts) == 2 else self._and_list(parts)}) \
+                if parts else ("unknown", {})
+
+        if kind == "pets":
+            pets = self._pets(memories)
+            return ("known", {"value": self._and_list(pets)}) if pets else ("unknown", {})
+
+        if kind == "have":
+            thing = self._singular(groups.get("thing", ""))
+            if not thing or (thing.split()[-1] not in relations and thing not in self._pet_words):
+                return None
+            found = [f"{self._with_article(rel)} named {name}" for rel, name in self._named(memories)
+                     if rel == thing or rel.endswith(" " + thing)]
+            if not found:
+                found = [v for k, v in facts.items() if k.startswith("has_")
+                         and (k == f"has_{_slug(thing)}" or k.endswith(f"_{_slug(thing)}"))]
+            if found:
+                return "known", {"value": self._and_list(found), "thing": thing}
+            return "unknown", {"thing": thing, "thing_a": self._with_article(thing)}
+
+        if kind == "who":
+            relation = groups.get("relation", "")
+            if not relation or self._singular(relation.split()[-1]) not in relations:
+                return None
+            named = self._named(memories)
+            names = [n for rel, n in named if rel == relation] or \
+                [n for rel, n in named if rel.endswith(" " + relation)]
+            if names:
+                return "known", {"value": self._and_list(names), "relation": relation}
+            return "unknown", {"relation": relation}
+
+        if kind == "about_me":
+            parts = []
+            if user_name:
+                parts.append(f"you're {user_name}")
+            if facts.get("age"):
+                parts.append(f"you're {facts['age']}")
+            parts += self._favorites(facts)[:1]
+            pets = self._pets(memories)[:2]
+            if pets:
+                parts.append("you have " + " and ".join(pets))
+            parts += [f"your {rel} is {n}" for rel, n in self._named(memories) if not self._is_pet(rel)][:1]
+            likes = [v for k, v in facts.items() if k.startswith("likes_")][:2]
+            if likes:
+                parts.append("you like " + " and ".join(likes))
+            if not parts:
+                return "unknown", {}
+            sentence = self._and_list(parts)
+            return "known", {"value": sentence[0].upper() + sentence[1:] + "!"}
         return None
 
     def _answer_expectation(self, expectation: "Expectation", message: str, analysis: Analysis,

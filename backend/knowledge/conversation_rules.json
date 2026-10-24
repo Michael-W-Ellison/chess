@@ -3987,7 +3987,8 @@
       "no_jokes": true,
       "suppressed_by": ["hate_you"],
       "examples": ["I hate math", "I don't like broccoli anymore", "i hate math", "i hate broccoli"],
-      "non_examples": ["i dont like you"]
+      "non_examples": ["i dont like you", "what do i hate"],
+      "conditions": {"question": false}
     },
     {
       "id": "love_it",
@@ -5338,11 +5339,21 @@
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": "attr", "POS": "PROPN"}}
       ]],
       "conditions": {"not_negated": "be"},
-      "slots": {"name": {"node": "name", "span": "subtree"}, "relation": {"node": "rel", "span": "noun_phrase"}},
+      "slots": {
+        "name": {"node": "name", "span": "subtree", "capitalize": "names"},
+        "relation": {"node": "rel", "span": "noun_phrase"}
+      },
       "memories": [{"category": "person", "key": "{relation_slug}_{name_slug}", "value": "{name_raw}"}],
       "valence": "positive",
       "responses": ["{name} sounds like a great {relation}!", "Tell me more about {name}!"],
-      "examples": ["my teacher is Mrs Brown", "my teacher is Mrs Garcia", "my friends are maya, jake and zoe"]
+      "examples": [
+        "my teacher is Mrs Brown",
+        "my teacher is Mrs Garcia",
+        "my friends are maya, jake and zoe",
+        "my best friend is maya",
+        "my bff is zoe"
+      ],
+      "non_examples": ["my mom is home", "my best friend is nice"]
     },
     {
       "id": "thing_named",
@@ -7009,5 +7020,109 @@
       "responses": ["Ooh, {keyword}! That's a great color."],
       "examples": ["it was pink", "its purple"]
     }
-  ]
+  ],
+
+  "recall": {
+    "_comment": "Questions about what the child told the bot, answered from the stored memories (ResponseEngine._recall_reply). Each pattern must match the whole message, lowercased, without punctuation or apostrophes; \"kind\" says which memories answer it, and a named group (thing, relation) is what the question is about. Replies: \"known\" when the memories answer it ({value}, {thing}, {relation}), \"opposite\" when they say the opposite (\"do I like broccoli\" after \"I hate broccoli\"), \"unknown\" when they do not.",
+    "pets": [
+      "dog",
+      "puppy",
+      "cat",
+      "kitten",
+      "fish",
+      "goldfish",
+      "hamster",
+      "gerbil",
+      "guinea pig",
+      "bunny",
+      "rabbit",
+      "bird",
+      "parrot",
+      "parakeet",
+      "turtle",
+      "tortoise",
+      "horse",
+      "pony",
+      "lizard",
+      "gecko",
+      "snake",
+      "frog",
+      "mouse",
+      "rat",
+      "hedgehog",
+      "ferret",
+      "chicken",
+      "duck",
+      "goat",
+      "pig",
+      "pet"
+    ],
+    "questions": [
+      {
+        "id": "age",
+        "kind": "age",
+        "pattern": "(?:how old am i|what is my age|whats my age|do you (?:know|remember) how old i am|do you (?:know|remember) my age)",
+        "known": ["You're {value}! I remember."],
+        "unknown": ["Hmm, I don't think you've told me yet! How old are you?"],
+        "examples": ["how old am i", "do you remember how old i am", "whats my age"]
+      },
+      {
+        "id": "do_i_like",
+        "kind": "like",
+        "pattern": "(?:do i (?:like|love|enjoy)|do you (?:know|remember) if i (?:like|love)) (?P<thing>[a-z ]{2,30})",
+        "known": ["Yes! You told me you like {thing}."],
+        "opposite": ["Hmm, you told me you don't like {thing}!"],
+        "unknown": ["I don't think you've told me! Do you like {thing}?"],
+        "examples": ["do i like broccoli", "do you remember if i like dogs"]
+      },
+      {
+        "id": "what_i_like",
+        "kind": "likes",
+        "pattern": "(?:what (?:do i|things do i|stuff do i) (?:like|love)|do you (?:know|remember) what i (?:like|love)|what are (?:some )?(?:of )?the things i (?:like|love))(?: to do)?",
+        "known": ["You told me {value}!"],
+        "unknown": ["Hmm, I don't think you've told me yet! What do you like?"],
+        "examples": ["what do i like", "do you remember what i like"]
+      },
+      {
+        "id": "what_i_dislike",
+        "kind": "dislikes",
+        "pattern": "(?:what (?:do i (?:hate|dislike|not like)|dont i like|things do i hate)|do you (?:know|remember) what i (?:hate|dont like|dislike))",
+        "known": ["You told me {value}!"],
+        "unknown": ["Hmm, I don't think you've told me yet! Is there something you don't like?"],
+        "examples": ["what do i hate", "what dont i like"]
+      },
+      {
+        "id": "my_pets",
+        "kind": "pets",
+        "pattern": "(?:what (?:kind of )?(?:pets?|animals?) do i (?:have|got)|do i have (?:a |any )?pets?|do you (?:know|remember) (?:what (?:pets?|animals?) i have|my pets))",
+        "known": ["You have {value}! I remember."],
+        "unknown": ["Hmm, I don't think you've told me about a pet yet! Do you have one?"],
+        "examples": ["what pet do i have", "what pets do i have", "do i have a pet"]
+      },
+      {
+        "id": "do_i_have",
+        "kind": "have",
+        "pattern": "do i have (?:a |an |any |two |three )?(?P<thing>[a-z]+(?: [a-z]+)?)",
+        "known": ["Yes! You have {value}. I remember."],
+        "unknown": ["I don't think you've told me! Do you have {thing_a}?"],
+        "examples": ["do i have a dog", "do i have a sister"]
+      },
+      {
+        "id": "who_is_my",
+        "kind": "who",
+        "pattern": "(?:who is|whos|do you (?:know|remember) who) my (?P<relation>[a-z]+(?: [a-z]+)?)(?: is)?",
+        "known": ["Your {relation} is {value}! I remember."],
+        "unknown": ["Hmm, I don't think you've told me yet! Who is your {relation}?"],
+        "examples": ["who is my best friend", "whos my teacher"]
+      },
+      {
+        "id": "about_me",
+        "kind": "about_me",
+        "pattern": "(?:what do you (?:know|remember) about me|what (?:have i told|did i tell) you(?: about me)?|tell me (?:what|everything) you (?:know|remember) about me|do you (?:know|remember) (?:anything|stuff|things) about me|what do you (?:know|remember) about me so far)",
+        "known": ["I remember lots about you! {value}"],
+        "unknown": ["I'm still getting to know you! Tell me about yourself. What do you like to do?"],
+        "examples": ["what do you know about me", "what do you remember about me"]
+      }
+    ]
+  }
 }
