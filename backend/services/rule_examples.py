@@ -6,6 +6,8 @@ A rule can list "examples" (messages it must answer) and "non_examples" (message
 answer). Each message is checked on its own, in a fresh engine, so no example depends on
 earlier conversation. For a rule with replies, "answer" means the engine chose that rule's
 reply; for a rule without replies (one that only stores a memory), it means the rule matched.
+Entries in the "keywords" section (the parse-free fallback) list examples the same way; for
+them, "answer" means the reply came from that keyword ("fallback_keyword_<id>").
 
 Run the check from backend/ with: python scripts/verify_rules.py
 """
@@ -51,18 +53,21 @@ def answering_rule(engine, message: str) -> Optional[str]:
 
 def check_examples(engine_factory: Callable = _new_engine, rule_ids: Optional[List[str]] = None) -> List[ExampleFailure]:
     """Every listed example and non-example that its rule no longer handles as listed"""
-    rules = engine_factory().kb["rules"]
+    kb = engine_factory().kb
+    rules = kb["rules"] + [dict(k, id=f"keyword_{k['id']}", _answered_by=f"fallback_keyword_{k['id']}")
+                           for k in kb.get("keywords", [])]
     failures = []
     for rule in rules:
         if rule_ids is not None and rule["id"] not in rule_ids:
             continue
         has_replies = bool(rule.get("responses") or rule.get("responses_by"))
+        answered_by = rule.get("_answered_by", rule["id"])
         for kind in ("examples", "non_examples"):
             for message in rule.get(kind, []):
                 engine = engine_factory()
                 if has_replies:
                     actual = answering_rule(engine, message)
-                    answered = actual == rule["id"]
+                    answered = actual == answered_by
                 else:
                     matched = [f.rule_id for f in engine.analyze(engine.resolve_references(message, 1)).frames]
                     answered = rule["id"] in matched
@@ -75,5 +80,7 @@ def check_examples(engine_factory: Callable = _new_engine, rule_ids: Optional[Li
 
 
 def rules_without_examples(engine_factory: Callable = _new_engine) -> List[str]:
-    """Ids of rules that list no examples"""
-    return [r["id"] for r in engine_factory().kb["rules"] if not r.get("examples")]
+    """Ids of rules (and keyword entries, as "keyword_<id>") that list no examples"""
+    kb = engine_factory().kb
+    return [r["id"] for r in kb["rules"] if not r.get("examples")] + \
+        [f"keyword_{k['id']}" for k in kb.get("keywords", []) if not k.get("examples")]

@@ -2329,31 +2329,31 @@
       "priority": 74,
       "patterns": [
         [
-          {"RIGHT_ID": "have", "RIGHT_ATTRS": {"LEMMA": "have"}},
-          {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
-          {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "ill", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["fever", "cold", "flu", "cough", "headache", "stomachache", "tummyache", "earache", "toothache", "rash", "virus", "bug", "covid", "infection", "allergies"]}}}
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "have"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "ill", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["fever", "cold", "flu", "cough", "headache", "stomachache", "tummyache", "earache", "toothache", "rash", "virus", "bug", "covid", "infection", "allergies"]}}}
         ],
         [
-          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
-          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
-          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "ill", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["sick", "ill"]}}}
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "ill", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["sick", "ill"]}}}
         ],
         [
-          {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": "get"}},
-          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
-          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "ill", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["sick", "ill"]}}}
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "get"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "ill", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["sick", "ill"]}}}
         ],
         [
-          {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": {"IN": ["throw", "puke"]}}},
-          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
-          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "ill", "RIGHT_ATTRS": {"DEP": "prt", "LOWER": "up"}}
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["throw", "puke"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "ill", "RIGHT_ATTRS": {"DEP": "prt", "LOWER": "up"}}
         ],
         [
-          {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": "vomit"}},
-          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}}
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "vomit"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}}
         ]
       ],
-      "conditions": {"question": false, "not_negated": "subj"},
+      "conditions": {"question": false, "not_negated": "verb"},
       "mood": "sad",
       "valence": "negative",
       "no_jokes": true,
@@ -2361,7 +2361,8 @@
         "Oh no, I'm sorry you're sick! I hope you feel better soon. Are you getting lots of rest?",
         "Aw, being sick is no fun. I hope you feel better really soon! Is someone taking care of you?"
       ],
-      "examples": ["I have a fever", "last week I got sick", "i'm sick today"]
+      "examples": ["I have a fever", "last week I got sick", "i'm sick today"],
+      "non_examples": ["i am not sick"]
     },
     {
       "id": "dont_want_to_talk",
@@ -6877,6 +6878,127 @@
       "id": "no_thanks",
       "pattern": "(no thanks|no thank you|nah thanks|no thx)",
       "responses": ["Okay! What would you like to do instead?"]
+    }
+  ],
+
+  "keywords": [
+    {
+      "id": "hurt",
+      "rank": 9,
+      "valence": "negative",
+      "words": [
+        "bleeding",
+        "bled",
+        "blood",
+        "bloody",
+        "bruise",
+        "bruised",
+        "scrape",
+        "scraped",
+        "ouch",
+        "owie",
+        "owwie",
+        "stitches",
+        "sprained",
+        "sore",
+        "bump",
+        "bumped"
+      ],
+      "responses": ["Ouch! Are you okay? It's a good idea to tell a grown-up so they can help you feel better."],
+      "examples": ["it was bleeding", "ouch ouch ouch"],
+      "non_examples": ["it stopped bleeding"]
+    },
+    {
+      "id": "sick",
+      "rank": 8,
+      "valence": "negative",
+      "words": ["sick", "fever", "cough", "coughing", "throwing up", "threw up", "puked", "sneezing", "stuffy", "flu"],
+      "responses": ["Aw, not feeling well is no fun. Have you told a grown-up? Rest and water can help."],
+      "examples": ["still coughing", "puked everywhere"]
+    },
+    {
+      "id": "scared",
+      "rank": 7,
+      "valence": "negative",
+      "words": ["nightmare", "nightmares", "scary", "scared", "afraid", "monster", "monsters", "spooky"],
+      "responses": ["That sounds scary. It's okay to feel that way. Do you want to talk about it? A grown-up can help too."],
+      "examples": ["the monster in my closet", "it was so spooky"]
+    },
+    {
+      "id": "sad",
+      "rank": 7,
+      "valence": "negative",
+      "words": ["cry", "crying", "cried", "tears", "sad", "lonely", "upset"],
+      "responses": ["I'm sorry. I'm here for you. Do you want to tell me what happened?"],
+      "examples": ["so many tears", "still crying"]
+    },
+    {
+      "id": "sleep_trouble",
+      "rank": 6,
+      "valence": "negative",
+      "words": ["awake", "can't sleep", "cant sleep", "couldn't sleep", "couldnt sleep", "wakes me up", "woke me up"],
+      "responses": ["Aw, it's hard when you can't sleep. What's keeping you awake? Slow, deep breaths can help."],
+      "examples": ["it keeps me awake", "it wakes me up"]
+    },
+    {
+      "id": "game_trouble",
+      "rank": 5,
+      "valence": "negative",
+      "words": ["deleted", "glitch", "glitched", "crashed", "lagging", "laggy", "lost all my"],
+      "responses": ["Oh no, that's so frustrating! Do you think you can get it back, or start again?"],
+      "examples": ["my world got deleted", "so laggy"]
+    },
+    {
+      "id": "games",
+      "rank": 3,
+      "valence": "positive",
+      "words": [
+        "minecraft",
+        "roblox",
+        "fortnite",
+        "mario",
+        "pokemon",
+        "pokémon",
+        "zelda",
+        "video game",
+        "video games",
+        "mario kart",
+        "super mario"
+      ],
+      "responses": ["Ooh, {keyword}! What do you like to do in it?"],
+      "examples": ["at mario kart", "only minecraft"]
+    },
+    {
+      "id": "pets",
+      "rank": 3,
+      "valence": "positive",
+      "words": ["dog", "dogs", "puppy", "puppies", "cat", "cats", "kitten", "kittens", "hamster", "bunny", "fish", "pet", "pets"],
+      "responses": ["Aww, I love hearing about pets! What's your {keyword} like?"],
+      "examples": ["and my dog too", "also the kitten"]
+    },
+    {
+      "id": "school",
+      "rank": 2,
+      "valence": "neutral",
+      "words": ["school", "teacher", "recess", "classroom", "homework", "spelling"],
+      "responses": ["Ooh, school stuff! What's your favorite part of school?"],
+      "examples": ["something about recess", "the teacher"]
+    },
+    {
+      "id": "food",
+      "rank": 2,
+      "valence": "positive",
+      "words": ["pizza", "ice cream", "cookie", "cookies", "candy", "cake", "pancakes", "tacos", "pepperoni", "spaghetti"],
+      "responses": ["Yum, {keyword}! That sounds delicious. What's your favorite food?"],
+      "examples": ["especially pepperoni", "and cookies"]
+    },
+    {
+      "id": "color",
+      "rank": 1,
+      "valence": "positive",
+      "words": ["red", "orange", "yellow", "green", "blue", "purple", "pink", "rainbow", "sparkly", "glittery"],
+      "responses": ["Ooh, {keyword}! That's a great color."],
+      "examples": ["it was pink", "its purple"]
     }
   ]
 }

@@ -234,6 +234,10 @@ class _BlankDict(dict):
         return ""
 
 
+# Words that cancel a keyword right after them ("don't cry", "not sick")
+_NEGATIONS = {"not", "no", "never", "dont", "didnt", "cant", "wont", "isnt", "wasnt", "without", "nobody",
+              "stopped", "stop", "quit", "more"}  # "it stopped bleeding", "no more crying"
+
 # Things pets do: "he chewed my shoes" is likely about a pet
 _PET_VERBS = {"chew", "lick", "bark", "meow", "purr", "sniff", "wag", "growl", "pee", "poop", "nibble", "peck"}
 
@@ -332,6 +336,11 @@ class ResponseEngine:
                 self.answers = [(re.compile(a["pattern"], re.IGNORECASE), a["answer"]) for a in json.load(f)["answers"]]
         else:
             self.answers = []
+        # Keywords for the parse-free fallback, highest rank first: (entry, pattern)
+        self._keywords = sorted(
+            ((k, re.compile(r"\b(" + "|".join(re.escape(w) for w in sorted(k["words"], key=len, reverse=True)) + r")\b"))
+             for k in self.kb.get("keywords", [])),
+            key=lambda item: -item[0]["rank"])
         # Whole-message set phrases: (id, pattern, replies)
         self._phrases = [(p["id"], re.compile(p["pattern"]), p["responses"]) for p in self.kb.get("phrases", [])]
         lexicons = self.kb.get("lexicons", {})
@@ -1741,7 +1750,14 @@ class ResponseEngine:
                 if 3 <= len(words) <= 5 and len(kinds) >= 2 and not any(t.pos_ in ("VERB", "AUX", "DET") for t in doc):
                     slots["topic"] = slots["topic"][:1].upper() + slots["topic"][1:]
                     return pick("silly").format_map(slots), "positive", "silly"
-                return pick("topic").format_map(slots), "neutral", "topic"
+
+        # A keyword that says what the message is about, whatever its parse ("it was bleeding")
+        keyword = self._keyword_reply(doc.text, slots, user_id, allow_reflection, policy, features)
+        if keyword is not None:
+            return keyword
+
+        if allow_reflection and slots.get("topic"):
+            return pick("topic").format_map(slots), "neutral", "topic"
 
         return pick("generic"), "neutral", "generic"
 
@@ -1902,6 +1918,27 @@ class ResponseEngine:
         if modality != "negated" and modality != appraisal_module.REAL:
             candidates += [f"*.{modality}.{a.actor}>", f"*.{modality}.{a.valence}", f"*.{modality}"]
         return next((c for c in candidates if c in templates), None)
+
+    def _keyword_reply(self, text: str, slots: Dict[str, str], user_id: int, allow_reflection: bool,
+                       policy=None, features=None) -> Optional[Tuple[str, str, str]]:
+        """
+        (reply, mood, kind) from the highest-ranked keyword in the message (the "keywords" in the
+        knowledge base), found in the raw text so it works when the parse does not. A keyword just
+        after a negation ("don't cry") does not count. None if no keyword is found.
+        """
+        lowered = text.lower()
+        for entry, pattern in self._keywords:
+            for match in pattern.finditer(lowered):
+                before = lowered[:match.start()].split()[-2:]
+                if any(w in _NEGATIONS or w.endswith("n't") for w in before):
+                    continue
+                replies = [r for r in entry["responses"] if allow_reflection or "{keyword}" not in r]
+                if not replies:
+                    break
+                slots["keyword"] = text[match.start(1):match.end(1)]  # as the child wrote it
+                reply = self._pick(replies, user_id, f"template:keyword_{entry['id']}", policy, features)
+                return reply.format_map(slots), entry.get("valence", "neutral"), f"keyword_{entry['id']}"
+        return None
 
     def _phrase_reply(self, message: str, user_id: int) -> Optional[Tuple[str, str]]:
         """(phrase id, reply) when the whole message is a set phrase from the knowledge base, else None"""

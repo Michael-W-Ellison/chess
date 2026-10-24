@@ -10,169 +10,21 @@ spaCy and its English model are optional. If they are not installed,
 is_available() returns False and callers fall back to keyword handling.
 """
 
+import json
 import logging
 import re
 from functools import lru_cache
+from pathlib import Path
 
 logger = logging.getLogger("chatbot.utterance_parser")
 
 MODEL_NAME = "en_core_web_sm"
 
+# Child spellings, digit shorthand and the rewrite steps of normalize(): knowledge/normalizations.json
+_NORMALIZATION_DATA = json.loads((Path(__file__).resolve().parent.parent / "knowledge" / "normalizations.json")
+                                 .read_text(encoding="utf-8"))
 # Common spellings in children's messages, mapped to standard forms the parser knows
-NORMALIZATIONS = {
-    "i": "I",
-    "im": "I'm",
-    "ive": "I've",
-    "dont": "don't",
-    "cant": "can't",
-    "wont": "won't",
-    "didnt": "didn't",
-    "doesnt": "doesn't",
-    "isnt": "isn't",
-    "wasnt": "wasn't",
-    "luv": "love",
-    "u": "you",
-    "ur": "your",
-    "r": "are",
-    "becuz": "because",
-    "becoz": "because",
-    "cuz": "because",
-    "bc": "because",
-    "wanna": "want to",
-    "gonna": "going to",
-    "gotta": "got to",
-    "fav": "favorite",
-    "fave": "favorite",
-    "favourite": "favorite",
-    "colour": "color",
-    "pls": "please",
-    "plz": "please",
-    "bday": "birthday",
-    "bro": "brother",
-    "sis": "sister",
-    "shes": "she's",
-    "hes": "he's",
-    "theyre": "they're",
-    "youre": "you're",
-    "arent": "aren't",
-    "werent": "weren't",
-    "couldnt": "couldn't",
-    "wouldnt": "wouldn't",
-    "shouldnt": "shouldn't",
-    "havent": "haven't",
-    "hasnt": "hasn't",
-    "whos": "who's",
-    "lotsa": "lots of",
-    "kinda": "kind of",
-    "sorta": "sort of",
-    "outta": "out of",
-    "gimme": "give me",
-    "lemme": "let me",
-    "dunno": "don't know",
-    "yall": "you all",
-    "y'all": "you all",
-    "wheres": "where's",
-    # Past tenses children make regular: "I goed", "we runned"
-    "goed": "went", "runned": "ran", "eated": "ate", "hitted": "hit", "drawed": "drew", "throwed": "threw",
-    "losted": "lost", "beated": "beat", "builded": "built", "swimmed": "swam", "catched": "caught",
-    "buyed": "bought", "bringed": "brought", "brang": "brought", "brung": "brought", "teached": "taught",
-    "thinked": "thought", "falled": "fell", "feeled": "felt", "sleeped": "slept", "maked": "made",
-    "taked": "took", "gived": "gave", "comed": "came", "sayed": "said", "telled": "told", "finded": "found",
-    "rided": "rode", "writed": "wrote", "drinked": "drank", "blowed": "blew", "growed": "grew",
-    "knowed": "knew", "hided": "hid", "bited": "bit", "breaked": "broke", "choosed": "chose",
-    "forgetted": "forgot", "getted": "got", "digged": "dug", "standed": "stood", "sitted": "sat",
-    "stealed": "stole", "sticked": "stuck", "weared": "wore", "winned": "won", "leaved": "left",
-    "meeted": "met", "keeped": "kept", "speaked": "spoke", "waked": "woke", "shaked": "shook",
-    "spinned": "spun", "drived": "drove", "feeded": "fed", "hurted": "hurt", "cutted": "cut",
-    "shutted": "shut", "spended": "spent", "sended": "sent", "haved": "had", "doed": "did",
-    "flyed": "flew", "fighted": "fought", "freezed": "froze", "readed": "read",
-    "ringed": "rang", "shooted": "shot", "slided": "slid", "swinged": "swung", "throwded": "threw",
-    "thats": "that's",
-    "theres": "there's",
-    "heres": "here's",
-    "whats": "what's",
-    "idk": "I don't know",
-    "nm": "not much",
-    "rn": "right now",
-    "gtg": "got to go",
-    "g2g": "got to go",
-    "ttyl": "talk to you later",
-    "brb": "be right back",
-    "jk": "just kidding",
-    # Common misspellings and texting shortcuts
-    "lik": "like",
-    "liek": "like",
-    "alot": "a lot",
-    "bilt": "built",
-    "hous": "house",
-    "rlly": "really",
-    "rly": "really",
-    "realy": "really",
-    "wierd": "weird",
-    "tomorow": "tomorrow",
-    "tmrw": "tomorrow",
-    "favrite": "favorite",
-    "awsome": "awesome",
-    "beutiful": "beautiful",
-    "togther": "together",
-    "becuase": "because",
-    "beacuse": "because",
-    "frend": "friend",
-    "freind": "friend",
-    "frends": "friends",
-    "freinds": "friends",
-    "skool": "school",
-    "wat": "what",
-    "wut": "what",
-    "sumthing": "something",
-    "somthing": "something",
-    "gud": "good",
-    "kool": "cool",
-    "prolly": "probably",
-    "probly": "probably",
-    "tmrw": "tomorrow",
-    "tmr": "tomorrow",
-    "tomorow": "tomorrow",
-    "tommorow": "tomorrow",
-    "2day": "today",
-    "2morrow": "tomorrow",
-    "b4": "before",
-    "gr8": "great",
-    "nvm": "never mind",
-    "ppl": "people",
-    "cya": "bye",
-    "thx": "thanks",
-    "ty": "thank you",
-    "favrite": "favorite",
-    "favorit": "favorite",
-    "pizzza": "pizza",
-    "sooo": "so",
-    "soo": "so",
-    "verry": "very",
-    "vary": "very",
-    "dinosour": "dinosaur",
-    "dinosours": "dinosaurs",
-    "minecraf": "minecraft",
-    "helo": "hello",
-    "hellow": "hello",
-    "nme": "name",
-    "naem": "name",
-    "calld": "called",
-    "caled": "called",
-    "relly": "really",
-    "reely": "really",
-    "dogz": "dogs",
-    "catz": "cats",
-    "k": "ok",
-    "kk": "ok",
-    "okk": "ok",
-    "okey": "okay",
-    "sed": "said",
-    "becaus": "because",
-    "scool": "school",
-    "favirite": "favorite",
-    "pritty": "pretty",
-}
+NORMALIZATIONS = _NORMALIZATION_DATA["words"]
 
 _EMOJI_WORDS = {
     **dict.fromkeys("😂🤣😆😄😁😹", "haha"),
@@ -189,81 +41,9 @@ _EMOJI_WORDS = {
     **dict.fromkeys("🎉🥳🙌👏", "yay"),
 }
 
-# "hiii", "heyyy", "hellooo": a greeting, not a name
-_STRETCHED_GREETINGS = [
-    (re.compile(r"^h+i+$", re.IGNORECASE), "hi"),
-    (re.compile(r"^h+e+y+$", re.IGNORECASE), "hey"),
-    (re.compile(r"^h+e+l+o+$", re.IGNORECASE), "hello"),
-    (re.compile(r"^b+y+e+$", re.IGNORECASE), "bye"),
-    (re.compile(r"^y+o+$", re.IGNORECASE), "yo"),
-]
 # Emoji and other pictographs: not words, so they are not echoed back ("Your cat is fluffy 😻?")
 _EMOJI_RE = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200D\u2B50\u2764]")
 
-# Spellings that are also words, replaced only where the next word shows which is meant:
-# "its so fun" (it's), "ill try" (I'll); "its wings" and "I feel ill" stay
-_GOING_VERBS = r"(go|goes|going|went|gone|come|came|coming|walk|walked|drive|drove|ran|run|moved?|travel|flew|fly|"\
-               r"trip|visit|back|way|road|welcome|next|due|according|close|up|down|out|over|on|from)$"
-_CONTEXT_NORMALIZATIONS = [
-    # "to much homework", "it's to hot"
-    # (not after a verb of going: "we went to Big Bear")
-    (re.compile(r"\b(\w+) to(?= (much|hot|cold|big|small|hard|scary|loud|late|early|tired|full|long|fast|slow|"
-                r"short|high|heavy|far|young|old|spicy|sweet|bright|dark)\b)", re.IGNORECASE),
-     lambda m: m.group(0) if re.match(_GOING_VERBS, m.group(1), re.IGNORECASE) else f"{m.group(1)} too"),
-    (re.compile(r"\bits(?= (so|really|very|not|too|just|a|an|the|my|ok|okay|fine|fun|boring|hard|easy|cool|"
-                r"great|good|bad|true|time|going|gonna|like|always|never|raining|snowing|gross|yummy|awesome|"
-                r"amazing|weird|scary|funny|cute|about|mine|yours|over|super|kind|pretty|beautiful|ugly|big|bigger|"
-                r"small|smaller|huge|tiny|heavy|soft|red|orange|yellow|green|blue|purple|pink|brown|black|white|"
-                r"gray|grey|sticky|shiny|sparkly|broken|done|finished|lost|gone|made|called|still|almost|my)\b)",
-     re.IGNORECASE),
-     "it's"),
-    (re.compile(r"\bur(?= (so|really|very|not|the|a|an|my|weird|cool|funny|nice|mean|smart|awesome|silly|dumb|"
-                r"stupid|annoying|best|worst|welcome|right|wrong|crazy|lying|kidding|joking|amazing|great|good|"
-                r"bad|too)\b)", re.IGNORECASE),
-     "you're"),
-    # "your so funny", "your the best"; an adjective only at the end ("your funny face" stays)
-    (re.compile(r"\byour(?= (so|really|very|not|the|a|an|too|being|going|gonna|welcome|always|never|my|such|"
-                r"kidding|joking|lying)\b|(?= (funny|silly|cool|nice|mean|smart|awesome|weird|dumb|cute|amazing|"
-                r"annoying|right|wrong|crazy|great|best|the best)\s*[.!?]*$))", re.IGNORECASE),
-     "you're"),
-    # "I could of won"
-    (re.compile(r"\b(could|would|should|must|might) of\b", re.IGNORECASE), r"\1 have"),
-    (re.compile(r"\blets(?= (play|go|do|make|watch|build|talk|be|see|try|have|pretend|sing|draw|read)\b)",
-                re.IGNORECASE), "let's"),
-    (re.compile(r"\bill(?= (try|do|be|go|ask|tell|practice|study|see|talk|play|have|get|make|show|let|just|never|"
-                r"always|probably|draw|read|call|text|come|help|work|remember|eat|drink|wait|clean|finish|sleep|bring|"
-                r"buy|use|build|write|stop|take|give|send|keep|think|put|pick|sit|stay|watch|listen|look|fix|"
-                r"share|win|beat|check|miss|need|wear|sing|dance|run|swim|ride)\b)", re.IGNORECASE),
-     "I'll"),
-]
-# "my moms room" -> "my mom's room"
-_POSSESSIVE_RE = re.compile(
-    r"\b(mom|dad|mommy|daddy|sister|brother|grandma|grandpa|friend|cousin|aunt|uncle|cat|dog|puppy|kitten|"
-    r"hamster|fish|bunny|horse)s (?=(room|house|car|bed|phone|office|work|birthday|friend|dog|cat|toys?|lap|side|"
-    r"name|bowl|food|tail|collar|cage|leash)\b)", re.IGNORECASE
-)
-_QUESTION_START_RE = re.compile(r"^(what|how|where|when|why|who|do|does|are|is|can|will)\b", re.IGNORECASE)
-_JOINED_QUESTION_RE = re.compile(
-    r",?\s+and\s+(?=(how|what|where|when|why|who|do you|are you|can you|will you)\b)", re.IGNORECASE
-)
-# "a snowman named frosty" -> "a snowman named Frosty"
-_NAMED_RE = re.compile(r"\b(named|called) (?!(after|it|him|her|them|me|you|us|that|this|what|a|an|the|my)\b)([a-z])")
-# "his name was nemo" -> "his name was Nemo"
-_NAME_IS_RE = re.compile(
-    r"\b(name (?:is|was|'s)) (?!(not|a|an|the|my|so|really|very|too|kind|cool|weird|nice|funny|silly|pretty|great|"
-    r"awesome|beautiful|long|short|hard|easy|dumb|stupid|ugly|cute|good|bad|special|unique|strange|boring|perfect|"
-    r"fine|ok|okay|lovely|fancy|same|different|tricky|interesting)\b)([a-z])")
-# "their names are luna and milo" -> "their names are Luna and Milo"
-_NAMES_ARE_RE = re.compile(r"\b(names are) ([a-z]+) and ([a-z]+)\b")
-# Places a child may name in lowercase
-_PLACES = ["alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut", "delaware",
-           "florida", "georgia", "hawaii", "idaho", "illinois", "indiana", "iowa", "kansas", "kentucky",
-           "louisiana", "maine", "maryland", "massachusetts", "michigan", "minnesota", "mississippi", "missouri",
-           "montana", "nebraska", "nevada", "ohio", "oklahoma", "oregon", "pennsylvania", "tennessee", "texas",
-           "utah", "vermont", "virginia", "washington", "wisconsin", "wyoming", "canada", "mexico", "england",
-           "france", "spain", "italy", "germany", "china", "japan", "india", "australia", "brazil", "africa",
-           "europe", "disneyland", "disney world", "new york", "chicago", "paris", "london", "hawaii"]
-_PLACES_RE = re.compile(r"\b(" + "|".join(sorted(set(_PLACES), key=len, reverse=True)) + r")\b")
 # Songs, books, games and shows children name in lowercase
 _TITLES = {
     "fur elise": "Für Elise", "twinkle twinkle little star": "Twinkle Twinkle Little Star",
@@ -285,13 +65,6 @@ _TITLES = {
 _TITLES_RE = re.compile(r"\b(" + "|".join(re.escape(t) for t in sorted(_TITLES, key=len, reverse=True)) + r")\b")
 _NOT_SUBJECT_WORDS = {"then", "now", "so", "yes", "no", "well", "okay", "ok", "also", "today", "yesterday",
                       "tonight", "later", "after", "first", "next", "finally", "there", "here", "just"}
-_ME_AND_RE = re.compile(r"(^|[.!?] )me and ((?:my |our )?(?!my\b|our\b)[a-z]+)(?= [a-z])", re.IGNORECASE)
-_WEEKDAY_RE = re.compile(r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|april|"
-                         r"june|july|august|september|october|november|december)\b")
-# "its math" (a whole message): "it's math"
-_ITS_ALONE_RE = re.compile(r"^its (?=[a-z]*[a-rt-z][.!]*$)", re.IGNORECASE)  # not "its wings"
-# "mr kim" -> "Mr Kim", so the parser reads a name
-_TITLE_RE = re.compile(r"\b(mr|mrs|ms|dr)\.? ([a-z])", re.IGNORECASE)
 
 _WORD_RE = re.compile(r"[^\W\d_]+")  # letters, including accented ones ("Für")
 
@@ -821,9 +594,7 @@ def _tag_question(match) -> str:
     return match.group(1)
 
 
-_DIGIT_SHORTHAND = {"b4": "before", "2day": "today", "2morrow": "tomorrow", "2moro": "tomorrow", "2nite": "tonight",
-                    "l8r": "later", "l8": "late", "gr8": "great", "h8": "hate", "m8": "mate", "w8": "wait",
-                    "any1": "anyone", "some1": "someone", "every1": "everyone", "no1": "no one"}
+_DIGIT_SHORTHAND = _NORMALIZATION_DATA["digit_shorthand"]
 _DIGIT_SHORTHAND_RE = re.compile(r"(?<![\w'])(" + "|".join(_DIGIT_SHORTHAND) + r")(?![\w'])", re.IGNORECASE)
 _STRETCH_RE = re.compile(r"([a-z])\1{2,}", re.IGNORECASE)
 _SAYING_VERBS = {"say", "think", "know", "hope", "wish", "guess", "bet", "feel", "believe", "mean", "remember",
@@ -946,6 +717,68 @@ def _load_verbs(nlp) -> None:
         logger.warning(f"Could not read verb forms: {e}")
 
 
+_GREETINGS = [(re.compile(p, re.IGNORECASE), word) for p, word in _NORMALIZATION_DATA["greetings"]]
+
+
+def _replace_word(match) -> str:
+    word = match.group(0)
+    if word.lower() == "ur":
+        return word  # "ur weird" (you're) or "ur dog" (your): decided by a later step from the next word
+    return NORMALIZATIONS.get(word.lower(), word)
+
+
+# Steps that need code, by the name a "code" step in knowledge/normalizations.json gives
+_CODE_STEPS = {
+    "stretched_greetings": lambda text: " ".join(next((r for p, r in _GREETINGS if p.match(w)), w)
+                                                  for w in text.split()),
+    "digit_shorthand": lambda text: _DIGIT_SHORTHAND_RE.sub(lambda m: _DIGIT_SHORTHAND[m.group(0).lower()], text),
+    "words": lambda text: _WORD_RE.sub(_replace_word, text),
+    "titles": lambda text: _TITLES_RE.sub(lambda m: _TITLES[m.group(1)], text),
+    "tag_question": lambda text: _TAG_QUESTION_RE.sub(_tag_question, text),
+}
+
+_CASE_CHANGES = {
+    "upper": str.upper, "lower": str.lower, "capitalize": str.capitalize, "title": str.title,
+    "title_and": lambda word: word.title().replace(" And ", " and "),  # "Lilo and Stitch"
+    # "me and him" -> "he and I": a pronoun moved to the front is a subject
+    "subject": lambda word: {"him": "he", "her": "she", "them": "they", "us": "we"}.get(word.lower(), word),
+}
+_TEMPLATE_FIELD_RE = re.compile(r"\{(\d+)(?:\|(\w+))?\}")
+
+
+def _regex_step(spec):
+    """A rewrite step from its knowledge-base entry (see the _comment in knowledge/normalizations.json)"""
+    flags = re.IGNORECASE if spec.get("ignore_case") else 0
+    pattern_text = spec["pattern"]
+    if "word_list" in spec:
+        words = sorted(spec["word_list"], key=len, reverse=True)
+        pattern_text = pattern_text.replace("{words}", "|".join(re.escape(w) for w in words))
+    pattern = re.compile(pattern_text, flags)
+    keep = spec.get("keep_if_group_matches")
+    keep_re = re.compile(keep["pattern"], re.IGNORECASE if keep.get("ignore_case") else 0) if keep else None
+    only = spec.get("only_if")
+    only_re = re.compile(only["pattern"], re.IGNORECASE if only.get("ignore_case") else 0) if only else None
+    template = spec.get("template")
+
+    def replacement(match):
+        if keep_re is not None and keep_re.match(match.group(keep["group"]) or ""):
+            return match.group(0)
+        if template is not None:
+            return _TEMPLATE_FIELD_RE.sub(
+                lambda f: _CASE_CHANGES.get(f.group(2), lambda w: w)(match.group(int(f.group(1))) or ""), template)
+        return match.expand(spec["replace"])
+
+    def step(text):
+        if only_re is not None and not only_re.match(text):
+            return text
+        return pattern.sub(replacement, text)
+    return step
+
+
+_NORMALIZE_STEPS = [_CODE_STEPS[spec["code"]] if "code" in spec else _regex_step(spec)
+                    for spec in _NORMALIZATION_DATA["steps"]]
+
+
 class UtteranceParser:
     """Lazily loads spaCy and parses normalized user messages"""
 
@@ -985,83 +818,8 @@ class UtteranceParser:
         letters = [c for c in text if c.isalpha()]
         if len(letters) >= 4 and sum(c.isupper() for c in letters) >= 0.8 * len(letters):
             text = re.sub(r"\bi\b", "I", text.lower())
-        text = " ".join(next((r for p, r in _STRETCHED_GREETINGS if p.match(w)), w) for w in text.split())
-
-        def replace(match):
-            word = match.group(0)
-            if word.lower() == "ur":
-                return word  # "ur weird" (you're) or "ur dog" (your): decided below by the next word
-            return NORMALIZATIONS.get(word.lower(), word)
-
-        # Shorthand with digits ("b4", "2day", "l8r"), which the word pattern below does not see
-        text = _DIGIT_SHORTHAND_RE.sub(lambda m: _DIGIT_SHORTHAND[m.group(0).lower()], text)
-        # Spellings first, so "its rlly big" reads "its really big" before "its" -> "it's"
-        text = _WORD_RE.sub(replace, text)
-        for pattern, replacement in _CONTEXT_NORMALIZATIONS:
-            text = pattern.sub(replacement, text)
-        text = re.sub(r"\bur\b", "your", text, flags=re.IGNORECASE)
-        text = _POSSESSIVE_RE.sub(r"\1's ", text)
-        text = _NAMED_RE.sub(lambda m: f"{m.group(1)} {m.group(3).upper()}", text)
-        text = _NAME_IS_RE.sub(lambda m: f"{m.group(1)} {m.group(3).upper()}", text)
-        text = _NAMES_ARE_RE.sub(lambda m: f"{m.group(1)} {m.group(2).capitalize()} and {m.group(3).capitalize()}", text)
-        text = _PLACES_RE.sub(lambda m: m.group(1).title(), text)
-        text = _TITLES_RE.sub(lambda m: _TITLES[m.group(1)], text)
-        # "on saturday" -> "on Saturday" ("may" and "march" are also words, so they stay)
-        text = _WEEKDAY_RE.sub(lambda m: m.group(1).capitalize(), text)
-        text = _ITS_ALONE_RE.sub("it's ", text)
-        # "buddy do you like pizza": the bot's name is a greeting, set off by a comma
-        text = re.sub(r"^buddy,? (?=(?:do|does|did|can|could|will|would|are|guess|what|why|how|where|who|when|i|you|look|listen|tell|let's|lets|wanna|want)\b)", "", text, flags=re.IGNORECASE)
-        text = re.sub(r"^((?:hey|hi|hello) buddy)(?= (?:do|does|did|can|could|will|would|are|guess|what|why|how|where|who|when|i|you|look|listen|tell|let's|lets|wanna|want)\b)", r"\1,", text, flags=re.IGNORECASE)
-        text = re.sub(r"\b(you|thanks|bye|goodnight|night),? buddy\s*([.!?]*)$", r"\1\2", text, flags=re.IGNORECASE)
-        # "home.it was fun": a sentence run together after the period
-        text = re.sub(r"(?<=[a-z])\.(?=(?:i|it|we|he|she|they|my|the|then|and|but|so|you|that|there|this)\b)", ". ", text)
-        # "my mom n dad", "me & my sister", "w/ my grandma", "going 2 the store"
-        text = re.sub(r"(?<=\w) (?:n|&|\+) (?=\w)", " and ", text)
-        text = re.sub(r"\bw/(?=\s)", "with", text, flags=re.IGNORECASE)
-        text = re.sub(r"\b(go|going|went|goes|come|came|want|wanna|have|need|got|talk|listen|back|up|next|way|time|to|due)"
-                      r" 2 (?=(?:the|my|a|school|bed|sleep|play|go|eat|be|see|get|do|work|church|grandma's|grandpa's)\b)",
-                      r"\1 to ", text, flags=re.IGNORECASE)
-        # "you like pizza right", "dogs are cute aren't they": a question looking for "yes"
-        text = _TAG_QUESTION_RE.sub(_tag_question, text)
-        # "i dare you to say something funny": the dare is the request
-        text = re.sub(r"^i (?:dare|double dare|triple dare) you to ", "", text, flags=re.IGNORECASE)
-        # "I'm a dinosaur rawr": the growl is its own sentence
-        text = re.sub(r"(?<=[a-z])\s+((?:rawr+|roa+r+|grr+|meow+|woof+|moo+|oink+)\W*)$", r"! \1", text, flags=re.IGNORECASE)
-        text = re.sub(r"\by'?all\b", "you all", text, flags=re.IGNORECASE)
-        # "which is better, pizza or tacos": the choice itself
-        text = re.sub(r"^((?:which|what)(?: one)? (?:is|do you like|would you pick|do you pick|would you choose)"
-                      r"(?: better| more| best)?),?\s+(\w+(?: \w+)?) or (\w+(?: \w+)?)\s*\??$", r"\1, \2 or \3?", text,
-                      flags=re.IGNORECASE)
-        # Quotes around what someone said: 'my mom said "no way"'
-        text = re.sub(r"[\"“”]", "", text)
-        # "what do i do": asking for advice
-        text = re.sub(r"^what do i do\b", "what should I do", text, flags=re.IGNORECASE)
-        # "what does gravity mean": the question the world answers know as "what is gravity"
-        text = re.sub(r"^what does (?!(?:that|it|this|he|she|they|you|mine)\b)([\w ]+?) mean\b", r"what is \1", text,
-                      flags=re.IGNORECASE)
-        # "i watched frozen": a movie title after a word for watching
-        text = re.sub(r"\b(watch|watched|watching|saw|seen|see|love|loved|like|liked)( the movie)? (frozen|moana|encanto|"
-                      r"coco|elemental|luca|tangled|bluey|trolls|turning red|inside out|"
-                      r"toy story|zootopia|minions|despicable me|shrek|wicked|lilo and stitch|the lion king)"
-                      r"(?=\s*(?:[.!?,]|$)|\s+(?:and|with|today|yesterday|again|last|at|on|tonight|so|too|two|2)\b)",
-                      lambda m: f"{m.group(1)}{m.group(2) or ''} {m.group(3).title().replace(' And ', ' and ')}", text,
-                      flags=re.IGNORECASE)
-        # "i wonder why the sky is blue": the question itself ("why is the sky blue?")
-        text = re.sub(r"^i (?:wonder|want to know|wanna know|wish i knew) (why|how|where|what|when|if) "
-                      r"((?:the |a |my |your )?\w+) (is|are|was|were|can|do|does) (.+?)[.!?]*$",
-                      lambda m: f"{m.group(1) if m.group(1) != 'if' else ''} {m.group(3)} {m.group(2)} {m.group(4)}?".strip(),
-                      text, flags=re.IGNORECASE)
-        # "y is the sky blue", "y not": "why"
-        text = re.sub(r"^y(?= (is|are|do|does|did|not|can|can't|would|wouldn't|should|won't|cant|dont|don't|was|were)\b)|^y(?=\W*$)",
-                      "why", text, flags=re.IGNORECASE)
-        # "lets fish" at the start: "let's fish"
-        text = re.sub(r"^lets\b", "let's", text, flags=re.IGNORECASE)
-        # "me and lily played tag" -> "lily and I played tag" (the parser reads "me and" badly)
-        text = _ME_AND_RE.sub(lambda m: f"{m.group(1)}{m.group(2)} and I", text)
-        text = _TITLE_RE.sub(lambda m: f"{m.group(1).capitalize()} {m.group(2).upper()}", text)
-        # "what's your name and how old are you": two questions, answered one by one
-        if _QUESTION_START_RE.match(text):
-            text = _JOINED_QUESTION_RE.sub("? ", text)
+        for step in _NORMALIZE_STEPS:
+            text = step(text)
         return text
 
     def parse(self, text: str):
