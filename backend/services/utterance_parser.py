@@ -919,6 +919,17 @@ def _resplit(doc) -> str:
     return text
 
 
+def _repaired(doc):
+    """
+    repair_parse, noting in doc.user_data["repaired"] which tokens the repairs changed (tag,
+    attachment or label): the response engine trusts a heavily repaired parse less
+    """
+    before = [(t.pos_, t.tag_, t.dep_, t.head.i) for t in doc]
+    repair_parse(doc)
+    doc.user_data["repaired"] = {t.i for t in doc if (t.pos_, t.tag_, t.dep_, t.head.i) != before[t.i]}
+    return doc
+
+
 def _load_verbs(nlp) -> None:
     """Base forms of verbs from the lemmatizer's tables, for _repair_tags"""
     try:
@@ -1095,9 +1106,9 @@ class UtteranceParser:
 
     @lru_cache(maxsize=256)
     def _parse_cached(self, normalized_text: str):
-        doc = repair_parse(self._nlp(normalized_text))
+        doc = _repaired(self._nlp(normalized_text))
         fixed = _resplit(doc)
-        return repair_parse(self._nlp(fixed)) if fixed != normalized_text else doc
+        return _repaired(self._nlp(fixed)) if fixed != normalized_text else doc
 
     @property
     def vocab(self):

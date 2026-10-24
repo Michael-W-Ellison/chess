@@ -76,7 +76,9 @@ class Frame:
     valence: str = "neutral"
     sentence: int = 0
     rule: Dict[str, Any] = field(default_factory=dict, repr=False)
-    last_token: int = -1  # the last matched token, for "... but ..." (see _before_but)
+    last_token: int = -1  # the last matched token, for "... but ..." (see _but_clause_start)
+    tokens: List[int] = field(default_factory=list)  # positions of the matched tokens
+    anchor: int = -1  # the token the rule's pattern starts from (usually its verb)
 
 
 @dataclass
@@ -672,6 +674,8 @@ class ResponseEngine:
             sentence=sentence.start,
             rule=rule,
             last_token=max(t.i for t in nodes.values()),
+            tokens=sorted(t.i for t in nodes.values()),
+            anchor=next(iter(nodes.values())).i,
         )
 
     @staticmethod
@@ -1265,6 +1269,16 @@ class ResponseEngine:
         but = self._but_clause_start(analysis.doc) if analysis.doc is not None else None
         if but is not None and any(f.last_token > but for f in responding):
             responding = [f for f in responding if f.last_token > but]
+        # A strongly worded reply needs a parse we can trust; otherwise a plainer reply answers
+        if analysis.doc is not None:
+            kept = []
+            for f in responding:
+                reason = self._doubt(f, responding, analysis.doc)
+                if reason is None:
+                    kept.append(f)
+                elif features is not None:
+                    features.setdefault("doubted", []).append(f"{f.rule_id}:{reason}")
+            responding = kept
 
         # "What part are you playing?" - "a tree"; "Why is it your favorite?" - "it has rings"
         if expectation is not None and expectation.kind in ("item", "reason") and allow_reflection and not responding:
@@ -1623,8 +1637,9 @@ class ResponseEngine:
             if continued is not None:
                 return continued
 
-        # What happened, in general terms: a reply for its kind of event and modality
-        if allow_reflection:
+        # What happened, in general terms: a reply for its kind of event and modality (not when a
+        # rule was doubted: the appraisal rests on the same parse, so a plain echo answers)
+        if allow_reflection and not (features and features.get("doubted")):
             composed = self._appraisal_reply(doc, slots, user_id, policy, features, gentle)
             if composed is not None:
                 return composed
@@ -1729,6 +1744,51 @@ class ResponseEngine:
                 return pick("topic").format_map(slots), "neutral", "topic"
 
         return pick("generic"), "neutral", "generic"
+
+    def _doubt(self, frame: "Frame", frames: List["Frame"], doc) -> Optional[str]:
+        """
+        Why a rule's strongly worded reply should not be trusted for this message, or None.
+        Only rules that state a feeling about what happened (valence positive or negative) are
+        doubted; caring rules (mood sad, angry, anxious) always keep their replies. Reasons:
+          "mixed": a positive and a negative rule matched different clauses of the same
+                   sentence ("I won the race and then I fell"), so a plain echo of the
+                   sentence fits better than either (two rules on the same verb are not mixed:
+                   "I got a red card" is the more specific rule's)
+          "fragment": the sentence's root is not a verb though it has one, a sign the parse
+                   failed, and a word the parse repairs changed is part of the match
+        """
+        if frame.valence not in ("positive", "negative") or frame.rule.get("confident") \
+                or frame.mood in ("sad", "angry", "anxious"):
+            return None
+        opposite = [f for f in frames if f.sentence == frame.sentence and f.valence in ("positive", "negative")
+                    and f.valence != frame.valence and f.anchor != frame.anchor
+                    and not set(f.tokens) & set(frame.tokens)]
+        if opposite:
+            return "mixed"
+        sentence = doc[frame.tokens[0]].sent
+        # "I got a new bike and then it broke": good news, then bad news in another clause
+        if frame.valence == "positive":
+            clauses = self._clauses(sentence)
+            mine = next((head for head, words in clauses.items() if frame.anchor in {w.i for w in words}), None)
+            if any(head != mine and emoji_quirk_service.is_negative(" ".join(w.text for w in words))
+                   for head, words in clauses.items()):
+                return "mixed"
+        repaired = doc.user_data.get("repaired", set())
+        if sentence.root.pos_ not in ("VERB", "AUX") and any(t.pos_ in ("VERB", "AUX") for t in sentence) \
+                and any(i in repaired for i in frame.tokens):
+            return "fragment"
+        return None
+
+    @staticmethod
+    def _clauses(sentence) -> Dict[int, List[Any]]:
+        """Each clause's verb position with the clause's own words (not those of clauses inside it)"""
+        heads = [t for t in sentence if t.pos_ in ("VERB", "AUX") and t.dep_ in ("ROOT", "conj", "advcl", "ccomp")]
+        head_ids = {t.i for t in heads}
+        clauses = {}
+        for head in heads:
+            inner = {w.i for h in heads if h.i != head.i and head.i in {a.i for a in h.ancestors} for w in h.subtree}
+            clauses[head.i] = [w for w in head.subtree if w.i not in inner and not (w.i in head_ids and w.i != head.i)]
+        return clauses
 
     @staticmethod
     def _but_clause_start(doc) -> Optional[int]:
