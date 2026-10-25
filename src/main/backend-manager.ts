@@ -5,6 +5,7 @@
 
 import { spawn, ChildProcess } from 'child_process';
 import { randomBytes } from 'crypto';
+import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';
 import { app } from 'electron';
@@ -34,6 +35,9 @@ export class BackendManager {
   private isRunning: boolean = false;
   private startupPromise: Promise<void> | null = null;
   private healthCheckTimer: NodeJS.Timeout | null = null;
+  // Why the backend process could not start, or exited while starting (no waiting for the
+  // whole startup time then)
+  private startFailure: Error | null = null;
 
   constructor(config?: Partial<BackendConfig>) {
     this.config = { ...defaultConfig, ...config };
@@ -66,9 +70,7 @@ export class BackendManager {
       return this.config.backendPath;
     }
 
-    const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
-
-    if (isDev) {
+    if (!app.isPackaged) {
       // Development: app.getAppPath() is the project root (where package.json is),
       // and the backend directory sits directly inside it
       return path.join(app.getAppPath(), 'backend');
@@ -76,6 +78,25 @@ export class BackendManager {
       // Production: backend is packaged with app
       return path.join(process.resourcesPath, 'backend');
     }
+  }
+
+  /**
+   * How to run the backend. Unpackaged: python main.py in the backend folder. Packaged: the
+   * bundled backend (npm run build:backend, copied into the app's resources), run in a
+   * "backend" folder in the user's app data, where it keeps its .env, data/ (the database),
+   * logs/ and models/; the app's own files can't be written to.
+   */
+  private getLaunchCommand(pythonPath: string, mainScript: string, backendPath: string):
+    { command: string; args: string[]; cwd: string } {
+    if (!app.isPackaged || this.config.pythonPath) {
+      return { command: pythonPath, args: [mainScript], cwd: backendPath };
+    }
+    const dataDir = path.join(app.getPath('userData'), 'backend');
+    for (const dir of ['data', 'logs', 'models']) {
+      fs.mkdirSync(path.join(dataDir, dir), { recursive: true });
+    }
+    const executable = process.platform === 'win32' ? 'chatbot-backend.exe' : 'chatbot-backend';
+    return { command: path.join(backendPath, executable), args: [], cwd: dataDir };
   }
 
   /**
@@ -99,11 +120,11 @@ export class BackendManager {
     const pythonPath = this.getPythonPath();
     const backendPath = this.getBackendPath();
     const mainScript = path.join(backendPath, 'main.py');
+    const launch = this.getLaunchCommand(pythonPath, mainScript, backendPath);
 
     console.log('Starting Python backend...');
-    console.log('  Python:', pythonPath);
-    console.log('  Backend:', backendPath);
-    console.log('  Script:', mainScript);
+    console.log('  Command:', launch.command, ...launch.args);
+    console.log('  Working directory:', launch.cwd);
 
     // Environment variables for backend
     const env = {
@@ -116,9 +137,10 @@ export class BackendManager {
     };
 
     // Spawn Python process
+    this.startFailure = null;
     try {
-      this.process = spawn(pythonPath, [mainScript], {
-        cwd: backendPath,
+      this.process = spawn(launch.command, launch.args, {
+        cwd: launch.cwd,
         env,
         stdio: ['pipe', 'pipe', 'pipe'],
       });
@@ -142,6 +164,7 @@ export class BackendManager {
       // Handle process exit
       this.process.on('exit', (code, signal) => {
         console.log(`Backend process exited with code ${code}, signal ${signal}`);
+        this.startFailure ??= new Error(`Backend exited with code ${code}, signal ${signal}`);
         this.isRunning = false;
         this.process = null;
         this.stopHealthCheck();
@@ -150,6 +173,7 @@ export class BackendManager {
       // Handle process errors
       this.process.on('error', (error) => {
         console.error('Backend process error:', error);
+        this.startFailure ??= error;
         this.isRunning = false;
         this.process = null;
         this.stopHealthCheck();
@@ -179,6 +203,10 @@ export class BackendManager {
     const maxWaitTime = this.config.maxStartupTime;
 
     while (Date.now() - startTime < maxWaitTime) {
+      // The process could not be started or already exited: no point waiting
+      if (this.startFailure) {
+        throw new Error(`Backend failed to start: ${this.startFailure.message}`);
+      }
       try {
         const healthy = await this.checkHealth();
         if (healthy) {

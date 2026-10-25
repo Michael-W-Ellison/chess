@@ -13,9 +13,9 @@
     "build": "npm run build:renderer && npm run build:main",
     "build:renderer": "vite build",
     "build:main": "tsc -p tsconfig.main.json",
+    "build:backend": "node scripts/build-backend.js",
     "start": "electron .",
-    "package": "electron-builder",
-    "package:all": "electron-builder -mwl",
+    "package": "npm run build && npm run build:backend && electron-builder",
     "test:ipc": "npm run build:main && node dist/main/test-ipc.js",
     "test:ipc:dev": "ts-node --project tsconfig.main.json src/main/test-ipc.ts",
     "test:store": "node src/main/test-store.js"
@@ -50,6 +50,12 @@
       "dist/**/*",
       "node_modules/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "backend/dist/chatbot-backend",
+        "to": "backend"
+      }
     ],
     "mac": {
       "target": "dmg",

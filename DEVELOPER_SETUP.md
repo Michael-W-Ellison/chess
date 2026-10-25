@@ -451,11 +451,23 @@ npm run build:renderer
 # Build main process
 npm run build:main
 
-# Package application
+# Package application (also builds the bundled backend)
 npm run package
 
 # Distributables will be in release/ folder
 ```
+
+`npm run package` builds the app, then the backend as a standalone program
+(`npm run build:backend`: PyInstaller with `backend/venv`, so install
+`backend/requirements.txt` and the spaCy model there first), and puts both in the
+installer. PyInstaller builds for the system it runs on, so build the Windows
+installer on Windows, the macOS one on macOS and the Linux one on Linux.
+
+The installed app keeps the backend's `.env`, database (`data/`), logs and LLM model
+(`models/`) in a `backend` folder in its user data folder:
+`%APPDATA%\tamagotchi-chatbot-friend\backend` on Windows,
+`~/Library/Application Support/tamagotchi-chatbot-friend/backend` on macOS and
+`~/.config/tamagotchi-chatbot-friend/backend` on Linux.
 
 ### Running Tests
 

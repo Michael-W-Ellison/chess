@@ -45,6 +45,8 @@ better-profanity==0.7.0
 
 # Development Dependencies
 pytest==7.4.4
+# Builds the bundled backend for the packaged app (npm run build:backend)
+pyinstaller>=6.10
 pytest-asyncio==0.23.3
 black==23.12.1
 flake8==7.0.0
