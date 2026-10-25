@@ -777,3 +777,90 @@ class TestRoundTwelve:
     def test_wording(self, engine, text, words):
         from tests.test_dialogue_fixes import rule_of
         assert words in rule_of(engine, text)[1]
+
+
+class TestRoundThirteen:
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    @pytest.mark.parametrize("text,rule", [
+        ("my dog ate my sandwich", "fallback_appraisal_eat_real"),
+        ("my dog ate my homework", "pet_chewed"),
+        ("my cat had kittens last night and there are five of them", "pet_babies"),
+        ("i watched my dad fix the car", "fallback_reflection"),
+        ("i watched a movie", "fallback_appraisal_fun_real"),
+    ])
+    def test_rule(self, engine, text, rule):
+        from tests.test_dialogue_fixes import rule_of
+        assert rule_of(engine, text)[0] == rule
+
+
+class TestRoundFourteen:
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    @pytest.mark.parametrize("before,message,reply", [
+        ("my mom took away my ipad", "because i didnt do my chores",
+         "Oh, I see. You didn't do your chores? Thanks for telling me. How do you feel about it?"),
+        ("my little brother is so annoying", "he copies everything i do",
+         "Oh, I see. Your little brother copies everything you do? Thanks for telling me. How do you feel about it?"),
+        (None, "because it has rings", "Ah, I see! It has rings? Thanks for telling me."),
+    ])
+    def test_reason_reply_fits_its_tone(self, engine, before, message, reply):
+        from tests.test_dialogue_fixes import rule_of
+        if before:
+            rule_of(engine, before)
+        assert rule_of(engine, message)[1] == reply
+
+    def test_good_reason_is_still_cheered(self, engine):
+        from tests.test_dialogue_fixes import rule_of
+        engine.record_bot_reply(1, "Mine too! Why is Saturn your favorite?")
+        assert rule_of(engine, "because it has rings")[1] == "Ooh, that's a good reason! It has rings? Cool!"
+
+    @pytest.mark.parametrize("message", ["i got back on", "i got him out though", "i just got home from school",
+                                         "we got there late"])
+    def test_getting_somewhere_is_not_lucky(self, engine, message):
+        from tests.test_dialogue_fixes import rule_of
+        assert "lucky you" not in rule_of(engine, message)[1]
+
+    def test_flagged_message_gets_a_reply_without_its_words(self, engine):
+        from tests.test_dialogue_fixes import make_personality
+        features = {}
+        reply = engine.generate_response("do you poop", make_personality(), allow_reflection=False, features=features)
+        assert features["rule"] == "bot_do_question" and "poop" not in reply.lower()
+
+
+class TestCorrectionsAndRecall:
+    """Parse errors found while letting the child correct the bot and ask what it remembers"""
+
+    @pytest.fixture
+    def engine(self):
+        import random
+        from services.response_engine import ResponseEngine
+        return ResponseEngine(rng=random.Random(0))
+
+    def test_hate_before_a_food_is_the_main_verb(self, engine):
+        assert engine.extract_memories("i hate broccoli") == [("dislike", "dislikes_broccoli", "broccoli")]
+
+    @pytest.mark.parametrize("message,memory", [
+        ("my best friend is maya", ("person", "best_friend_maya", "Maya")),
+        ("my sister is emma", ("person", "sister_emma", "Emma")),
+        ("my bff is zoe", ("person", "bff_zoe", "Zoe")),
+    ])
+    def test_lowercase_name_after_a_relation_is_a_name(self, engine, message, memory):
+        assert engine.extract_memories(message) == [memory]
+
+    @pytest.mark.parametrize("message", ["my mom is home", "my friend is nice", "my friend is a girl",
+                                         "my mom is a nurse"])
+    def test_other_words_after_a_relation_are_not_names(self, engine, message):
+        assert engine.extract_memories(message) == []
+
+    @pytest.mark.parametrize("message", ["do i like broccoli", "what do i hate", "my name isnt lily"])
+    def test_questions_and_denials_store_nothing(self, engine, message):
+        assert engine.extract_memories(message) == []

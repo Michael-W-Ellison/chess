@@ -27,6 +27,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from services import appraisal as appraisal_module
 from services.appraisal import Appraisal, Appraiser
 from services.emoji_quirk_service import emoji_quirk_service
+from services.fact_base import FACT_OPENERS_RE, FactBase, fact_text
 from services.reference_tracker import ReferenceTracker, gerund
 from services.utterance_parser import _NAMED_KINDS, utterance_parser
 
@@ -35,6 +36,7 @@ logger = logging.getLogger("chatbot.response_engine")
 RULES_PATH = Path(__file__).resolve().parent.parent / "knowledge" / "conversation_rules.json"
 # Short answers to common questions about the world ("Why is the sky blue?")
 ANSWERS_PATH = RULES_PATH.parent / "answers.json"
+FACTS_PATH = RULES_PATH.parent / "facts.json"
 
 # First person (child) <-> second person (bot) when echoing the child's words
 _REFLECT_WORDS = {
@@ -76,7 +78,9 @@ class Frame:
     valence: str = "neutral"
     sentence: int = 0
     rule: Dict[str, Any] = field(default_factory=dict, repr=False)
-    last_token: int = -1  # the last matched token, for "... but ..." (see _before_but)
+    last_token: int = -1  # the last matched token, for "... but ..." (see _but_clause_start)
+    tokens: List[int] = field(default_factory=list)  # positions of the matched tokens
+    anchor: int = -1  # the token the rule's pattern starts from (usually its verb)
 
 
 @dataclass
@@ -232,6 +236,10 @@ class _BlankDict(dict):
         return ""
 
 
+# Words that cancel a keyword right after them ("don't cry", "not sick")
+_NEGATIONS = {"not", "no", "never", "dont", "didnt", "cant", "wont", "isnt", "wasnt", "without", "nobody",
+              "stopped", "stop", "quit", "more"}  # "it stopped bleeding", "no more crying"
+
 # Things pets do: "he chewed my shoes" is likely about a pet
 _PET_VERBS = {"chew", "lick", "bark", "meow", "purr", "sniff", "wag", "growl", "pee", "poop", "nibble", "peck"}
 
@@ -262,6 +270,18 @@ _RHYME_FAMILIES = [
 # Things that happen on a schedule, named without "the": "school starts at 8:30"
 _ROUTINES = {"school", "practice", "recess", "lunch", "dinner", "breakfast", "class", "camp", "church", "bedtime",
              "soccer", "baseball", "basketball", "swimming", "dance", "piano", "karate", "gymnastics", "homework"}
+
+
+# The bot's own consoling words, and words for something liked, in its last reply (_reason_tone)
+_CONSOLING_RE = re.compile(r"\b(oh no|sorry|no fun|doesn't sound fun|not fun|that's hard|frustrating|annoying|"
+                           r"aw,? man|ugh|that's not okay|tough)\b", re.IGNORECASE)
+_LIKED_RE = re.compile(r"\b(favorite|favourite|love|like|fun|cool|best|great|awesome|exciting)\b", re.IGNORECASE)
+# Replies to a reason, by its tone; "{clause}" is the reason in the bot's words
+_REASON_REPLIES = {
+    "positive": ["Ooh, that's a good reason! {clause}? Cool!"],
+    "negative": ["Oh, I see. {clause}? Thanks for telling me. How do you feel about it?"],
+    "neutral": ["Ah, I see! {clause}? Thanks for telling me."],
+}
 
 
 def _number_value(text: str) -> Optional[int]:
@@ -310,6 +330,10 @@ class ResponseEngine:
         self._expect: Dict[int, Expectation] = {}
         # The child's previous message (resolved), for fragments that continue it ("next week")
         self._previous_message: Dict[int, str] = {}
+        self._last_bot_reply: Dict[int, str] = {}  # for the tone of an answer to it (_reason_tone)
+        # The fact the bot just disputed or confirmed (None for a world answer it gave), so
+        # "you're wrong" or "no there are 9" right after it is answered by sticking to it
+        self._last_fact: Dict[int, Optional[Dict]] = {}
         self._current_message: Dict[int, str] = {}
         self._load_knowledge_base()
         self.references = ReferenceTracker(
@@ -330,8 +354,18 @@ class ResponseEngine:
                 self.answers = [(re.compile(a["pattern"], re.IGNORECASE), a["answer"]) for a in json.load(f)["answers"]]
         else:
             self.answers = []
+        self.fact_base = FactBase.load(self.rules_path.parent / FACTS_PATH.name)
+        # Keywords for the parse-free fallback, highest rank first: (entry, pattern)
+        self._keywords = sorted(
+            ((k, re.compile(r"\b(" + "|".join(re.escape(w) for w in sorted(k["words"], key=len, reverse=True)) + r")\b"))
+             for k in self.kb.get("keywords", [])),
+            key=lambda item: -item[0]["rank"])
         # Whole-message set phrases: (id, pattern, replies)
         self._phrases = [(p["id"], re.compile(p["pattern"]), p["responses"]) for p in self.kb.get("phrases", [])]
+        # Questions about what the child told the bot ("how old am i?"): (entry, pattern)
+        recall = self.kb.get("recall", {})
+        self._recall_questions = [(q, re.compile(q["pattern"])) for q in recall.get("questions", [])]
+        self._pet_words = set(recall.get("pets", []))
         lexicons = self.kb.get("lexicons", {})
 
         def resolve(value):
@@ -393,6 +427,7 @@ class ResponseEngine:
         """
         if not self.is_available():
             return
+        self._last_bot_reply[user_id] = reply
         expectation = expectation_from_reply(reply)
         if expectation is None:
             self._expect.pop(user_id, None)
@@ -672,6 +707,8 @@ class ResponseEngine:
             sentence=sentence.start,
             rule=rule,
             last_token=max(t.i for t in nodes.values()),
+            tokens=sorted(t.i for t in nodes.values()),
+            anchor=next(iter(nodes.values())).i,
         )
 
     @staticmethod
@@ -1006,6 +1043,24 @@ class ResponseEngine:
             result = a // b
         return f"{a} {op} {b} is {result}! Do you like math?"
 
+    @staticmethod
+    def _arithmetic_check(match, said: int) -> Optional[str]:
+        """The reply to a sum with an answer ("2 plus 2 is 5"), or None for a division with a remainder"""
+        a, op, b = int(match.group(1)), match.group(2).lower(), int(match.group(3))
+        if op in ("plus", "+"):
+            result = a + b
+        elif op in ("minus", "-"):
+            result = a - b
+        elif op in ("times", "x", "*"):
+            result = a * b
+        elif b and not a % b:
+            result = a // b
+        else:
+            return None
+        if said == result:
+            return f"That's right! {a} {op} {b} is {result}. Nice math!"
+        return f"Hmm, let me check... {a} {op} {b} is {result}, not {said}!"
+
     def _known_person_subject(self, token, user_id: Optional[int] = None) -> bool:
         """
         True if the clause's subject is "my <relation>", a recognized name ("Maya said no"),
@@ -1189,6 +1244,23 @@ class ResponseEngine:
                 features["rule"] = rule_id
             return self._apply_style(reply, personality)
 
+        # A statement about the world that is wrong ("spiders have 6 legs") or right, and
+        # "you're wrong" after the bot stated a fact
+        checked = self._fact_reply(message, user_id)
+        if checked is not None:
+            rule_id, reply = checked
+            if features is not None:
+                features["rule"] = rule_id
+            return self._apply_style(reply, personality)
+
+        # Questions about what the child told the bot ("how old am i?", "what pets do i have?")
+        recalled = self._recall_reply(message, user_id, user_name)
+        if recalled is not None:
+            rule_id, reply = recalled
+            if features is not None:
+                features["rule"] = rule_id
+            return self._apply_style(reply, personality)
+
         # Set phrases that are the whole message ("me too", "nvm", "you're right")
         phrase = self._phrase_reply(message, user_id)
         if phrase is not None:
@@ -1252,6 +1324,13 @@ class ResponseEngine:
         if sum_match and not analysis.frames:
             if features is not None:
                 features["rule"] = "arithmetic"
+            # "2 plus 2 is 5": checked, not just answered
+            stated = re.match(r"\s*(?:is|=|equals|makes|are)\s*(\d{1,5})\b", message[sum_match.end():], re.IGNORECASE)
+            checked = self._arithmetic_check(sum_match, int(stated.group(1))) if stated else None
+            if checked:
+                if features is not None:
+                    features["rule"] = "arithmetic_check"
+                return self._apply_style(checked, personality)
             return self._apply_style(self._arithmetic(sum_match), personality)
 
         responding = [f for f in analysis.frames
@@ -1259,16 +1338,26 @@ class ResponseEngine:
                       # "Did you know how the knight moves?" asks; "Did you know sharks..." tells
                       and not (f.rule.get("unless_world_answer") and self._world_answer(message))]
         if not allow_reflection:
-            # Only rules whose replies use no words taken from the message
-            responding = [f for f in responding if not f.rule.get("slots")]
+            # Only rules with a reply that uses no words taken from the message
+            responding = [f for f in responding if self._echo_free(f.rule, f.slots)]
         # "I built a sandcastle but a wave knocked it down": the part after "but" is the news
         but = self._but_clause_start(analysis.doc) if analysis.doc is not None else None
         if but is not None and any(f.last_token > but for f in responding):
             responding = [f for f in responding if f.last_token > but]
+        # A strongly worded reply needs a parse we can trust; otherwise a plainer reply answers
+        if analysis.doc is not None:
+            kept = []
+            for f in responding:
+                reason = self._doubt(f, responding, analysis.doc)
+                if reason is None:
+                    kept.append(f)
+                elif features is not None:
+                    features.setdefault("doubted", []).append(f"{f.rule_id}:{reason}")
+            responding = kept
 
         # "What part are you playing?" - "a tree"; "Why is it your favorite?" - "it has rings"
         if expectation is not None and expectation.kind in ("item", "reason") and allow_reflection and not responding:
-            answered = self._answer_open_question(expectation, analysis)
+            answered = self._answer_open_question(expectation, analysis, user_id)
             if answered is not None:
                 rule_id, reply = answered
                 features["rule"] = rule_id
@@ -1279,7 +1368,8 @@ class ResponseEngine:
             slots = _BlankDict({**globals_, **frame.slots})
             self._compute_slots(frame, slots, personality)
             self._record_answer(frame.rule, slots, user_id)
-            core = self._choose_template(frame.rule, slots, level, user_id, policy, features)
+            core = self._choose_template(frame.rule, slots, level, user_id, policy, features,
+                                         echo_free=not allow_reflection)
             # "What's your favorite animal and why?"
             if frame.rule_id == "bot_favorite_question" and re.search(r"\band why\b|\? why\W*$", message, re.IGNORECASE):
                 split = re.match(r"(.*[.!])\s+([^.!?]*\?)$", core)
@@ -1301,7 +1391,8 @@ class ResponseEngine:
                 second_slots = _BlankDict({**globals_, **second.slots})
                 self._compute_slots(second, second_slots, personality)
                 self._record_answer(second.rule, second_slots, user_id)
-                second_core = self._choose_template(second.rule, second_slots, level, user_id, policy, features)
+                second_core = self._choose_template(second.rule, second_slots, level, user_id, policy, features,
+                                                    echo_free=not allow_reflection)
                 # Answer in the order the sentences were written
                 core = f"{core} {second_core}" if frame.sentence < second.sentence else f"{second_core} {core}"
             valence = frame.valence
@@ -1389,6 +1480,10 @@ class ResponseEngine:
                 thing = slots.get("thing_slug", "")
                 named = next((v for k, v in facts.items() if k.startswith(f"{thing}_")), None) if thing else None
                 if not named and thing:
+                    # "my best friend Maya" (best_friend_maya) for "what's my friend's name?"
+                    named = next((n for rel, n in self._named(self._memories())
+                                  if rel.endswith(" " + thing.replace("_", " "))), None)
+                if not named and thing:
                     # Named earlier in this conversation ("I have a cat named Whiskers")
                     state = self.references.state(getattr(personality, "user_id", 0) or 0)
                     named = next((p.name for p in state.people
@@ -1420,6 +1515,8 @@ class ResponseEngine:
             elif name == "joke_content":
                 # "Tell me something funny"
                 self._requested_content("joke", slots, user_id=getattr(personality, "user_id", 0))
+            elif name == "reason_tone":
+                slots["tone"] = self._reason_tone(slots.get("message_text", ""), getattr(personality, "user_id", 0))
             elif name == "count_to":
                 # "Count to ten": the numbers, up to 30
                 target = _number_value(slots.get("n_raw", ""))
@@ -1491,6 +1588,7 @@ class ResponseEngine:
         if flag == "no_jokes" and rule_id and (
                 rule_id.startswith(("fallback_world", "fallback_reflection", "fallback_long_reflection", "fallback_fragment",
                                     "fallback_appraisal", "fallback_continuation"))
+                or rule_id.startswith(("recall_", "fact_"))
                 or rule_id in ("child_joke", "riddle_answer", "joke_offer_yes", "spelling", "performance", "play_role", "pretend")):
             return True
         return bool(rule_id and self.rules.get(rule_id, {}).get(flag))
@@ -1505,14 +1603,36 @@ class ResponseEngine:
             return policy.decide(feature, probability)
         return self.rng.random() < probability
 
-    def _choose_template(self, rule: Dict[str, Any], slots: Dict[str, str], level: int, user_id: int,
-                         policy=None, features: Optional[Dict[str, str]] = None) -> str:
+    @staticmethod
+    def _rule_options(rule: Dict[str, Any], slots: Dict[str, str]) -> List[Any]:
+        """The reply templates a rule offers for these slots"""
         if "responses_by" in rule:
             by = rule["responses_by"]
             variants = by["variants"]
-            options = variants.get(slots.get(by["slot"], ""), variants.get("default", []))
-        else:
-            options = rule["responses"]
+            return variants.get(slots.get(by["slot"], ""), variants.get("default", []))
+        return rule.get("responses", [])
+
+    @staticmethod
+    def _echoes(rule: Dict[str, Any], option) -> bool:
+        """True if a reply template repeats words from the message (one of the rule's slots)"""
+        text = option["text"] if isinstance(option, dict) else option
+        message_slots = set(rule.get("slots", {}))
+        for name in re.findall(r"\{(\w+)\}", text):
+            base = re.sub(r"_(raw|s|is|has|them|a|plural|slug)$", "", name)
+            if base in message_slots:
+                return True
+        return False
+
+    def _echo_free(self, rule: Dict[str, Any], slots: Dict[str, str]) -> bool:
+        """True if the rule has a reply for these slots that repeats none of the child's words"""
+        return any(not self._echoes(rule, o) for o in self._rule_options(rule, slots))
+
+    def _choose_template(self, rule: Dict[str, Any], slots: Dict[str, str], level: int, user_id: int,
+                         policy=None, features: Optional[Dict[str, str]] = None, echo_free: bool = False) -> str:
+        options = self._rule_options(rule, slots)
+        if echo_free:
+            # The safety filter flagged the message: no words from it in the reply
+            options = [o for o in options if not self._echoes(rule, o)]
 
         candidates = []
         for option in options:
@@ -1589,6 +1709,7 @@ class ResponseEngine:
             if (not about_bot or generic_you or re.match(r"(do|did) you know\b", doc.text, re.IGNORECASE)) and not personal:
                 answer = self._world_answer(doc.text)
                 if answer:
+                    self._last_fact[user_id] = None  # "you're wrong" next: the bot sticks to it
                     return answer, "neutral", "world_answer"
                 if any(t.tag_ in ("WRB", "WP", "WDT") for t in doc) or doc[0].lemma_ in ("do", "be", "can"):
                     from services.fact_quirk_service import fact_quirk_service
@@ -1623,8 +1744,9 @@ class ResponseEngine:
             if continued is not None:
                 return continued
 
-        # What happened, in general terms: a reply for its kind of event and modality
-        if allow_reflection:
+        # What happened, in general terms: a reply for its kind of event and modality (not when a
+        # rule was doubted: the appraisal rests on the same parse, so a plain echo answers)
+        if allow_reflection and not (features and features.get("doubted")):
             composed = self._appraisal_reply(doc, slots, user_id, policy, features, gentle)
             if composed is not None:
                 return composed
@@ -1726,9 +1848,61 @@ class ResponseEngine:
                 if 3 <= len(words) <= 5 and len(kinds) >= 2 and not any(t.pos_ in ("VERB", "AUX", "DET") for t in doc):
                     slots["topic"] = slots["topic"][:1].upper() + slots["topic"][1:]
                     return pick("silly").format_map(slots), "positive", "silly"
-                return pick("topic").format_map(slots), "neutral", "topic"
+
+        # A keyword that says what the message is about, whatever its parse ("it was bleeding")
+        keyword = self._keyword_reply(doc.text, slots, user_id, allow_reflection, policy, features)
+        if keyword is not None:
+            return keyword
+
+        if allow_reflection and slots.get("topic"):
+            return pick("topic").format_map(slots), "neutral", "topic"
 
         return pick("generic"), "neutral", "generic"
+
+    def _doubt(self, frame: "Frame", frames: List["Frame"], doc) -> Optional[str]:
+        """
+        Why a rule's strongly worded reply should not be trusted for this message, or None.
+        Only rules that state a feeling about what happened (valence positive or negative) are
+        doubted; caring rules (mood sad, angry, anxious) always keep their replies. Reasons:
+          "mixed": a positive and a negative rule matched different clauses of the same
+                   sentence ("I won the race and then I fell"), so a plain echo of the
+                   sentence fits better than either (two rules on the same verb are not mixed:
+                   "I got a red card" is the more specific rule's)
+          "fragment": the sentence's root is not a verb though it has one, a sign the parse
+                   failed, and a word the parse repairs changed is part of the match
+        """
+        if frame.valence not in ("positive", "negative") or frame.rule.get("confident") \
+                or frame.mood in ("sad", "angry", "anxious"):
+            return None
+        opposite = [f for f in frames if f.sentence == frame.sentence and f.valence in ("positive", "negative")
+                    and f.valence != frame.valence and f.anchor != frame.anchor
+                    and not set(f.tokens) & set(frame.tokens)]
+        if opposite:
+            return "mixed"
+        sentence = doc[frame.tokens[0]].sent
+        # "I got a new bike and then it broke": good news, then bad news in another clause
+        if frame.valence == "positive":
+            clauses = self._clauses(sentence)
+            mine = next((head for head, words in clauses.items() if frame.anchor in {w.i for w in words}), None)
+            if any(head != mine and emoji_quirk_service.is_negative(" ".join(w.text for w in words))
+                   for head, words in clauses.items()):
+                return "mixed"
+        repaired = doc.user_data.get("repaired", set())
+        if sentence.root.pos_ not in ("VERB", "AUX") and any(t.pos_ in ("VERB", "AUX") for t in sentence) \
+                and any(i in repaired for i in frame.tokens):
+            return "fragment"
+        return None
+
+    @staticmethod
+    def _clauses(sentence) -> Dict[int, List[Any]]:
+        """Each clause's verb position with the clause's own words (not those of clauses inside it)"""
+        heads = [t for t in sentence if t.pos_ in ("VERB", "AUX") and t.dep_ in ("ROOT", "conj", "advcl", "ccomp")]
+        head_ids = {t.i for t in heads}
+        clauses = {}
+        for head in heads:
+            inner = {w.i for h in heads if h.i != head.i and head.i in {a.i for a in h.ancestors} for w in h.subtree}
+            clauses[head.i] = [w for w in head.subtree if w.i not in inner and not (w.i in head_ids and w.i != head.i)]
+        return clauses
 
     @staticmethod
     def _but_clause_start(doc) -> Optional[int]:
@@ -1843,6 +2017,27 @@ class ResponseEngine:
             candidates += [f"*.{modality}.{a.actor}>", f"*.{modality}.{a.valence}", f"*.{modality}"]
         return next((c for c in candidates if c in templates), None)
 
+    def _keyword_reply(self, text: str, slots: Dict[str, str], user_id: int, allow_reflection: bool,
+                       policy=None, features=None) -> Optional[Tuple[str, str, str]]:
+        """
+        (reply, mood, kind) from the highest-ranked keyword in the message (the "keywords" in the
+        knowledge base), found in the raw text so it works when the parse does not. A keyword just
+        after a negation ("don't cry") does not count. None if no keyword is found.
+        """
+        lowered = text.lower()
+        for entry, pattern in self._keywords:
+            for match in pattern.finditer(lowered):
+                before = lowered[:match.start()].split()[-2:]
+                if any(w in _NEGATIONS or w.endswith("n't") for w in before):
+                    continue
+                replies = [r for r in entry["responses"] if allow_reflection or "{keyword}" not in r]
+                if not replies:
+                    break
+                slots["keyword"] = text[match.start(1):match.end(1)]  # as the child wrote it
+                reply = self._pick(replies, user_id, f"template:keyword_{entry['id']}", policy, features)
+                return reply.format_map(slots), entry.get("valence", "neutral"), f"keyword_{entry['id']}"
+        return None
+
     def _phrase_reply(self, message: str, user_id: int) -> Optional[Tuple[str, str]]:
         """(phrase id, reply) when the whole message is a set phrase from the knowledge base, else None"""
         text = re.sub(r"[^\w' ]+", " ", message.lower()).replace("\u2019", "'")
@@ -1852,6 +2047,249 @@ class ResponseEngine:
         for phrase_id, pattern, replies in self._phrases:
             if pattern.fullmatch(text):
                 return f"phrase_{phrase_id}", self._pick(replies, user_id, f"phrase:{phrase_id}")
+        return None
+
+    # ------------------------------------------------------------------
+    # Facts the child states (knowledge/facts.json)
+    # ------------------------------------------------------------------
+
+    _DISAGREE_RE = re.compile(
+        r"(?:no+|nope|nuh uh|uh uh|you(?:re| are) wrong|(?:thats|that is|its) (?:not true|wrong|not right)|not true"
+        r"|(?:no|yes) (?:they|it|he|she) (?:do|does|dont|doesnt|can|cant|is|isnt|are|arent|have|has)"
+        r"|(?:they|it) (?:do|does|dont|doesnt|can|cant|is|isnt|are|arent)(?: not)?|i dont think so|are you sure"
+        r"|wrong|liar|you lie)"
+    )
+
+    @staticmethod
+    def _fact_text(message: str) -> str:
+        return fact_text(message)
+
+    def check_fact(self, message: str) -> Optional[Tuple[Dict, bool]]:
+        """
+        (fact, right) when the message states something about a fact in knowledge/facts.json:
+        right is False for "spiders have 6 legs", True for "spiders have 8 legs". None for
+        anything else, including questions and pretend or personal statements.
+        """
+        return self.fact_base.check_message(message)
+
+    def _fact_reply(self, message: str, user_id: int) -> Optional[Tuple[str, str]]:
+        """
+        ("fact_<id>", reply) disputing a wrong statement about the world or confirming a right
+        one; ("fact_insist", reply) when the child says the bot is wrong about the fact it just
+        stated. None otherwise.
+        """
+        replies = self.fact_base.replies
+        had_fact = user_id in self._last_fact
+        last = self._last_fact.pop(user_id, None)
+        checked = self.check_fact(message)
+        if checked is None and last is not None:
+            right = self._about_last_fact(message, last)  # "no there are 9", "yes they can"
+            checked = (last, right) if right is not None else None
+            if checked and not right:
+                self._last_fact[user_id] = last
+                return "fact_insist", self._pick(replies.get("insist"), user_id, "fact:insist").format(
+                    correct=last["correct"])
+        if checked is not None:
+            fact, right = checked
+            if right and "?" in self._last_bot_reply.get(user_id, ""):
+                return None  # "it has rings" answering "Why is Saturn your favorite?": the answer gets the reply
+            self._last_fact[user_id] = fact
+            options = replies.get("right") if right else fact.get("wrong") or replies.get("wrong")
+            reply = self._pick(options, user_id, "fact:right" if right else f"fact:wrong:{fact['id']}")
+            return f"fact_{fact['id']}", reply.format(correct=fact["correct"])
+        text = self._fact_text(message)
+        if had_fact and self._DISAGREE_RE.fullmatch(FACT_OPENERS_RE.sub("", text).strip() or text):
+            if last is None:
+                return "fact_insist", self._pick(replies.get("insist_answer"), user_id, "fact:insist_answer")
+            self._last_fact[user_id] = last
+            return "fact_insist", self._pick(replies.get("insist"), user_id, "fact:insist").format(
+                correct=last["correct"])
+        return None
+
+    def _about_last_fact(self, message: str, fact: Dict) -> Optional[bool]:
+        """
+        Whether a short answer right after a fact agrees with it: "no there are 9" (False after
+        "There are 8 planets"), "they cant" (True after "Penguins can't fly"). None if the
+        message is not such an answer.
+        """
+        text = re.sub(r"^(?:(?:no+|nope|yes|yeah|yep|but|actually|well|um+|oh+|ok|okay|oops)\b[\s,]*)+", "",
+                      self._fact_text(message))
+        numbers = self.fact_base.numbers
+        if fact["type"] in ("count", "there_are"):
+            number_words = "|".join(sorted(numbers, key=len, reverse=True))
+            match = re.fullmatch(rf"(?:(?:there|they|it|he|she|that|its|theres|theyre) (?:are|is|have|has|got|re|s) )?"
+                                 rf"(?:only |just |like |exactly )?(?P<n>\d+|{number_words})(?: [a-z]+)?", text)
+            if not match:
+                return None
+            said = self.fact_base.number(match.group("n"))
+            accepted = fact["value"] if isinstance(fact["value"], list) else [fact["value"]]
+            return said in accepted
+        if fact["type"] == "can":
+            match = re.fullmatch(r"(?:they|it|he|she|you) (?P<mod>can|cant|cannot|can not|do|dont|does|doesnt|could"
+                                 r"|couldnt)(?: [a-z]+){0,2}", text)
+            if not match:
+                return None
+            return (match.group("mod") in ("can", "do", "does", "could")) == fact["value"]
+        if fact["type"] == "is":
+            # "no its sydney" after "The capital of Australia is Canberra"
+            value = re.sub(r"^(?:it is|its|it was|they are|theyre|they were|he is|hes|she is|shes|thats|that is) ", "",
+                           text)
+            return self.fact_base.judge_value(fact, value) if value != text or len(text.split()) <= 3 else None
+        return None
+
+    def _recall_reply(self, message: str, user_id: int, user_name: Optional[str]) -> Optional[Tuple[str, str]]:
+        """
+        ("recall_<id>", reply) when the message asks about something the child told the bot
+        (the "recall" section of the knowledge base), answered from the stored memories, else None
+        """
+        text = re.sub(r"[^\w ]+", " ", message.lower().replace("'", "").replace("\u2019", ""))
+        text = re.sub(r"\s+(buddy|bud)$", "", " ".join(text.split()))
+        if not text or len(text.split()) > 12:
+            return None
+        for question, pattern in self._recall_questions:
+            match = pattern.fullmatch(text)
+            if not match:
+                continue
+            groups = {k: v.strip() for k, v in match.groupdict().items() if v}
+            answer = self._recall(question["kind"], groups, user_name)
+            if answer is None:  # "do i have homework": not about something the bot stores
+                continue
+            outcome, slots = answer
+            replies = question.get(outcome) or question["unknown"]
+            reply = self._pick(replies, user_id, f"recall:{question['id']}")
+            return f"recall_{question['id']}", reply.format_map(_BlankDict(slots))
+        return None
+
+    def _memories(self) -> List[Tuple[Optional[str], str, str]]:
+        """The stored memories from the conversation context: (category, key, value)"""
+        context = getattr(self, "_context", None) or {}
+        if context.get("known_memories") is not None:
+            return list(context["known_memories"])
+        return [(None, k, v) for k, v in (context.get("known_facts") or {}).items()]
+
+    @staticmethod
+    def _singular(word: str) -> str:
+        if word.endswith("ies") and len(word) > 4:
+            return word[:-3] + "y"
+        if word.endswith(("ches", "shes", "xes")):
+            return word[:-2]
+        return word[:-1] if word.endswith("s") and not word.endswith("ss") else word
+
+    @staticmethod
+    def _with_article(phrase: str) -> str:
+        return ("an " if phrase[:1] in "aeiou" else "a ") + phrase
+
+    @staticmethod
+    def _and_list(items: List[str]) -> str:
+        if len(items) <= 2:
+            return " and ".join(items)
+        return ", ".join(items[:-1]) + ", and " + items[-1]
+
+    def _named(self, memories) -> List[Tuple[str, str]]:
+        """Pets and people the child named: (relation, name), as "dog", "Rex" for dog_rex"""
+        named = []
+        for category, key, value in memories:
+            slug = _slug(value or "")
+            if category == "person" and slug and key.endswith("_" + slug) and len(key) > len(slug) + 1:
+                named.append((key[: -len(slug) - 1].replace("_", " "), value))
+        return named
+
+    def _is_pet(self, relation: str) -> bool:
+        words = relation.split()
+        return bool(words) and (relation in self._pet_words or self._singular(words[-1]) in self._pet_words)
+
+    def _pets(self, memories) -> List[str]:
+        """The child's pets, as "a dog named Rex", "two cats" """
+        pets = [f"{self._with_article(rel)} named {name}" for rel, name in self._named(memories) if self._is_pet(rel)]
+        named_kinds = {self._singular(rel.split()[-1]) for rel, _ in self._named(memories) if self._is_pet(rel)}
+        for _, key, value in memories:
+            if key.startswith("has_"):
+                kind = key[len("has_"):].replace("_", " ")
+                if self._is_pet(kind) and self._singular(kind.split()[-1]) not in named_kinds:
+                    pets.append(value)
+        return pets
+
+    @staticmethod
+    def _favorites(facts: Dict[str, str]) -> List[str]:
+        return [f"your favorite {k[len('favorite_'):].replace('_', ' ')} is {v}"
+                for k, v in facts.items() if k.startswith("favorite_")]
+
+    def _recall(self, kind: str, groups: Dict[str, str], user_name: Optional[str]):
+        """("known" | "opposite" | "unknown", slots) for a recall question, or None if it is not one"""
+        memories = self._memories()
+        facts = {key: value for _, key, value in memories}
+        relations = set(self.kb.get("lexicons", {}).get("relations", [])) | self._pet_words
+
+        if kind == "age":
+            return ("known", {"value": facts["age"]}) if facts.get("age") else ("unknown", {})
+
+        if kind == "like":
+            thing = re.sub(r"^(?:a|an|the|my|some)\s+", "", groups.get("thing", ""))
+            if not thing or thing.split()[0] in ("you", "it", "that", "this", "them", "to"):
+                return None
+            slugs = {_slug(thing), _slug(self._singular(thing)), _slug(thing + "s")}
+            if any(f"likes_{s}" in facts for s in slugs) or any(
+                    k.startswith("favorite_") and v.lower() == thing for k, v in facts.items()):
+                return "known", {"thing": thing}
+            if any(f"dislikes_{s}" in facts for s in slugs):
+                return "opposite", {"thing": thing}
+            return "unknown", {"thing": thing}
+
+        if kind in ("likes", "dislikes"):
+            prefix = "likes_" if kind == "likes" else "dislikes_"
+            values = list(dict.fromkeys(v for k, v in facts.items() if k.startswith(prefix)))[:4]
+            parts = [("you like " if kind == "likes" else "you don't like ") + self._and_list(values)] if values else []
+            if kind == "likes":
+                parts += self._favorites(facts)[:2]
+            return ("known", {"value": ", and ".join(parts) if len(parts) == 2 else self._and_list(parts)}) \
+                if parts else ("unknown", {})
+
+        if kind == "pets":
+            pets = self._pets(memories)
+            return ("known", {"value": self._and_list(pets)}) if pets else ("unknown", {})
+
+        if kind == "have":
+            thing = self._singular(groups.get("thing", ""))
+            if not thing or (thing.split()[-1] not in relations and thing not in self._pet_words):
+                return None
+            found = [f"{self._with_article(rel)} named {name}" for rel, name in self._named(memories)
+                     if rel == thing or rel.endswith(" " + thing)]
+            if not found:
+                found = [v for k, v in facts.items() if k.startswith("has_")
+                         and (k == f"has_{_slug(thing)}" or k.endswith(f"_{_slug(thing)}"))]
+            if found:
+                return "known", {"value": self._and_list(found), "thing": thing}
+            return "unknown", {"thing": thing, "thing_a": self._with_article(thing)}
+
+        if kind == "who":
+            relation = groups.get("relation", "")
+            if not relation or self._singular(relation.split()[-1]) not in relations:
+                return None
+            named = self._named(memories)
+            names = [n for rel, n in named if rel == relation] or \
+                [n for rel, n in named if rel.endswith(" " + relation)]
+            if names:
+                return "known", {"value": self._and_list(names), "relation": relation}
+            return "unknown", {"relation": relation}
+
+        if kind == "about_me":
+            parts = []
+            if user_name:
+                parts.append(f"you're {user_name}")
+            if facts.get("age"):
+                parts.append(f"you're {facts['age']}")
+            parts += self._favorites(facts)[:1]
+            pets = self._pets(memories)[:2]
+            if pets:
+                parts.append("you have " + " and ".join(pets))
+            parts += [f"your {rel} is {n}" for rel, n in self._named(memories) if not self._is_pet(rel)][:1]
+            likes = [v for k, v in facts.items() if k.startswith("likes_")][:2]
+            if likes:
+                parts.append("you like " + " and ".join(likes))
+            if not parts:
+                return "unknown", {}
+            sentence = self._and_list(parts)
+            return "known", {"value": sentence[0].upper() + sentence[1:] + "!"}
         return None
 
     def _answer_expectation(self, expectation: "Expectation", message: str, analysis: Analysis,
@@ -1882,7 +2320,26 @@ class ResponseEngine:
             return None
         return "joke_offer_yes", f"Okay, here's one: {content['content']}"
 
-    def _answer_open_question(self, expectation: "Expectation", analysis: Analysis) -> Optional[Tuple[str, str]]:
+    def _reason_tone(self, text: str, user_id: int) -> str:
+        """
+        "positive", "negative" or "neutral": how to answer a reason the child gives. Negative when
+        the bot's last reply was about something bad ("That doesn't sound fun. Why...?") or the
+        reason is (sad news, a negation: "because I didn't do my chores"); positive when the bot
+        asked about something liked ("Why is Saturn your favorite?") or the reason is good news.
+        """
+        last = self._last_bot_reply.get(user_id, "")
+        doc = self.parser.parse(text)
+        appraisal = self.appraiser.appraise(doc) if doc is not None else None
+        if _CONSOLING_RE.search(last) or emoji_quirk_service.is_negative(text) or \
+                re.search(r"\b(not|never|no)\b|n't\b|\b(didnt|dont|cant|wont|wasnt|isnt)\b", text, re.IGNORECASE) or \
+                (appraisal is not None and appraisal.valence == "negative"):
+            return "negative"
+        if _LIKED_RE.search(last) or (appraisal is not None and appraisal.valence == "positive"):
+            return "positive"
+        return "neutral"
+
+    def _answer_open_question(self, expectation: "Expectation", analysis: Analysis,
+                              user_id: int = 0) -> Optional[Tuple[str, str]]:
         """
         (rule id, reply) for a short answer to the bot's "What ...?" or "Why ...?" question,
         or None if the message does not read as one
@@ -1892,13 +2349,15 @@ class ResponseEngine:
         if analysis.is_question or not words or len(words) > 10:
             return None
         if expectation.kind == "reason":
-            # "Why is Saturn your favorite?" - "it has rings" / "because it has rings"
+            # "Why is Saturn your favorite?" - "it has rings" / "because it has rings"; but "Why do
+            # you think your brother is annoying?" - "he copies me" is not a good reason to cheer
+            tone = self._reason_tone(doc.text, user_id)
             root = next((t for t in doc if t.dep_ == "ROOT"), None)
             if root is None or root.pos_ not in ("VERB", "AUX"):
-                return "answer_reason", "Ooh, that's a good reason!"
+                return "answer_reason", _REASON_REPLIES[tone][0].replace("{clause}? ", "")
             _, clause = self._extract_slot(root, "clause")
             clause = re.sub(r"^(because|cuz|cause) ", "", clause, flags=re.IGNORECASE)
-            return "answer_reason", f"Ooh, that's a good reason! {clause[:1].upper()}{clause[1:]}? Cool!"
+            return "answer_reason", _REASON_REPLIES[tone][0].format(clause=f"{clause[:1].upper()}{clause[1:]}")
         # An item: "a tree", "I'm a tree", "a ninja", "probably the red one"
         match = re.match(r"\W*(?:i'm|i am|im|i'll be|it's|its|it is|maybe|probably|um+|uh+)?\s*"
                          r"(?:going to be |gonna be |playing |be )?((?:an?|the|my) )?([a-z][a-z' -]{1,30}?)[.!]*$",

@@ -338,7 +338,8 @@
         {"LEFT_ID": "on", "REL_OP": ">", "RIGHT_ID": "swing", "RIGHT_ATTRS": {"DEP": "pobj", "LEMMA": {"IN": ["swing", "wagon", "sled", "stroller", "merry-go-round", "cart", "scooter"]}}}
       ]],
       "conditions": {"question": false},
-      "responses": ["Wheee! That sounds so fun! How high did you go?"]
+      "responses": ["Wheee! That sounds so fun! How high did you go?"],
+      "examples": ["my brother pushed me on the swing"]
     },
     {
       "id": "yay_alone",
@@ -347,7 +348,8 @@
         {"RIGHT_ID": "yay", "RIGHT_ATTRS": {"LOWER": {"IN": ["yay", "woohoo", "hooray", "yippee", "yahoo"]}}}
       ]],
       "conditions": {"max_tokens": 4},
-      "responses": ["Woohoo! What are we celebrating?"]
+      "responses": ["Woohoo! What are we celebrating?"],
+      "examples": ["yay"]
     },
     {
       "id": "mixed_feelings",
@@ -361,7 +363,8 @@
       "conditions": {"question": false, "not_negated": "be"},
       "slots": {"a": {"node": "a", "span": "text"}, "b": {"node": "b", "span": "text"}},
       "no_jokes": true,
-      "responses": ["Feeling {a} and {b} at the same time is totally normal! What's making you feel each one?"]
+      "responses": ["Feeling {a} and {b} at the same time is totally normal! What's making you feel each one?"],
+      "examples": ["I'm happy and sad", "im happy and sad at the same time", "I'm happy and sad at the same time"]
     },
     {
       "id": "two_feelings",
@@ -384,7 +387,8 @@
       ],
       "conditions": {"question": false, "not_negated": "be", "max_tokens": 8},
       "slots": {"x": {"node": "x", "span": "text"}, "y": {"node": "y", "span": "text"}},
-      "responses": ["Feeling {x} and {y} at the same time is a lot! Tell me more about it."]
+      "responses": ["Feeling {x} and {y} at the same time is a lot! Tell me more about it."],
+      "examples": ["I'm tired and hungry", "I'm happy and excited", "i'm tired and hungry"]
     },
     {
       "id": "knocked_over",
@@ -397,7 +401,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "knock"},
       "suppressed_by": ["wrecked_my_thing"],
-      "responses": ["Uh oh! Did it make a big mess?"]
+      "responses": ["Uh oh! Did it make a big mess?"],
+      "examples": ["whiskers knocked over a cup", "the wind knocked the tree over", "my brother knocked him over"]
     },
     {
       "id": "ask_relation_name",
@@ -416,7 +421,8 @@
       "responses": [
         {"text": "Your {thing}'s name is {recalled_name}! I remember.", "requires": ["recalled_name"]},
         {"text": "Hmm, I don't think you've told me your {thing}'s name yet! What is it?"}
-      ]
+      ],
+      "examples": ["what is my cat's name", "what is my cats name"]
     },
     {
       "id": "what_if_dies",
@@ -438,7 +444,8 @@
       "mood": "sad",
       "responses": [
         "It's normal to worry about the people we love. It shows how much you care. Spending time together and telling your mom or dad about this worry can really help."
-      ]
+      ],
+      "examples": ["what if she dies"]
     },
     {
       "id": "dont_want_die",
@@ -454,7 +461,8 @@
       "responses": [
         "That's a really big feeling, and it shows how much you love {who}. Talking to your mom or dad about it can help. I'm here for you too."
       ],
-      "slots": {"who": {"node": "who", "span": "subtree"}}
+      "slots": {"who": {"node": "who", "span": "subtree"}},
+      "examples": ["I don't want her to die", "i dont want her to die"]
     },
     {
       "id": "getting_a_shot",
@@ -476,7 +484,8 @@
       "no_jokes": true,
       "responses": [
         "Shots can feel scary, but they help keep you healthy! It's just a quick pinch, and it's over fast. Do you want to talk about it?"
-      ]
+      ],
+      "examples": ["I have to get a shot tomorrow", "i got a shot today", "i have to get a shot tomorrow"]
     },
     {
       "id": "will_be_brave",
@@ -489,7 +498,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "be"},
       "no_jokes": true,
-      "responses": ["You've got this! I'm proud of you for being brave."]
+      "responses": ["You've got this! I'm proud of you for being brave."],
+      "examples": ["ok I will be brave", "ok i will be brave"]
     },
     {
       "id": "didnt_get_one",
@@ -504,7 +514,8 @@
       "no_jokes": true,
       "responses": [
         "Aw, it's hard when someone else gets something and you don't. That feeling is called jealousy, and it's totally normal."
-      ]
+      ],
+      "examples": ["I didn't get one", "i didnt get one"]
     },
     {
       "id": "always_gets",
@@ -517,7 +528,8 @@
       ]],
       "conditions": {"question": false},
       "no_jokes": true,
-      "responses": ["It can really feel that way sometimes! Have you told your mom or dad how you feel?"]
+      "responses": ["It can really feel that way sometimes! Have you told your mom or dad how you feel?"],
+      "examples": ["she always gets everything"]
     },
     {
       "id": "called_me_names",
@@ -539,7 +551,8 @@
       "mood": "sad",
       "responses": [
         "That wasn't a kind thing to say, and I'm sorry it happened. What they said isn't true about you. How did you feel?"
-      ]
+      ],
+      "examples": ["a kid called me a baby"]
     },
     {
       "id": "didnt_say_anything",
@@ -551,7 +564,8 @@
         {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "any", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["anything", "nothing"]}}}
       ]],
       "conditions": {"question": false},
-      "responses": ["That's okay. It can be really hard to know what to say in the moment."]
+      "responses": ["That's okay. It can be really hard to know what to say in the moment."],
+      "examples": ["I didn't say anything", "i didnt say anything"]
     },
     {
       "id": "go_to_bed",
@@ -564,7 +578,8 @@
       ]],
       "conditions": {"question": false},
       "no_jokes": true,
-      "responses": ["Goodnight, {user_name}! Sleep well and sweet dreams!"]
+      "responses": ["Goodnight, {user_name}! Sleep well and sweet dreams!"],
+      "examples": ["I have to go to bed", "i have to go to bed"]
     },
     {
       "id": "see_you",
@@ -576,7 +591,8 @@
       ]],
       "conditions": {"max_tokens": 5, "question": false},
       "no_jokes": true,
-      "responses": ["See you then! Bye for now, {user_name}!"]
+      "responses": ["See you then! Bye for now, {user_name}!"],
+      "examples": ["see you tomorrow"]
     },
     {
       "id": "play_pretend",
@@ -592,7 +608,8 @@
         ]
       ],
       "no_jokes": true,
-      "responses": ["Ooh, I love pretend! Who should we be?"]
+      "responses": ["Ooh, I love pretend! Who should we be?"],
+      "examples": ["let's play pretend", "lets play pretend", "let's pretend we're pirates"]
     },
     {
       "id": "cant_find",
@@ -606,7 +623,8 @@
       "conditions": {"question": false},
       "slots": {"thing": {"node": "thing", "span": "subtree"}},
       "no_jokes": true,
-      "responses": ["Oh no, you can't find {thing}? Where did you last see it? A grown-up might be able to help you look."]
+      "responses": ["Oh no, you can't find {thing}? Where did you last see it? A grown-up might be able to help you look."],
+      "examples": ["I can't find my dog", "i cant find my shoe", "i can't find my dog"]
     },
     {
       "id": "stolen",
@@ -629,7 +647,9 @@
       "mood": "sad",
       "valence": "negative",
       "no_jokes": true,
-      "responses": ["Oh no, that's not okay! Someone took {thing}? Please tell a grown-up so they can help get it back."]
+      "responses": ["Oh no, that's not okay! Someone took {thing}? Please tell a grown-up so they can help get it back."],
+      "examples": ["my bike got stolen", "someone took my lunch"],
+      "non_examples": ["he always takes my stuff"]
     },
     {
       "id": "play_later",
@@ -641,7 +661,8 @@
       ]],
       "conditions": {"not_negated": "play", "max_tokens": 7},
       "no_jokes": true,
-      "responses": ["Sure! I'll be right here whenever you want to come back."]
+      "responses": ["Sure! I'll be right here whenever you want to come back."],
+      "examples": ["can we play later"]
     },
     {
       "id": "what_does_that_mean",
@@ -653,7 +674,8 @@
       ]],
       "conditions": {"max_tokens": 6},
       "no_jokes": true,
-      "responses": ["Oops, I said that in a confusing way! Which part should I explain?"]
+      "responses": ["Oops, I said that in a confusing way! Which part should I explain?"],
+      "examples": ["what does that mean"]
     },
     {
       "id": "you_know_what",
@@ -665,7 +687,8 @@
       ]],
       "conditions": {"max_tokens": 5},
       "no_jokes": true,
-      "responses": ["No, what? Tell me!"]
+      "responses": ["No, what? Tell me!"],
+      "examples": ["do you know what"]
     },
     {
       "id": "tell_bot_something",
@@ -678,7 +701,8 @@
       ]],
       "conditions": {"max_tokens": 8},
       "no_jokes": true,
-      "responses": ["Of course! You can tell me anything. What is it?"]
+      "responses": ["Of course! You can tell me anything. What is it?"],
+      "examples": ["can I tell you something", "can i ask you something", "can i tell you something"]
     },
     {
       "id": "have_question",
@@ -691,7 +715,8 @@
       "conditions": {"question": false, "not_negated": "have", "max_tokens": 7},
       "slots": {"q": {"node": "q", "span": "lemma"}},
       "no_jokes": true,
-      "responses": ["Ooh, {q_a} {q}? Tell me!"]
+      "responses": ["Ooh, {q_a} {q}? Tell me!"],
+      "examples": ["I have an idea", "I have a question", "i have an idea"]
     },
     {
       "id": "show_bot",
@@ -709,7 +734,8 @@
       ],
       "conditions": {"question": false, "not_negated": "look"},
       "no_jokes": true,
-      "responses": ["Ooh, I wish I could see it! I can't see pictures, but you can tell me all about it!"]
+      "responses": ["Ooh, I wish I could see it! I can't see pictures, but you can tell me all about it!"],
+      "examples": ["look what I made", "I want to show you something", "look what i made"]
     },
     {
       "id": "learning_skill",
@@ -721,7 +747,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "learn"},
       "slots": {"skill": {"node": "learn", "span": "predicate"}},
-      "responses": ["Ooh, you're {skill}? That's a great thing to work on! How's it going so far?"]
+      "responses": ["Ooh, you're {skill}? That's a great thing to work on! How's it going so far?"],
+      "examples": ["I'm learning to read", "i'm learning to read"]
     },
     {
       "id": "made_for_bot",
@@ -743,7 +770,8 @@
       ],
       "conditions": {"question": false, "not_negated": "make"},
       "no_jokes": true,
-      "responses": ["Aw, you made that for me? That's so sweet! Can you tell me what it looks like?"]
+      "responses": ["Aw, you made that for me? That's so sweet! Can you tell me what it looks like?"],
+      "examples": ["I drew a picture of you", "i drew a picture of you"]
     },
     {
       "id": "pretend_bot_is",
@@ -757,7 +785,8 @@
       "conditions": {"question": false},
       "slots": {"what": {"node": "what", "span": "subtree"}},
       "no_jokes": true,
-      "responses": ["Okay, I'm {what} now! What should we do first?"]
+      "responses": ["Okay, I'm {what} now! What should we do first?"],
+      "examples": ["pretend you're a cat"]
     },
     {
       "id": "pretend_i_am",
@@ -771,7 +800,9 @@
       "conditions": {"question": false, "not_negated": "be", "not_past": "be", "max_tokens": 8},
       "slots": {"what": {"node": "what", "span": "subtree"}},
       "no_jokes": true,
-      "responses": ["Whoa, {what}! I'd better watch out! What does {what} like to do?"]
+      "responses": ["Whoa, {what}! I'd better watch out! What does {what} like to do?"],
+      "examples": ["I'm a dinosaur! rawr", "i am a knight", "i'm a dinosaur rawr"],
+      "non_examples": ["i am a kid"]
     },
     {
       "id": "tag_youre_it",
@@ -782,7 +813,8 @@
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "it", "RIGHT_ATTRS": {"DEP": {"IN": ["attr", "dobj", "acomp"]}, "LOWER": "it"}}
       ]],
       "conditions": {"question": false, "max_tokens": 5, "not_negated": "be"},
-      "responses": ["Oh no, you got me! I can't run, but I'll pretend I'm chasing you! Hehe!"]
+      "responses": ["Oh no, you got me! I can't run, but I'll pretend I'm chasing you! Hehe!"],
+      "examples": ["tag you're it", "you're it"]
     },
     {
       "id": "lets_activity",
@@ -797,7 +829,9 @@
       "no_jokes": true,
       "responses": [
         "I wish I could {activity} with you! I can't from in here, but you can tell me all about it. Or we could play a game!"
-      ]
+      ],
+      "examples": ["let's paint", "let's play tag", "let's go swimming"],
+      "non_examples": ["let me think", "let him go", "let's talk about dogs"]
     },
     {
       "id": "im_name",
@@ -809,7 +843,9 @@
       ]],
       "conditions": {"question": false, "not_negated": "be", "max_tokens": 4},
       "slots": {"name": {"node": "name", "span": "text", "capitalize": true}},
-      "responses": ["Nice to meet you, {name}! I'm Buddy."]
+      "responses": ["Nice to meet you, {name}! I'm Buddy."],
+      "examples": ["I'm ted", "im li", "Hi I'm Noah"],
+      "non_examples": ["im happy", "im tired"]
     },
     {
       "id": "lets_be_friends",
@@ -820,7 +856,9 @@
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "attr", "LEMMA": {"IN": ["friend", "bff"]}}}
       ]],
       "conditions": {"not_negated": "be"},
-      "responses": ["Yes! We're friends! What do you like to do with your friends?"]
+      "responses": ["Yes! We're friends! What do you like to do with your friends?"],
+      "examples": ["let's be friends"],
+      "non_examples": ["lets not be friends"]
     },
     {
       "id": "lets_not_be_friends",
@@ -832,7 +870,8 @@
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "attr", "LEMMA": {"IN": ["friend", "bff"]}}}
       ]],
       "no_jokes": true,
-      "responses": ["Aw, I'd still like to be your friend. Did something upset you? You can tell me."]
+      "responses": ["Aw, I'd still like to be your friend. Did something upset you? You can tell me."],
+      "examples": ["let's not be friends"]
     },
     {
       "id": "talk_about",
@@ -855,7 +894,9 @@
       "conditions": {"not_past": "talk", "not_negated": "talk"},
       "slots": {"topic": {"node": "topic", "span": "subtree"}},
       "no_jokes": true,
-      "responses": ["Sure, let's talk about {topic}! What do you want to tell me?"]
+      "responses": ["Sure, let's talk about {topic}! What do you want to tell me?"],
+      "examples": ["let's talk about dogs", "can we talk about dogs", "I want to talk about my dog"],
+      "non_examples": ["we talked about dogs at school"]
     },
     {
       "id": "makes_sense",
@@ -865,7 +906,8 @@
         {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "sense", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "sense"}}
       ]],
       "conditions": {"question": false, "not_negated": "make", "max_tokens": 6},
-      "responses": ["Great! You're a fast learner."]
+      "responses": ["Great! You're a fast learner."],
+      "examples": ["ok that makes sense"]
     },
     {
       "id": "own_room",
@@ -878,7 +920,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "get"},
       "no_jokes": true,
-      "responses": ["Your own room? That's so exciting! How are you going to decorate it?"]
+      "responses": ["Your own room? That's so exciting! How are you going to decorate it?"],
+      "examples": ["I get my own room", "i get my own room"]
     },
     {
       "id": "found_new",
@@ -891,7 +934,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "find"},
       "slots": {"thing": {"node": "thing", "span": "subtree"}},
-      "responses": ["Ooh, {thing}! What a cool find! What does it look like?"]
+      "responses": ["Ooh, {thing}! What a cool find! What does it look like?"],
+      "examples": ["I found a shell", "after lunch we went outside and i found a bug", "i found a worm"]
     },
     {
       "id": "knocked_down",
@@ -903,7 +947,12 @@
       ]],
       "conditions": {"question": false, "not_negated": "verb"},
       "no_jokes": true,
-      "responses": ["Oh no, after all your hard work! Did you build another one?"]
+      "responses": ["Oh no, after all your hard work! Did you build another one?"],
+      "examples": [
+        "a wave knocked the sand castle down",
+        "we went to the beach and I built a sandcastle but a wave knocked it down",
+        "a wave knocked it down"
+      ]
     },
     {
       "id": "leave_me_alone",
@@ -914,7 +963,8 @@
         {"LEFT_ID": "leave", "REL_OP": ">", "RIGHT_ID": "alone", "RIGHT_ATTRS": {"LOWER": "alone"}}
       ]],
       "no_jokes": true,
-      "responses": ["Okay. I'll give you some space. I'm here whenever you want to talk."]
+      "responses": ["Okay. I'll give you some space. I'm here whenever you want to talk."],
+      "examples": ["leave me alone"]
     },
     {
       "id": "want_to_make",
@@ -927,7 +977,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "want"},
       "slots": {"thing": {"node": "thing", "span": "subtree"}},
-      "responses": ["Ooh, that sounds like a fun project! What would yours be like?"]
+      "responses": ["Ooh, that sounds like a fun project! What would yours be like?"],
+      "examples": ["I want to build a robot", "i want to build one too", "i want to build a robot"]
     },
     {
       "id": "best_in_class",
@@ -941,7 +992,8 @@
       "conditions": {"question": false, "not_negated": "be"},
       "slots": {"sup": {"node": "sup", "span": "text"}},
       "no_jokes": true,
-      "responses": ["Wow, the {sup}? That's awesome! What do you like best about it?"]
+      "responses": ["Wow, the {sup}? That's awesome! What do you like best about it?"],
+      "examples": ["I'm the fastest kid in my class", "im the fastest kid in my class"]
     },
     {
       "id": "beat_everyone",
@@ -953,7 +1005,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "beat"},
       "no_jokes": true,
-      "responses": ["Wow, you beat everyone? You must be super fast! Congratulations!"]
+      "responses": ["Wow, you beat everyone? You must be super fast! Congratulations!"],
+      "examples": ["I beat everyone in a race", "i beat everyone in a race"]
     },
     {
       "id": "baby_cries",
@@ -966,7 +1019,8 @@
       "conditions": {"question": false},
       "responses": [
         "Babies cry a lot, because that's how they tell grown-ups they need something, like food or a nap! Does it get loud at your house?"
-      ]
+      ],
+      "examples": ["my baby brother cries a lot", "my baby sister cries a lot"]
     },
     {
       "id": "dont_get",
@@ -982,7 +1036,8 @@
       "responses": [
         "{thing} can be tricky! It's okay not to get it right away. You can ask me a question about it, or ask your teacher for help."
       ],
-      "suppressed_by": ["didnt_get_one"]
+      "suppressed_by": ["didnt_get_one"],
+      "examples": ["I don't get fractions", "i dont get fractions"]
     },
     {
       "id": "ate_too_much",
@@ -996,7 +1051,8 @@
       ]],
       "conditions": {"question": false},
       "no_jokes": true,
-      "responses": ["Uh oh, too much can make your tummy hurt. Resting and sipping some water might help!"]
+      "responses": ["Uh oh, too much can make your tummy hurt. Resting and sipping some water might help!"],
+      "examples": ["I ate too much candy", "i have to much homework", "i ate too much candy"]
     },
     {
       "id": "said_no_more",
@@ -1009,7 +1065,8 @@
       ]],
       "conditions": {"question": false},
       "slots": {"subject": {"node": "subj", "span": "subtree"}},
-      "responses": ["{subject} is looking out for you! That's what grown-ups who love you do."]
+      "responses": ["{subject} is looking out for you! That's what grown-ups who love you do."],
+      "examples": ["my mom said no more candy"]
     },
     {
       "id": "in_a_play",
@@ -1022,7 +1079,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "be"},
       "responses": ["Ooh, you're in a play! That's so exciting. What part are you playing?"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["I'm in the school play", "im in the school play"]
     },
     {
       "id": "hope_better",
@@ -1036,7 +1094,8 @@
       "conditions": {"question": false},
       "slots": {"subject": {"node": "subj", "span": "subtree", "capitalize": "names"}},
       "no_jokes": true,
-      "responses": ["I hope so too! Sending lots of get-well wishes to {subject}."]
+      "responses": ["I hope so too! Sending lots of get-well wishes to {subject}."],
+      "examples": ["I hope my dog gets better", "I hope my friend gets better", "i hope he gets better"]
     },
     {
       "id": "time_fragment",
@@ -1045,7 +1104,8 @@
         {"RIGHT_ID": "t", "RIGHT_ATTRS": {"DEP": "ROOT", "LOWER": {"IN": ["week", "weekend", "month", "tomorrow", "tonight", "saturday", "sunday", "monday", "friday", "summer"]}}}
       ]],
       "conditions": {"max_tokens": 3, "question": false},
-      "responses": ["That's coming up soon! Are you excited?"]
+      "responses": ["That's coming up soon! Are you excited?"],
+      "examples": ["next week"]
     },
     {
       "id": "want_to_experience",
@@ -1057,7 +1117,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "want"},
       "slots": {"clause": {"node": "verb", "span": "subtree"}},
-      "responses": ["Ooh, that would be so fun! I hope you get to {clause}!"]
+      "responses": ["Ooh, that would be so fun! I hope you get to {clause}!"],
+      "examples": ["I want to meet Mickey", "i want to meet mickey"]
     },
     {
       "id": "person_scared_of",
@@ -1072,7 +1133,8 @@
       "conditions": {"question": false, "not_negated": "be"},
       "slots": {"subject": {"node": "subj", "span": "subtree"}, "thing": {"node": "thing", "span": "subtree"}},
       "responses": ["Lots of people feel scared of {thing}. Maybe you can help {subject} feel brave!"],
-      "modality_ok_for": ["future"]
+      "modality_ok_for": ["future"],
+      "examples": ["my brother is scared of roller coasters"]
     },
     {
       "id": "not_scared",
@@ -1086,7 +1148,8 @@
       "conditions": {"question": false, "max_tokens": 6},
       "responses": ["Wow, you're brave! That's awesome."],
       "no_jokes": true,
-      "modality_ok_for": ["future"]
+      "modality_ok_for": ["future"],
+      "examples": ["I'm not scared", "I wasn't scared", "im not scared"]
     },
     {
       "id": "want_to_hear",
@@ -1107,7 +1170,8 @@
       ],
       "conditions": {"question": true},
       "responses": ["Yes, please! I'd love to hear it!"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["do you want to hear it", "do you want to hear one line"]
     },
     {
       "id": "or_save",
@@ -1117,7 +1181,8 @@
         {"LEFT_ID": "save", "REL_OP": ">", "RIGHT_ID": "or", "RIGHT_ATTRS": {"DEP": "cc", "LOWER": "or"}}
       ]],
       "conditions": {"max_tokens": 5, "first_token": "or"},
-      "responses": ["Saving is smart too! You could spend a little and save the rest. What do you think?"]
+      "responses": ["Saving is smart too! You could spend a little and save the rest. What do you think?"],
+      "examples": ["or save the toy", "or save it"]
     },
     {
       "id": "said_sorry",
@@ -1129,7 +1194,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "say"},
       "responses": ["That was a really good thing to do. Saying sorry takes courage!"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["I said sorry", "i said sorry to my sister", "i said sorry"]
     },
     {
       "id": "made_up",
@@ -1149,7 +1215,9 @@
       ],
       "conditions": {"question": false, "not_negated": "make", "max_tokens": 12},
       "no_jokes": true,
-      "responses": ["Yay, I'm so glad you made up! It takes courage to fix things after a fight."]
+      "responses": ["Yay, I'm so glad you made up! It takes courage to fix things after a fight."],
+      "examples": ["we made up", "we're friends again"],
+      "non_examples": ["i made up a song"]
     },
     {
       "id": "dont_want_to",
@@ -1162,7 +1230,8 @@
       ]],
       "conditions": {"question": false, "max_tokens": 7},
       "no_jokes": true,
-      "responses": ["That's okay! You don't have to. What would you rather do?"]
+      "responses": ["That's okay! You don't have to. What would you rather do?"],
+      "examples": ["but I don't want to", "but i don't want to"]
     },
     {
       "id": "made_up_thing",
@@ -1175,7 +1244,9 @@
       ]],
       "conditions": {"question": false, "not_negated": "make"},
       "slots": {"thing": {"node": "thing", "span": "subtree"}},
-      "responses": ["Ooh, you made up {thing}? That's so creative! Can you tell me about it?"]
+      "responses": ["Ooh, you made up {thing}? That's so creative! Can you tell me about it?"],
+      "examples": ["I made up a song"],
+      "non_examples": ["we made up"]
     },
     {
       "id": "smarter_than_me",
@@ -1190,7 +1261,8 @@
       "no_jokes": true,
       "responses": [
         "We're smart in different ways! I know lots of facts, but you can do things I can't, like run, play, and imagine. That's pretty amazing!"
-      ]
+      ],
+      "examples": ["are you smarter than me"]
     },
     {
       "id": "just_because",
@@ -1200,7 +1272,8 @@
       ]],
       "conditions": {"max_tokens": 2},
       "responses": ["Hehe, just because! Sometimes that's the best reason."],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["because"]
     },
     {
       "id": "because_reason",
@@ -1211,8 +1284,17 @@
       ]],
       "conditions": {"first_token": "because", "question": false},
       "slots": {"clause": {"node": "verb", "span": "clause"}},
-      "responses": ["{clause}? That's a great reason!", "Ooh, that's a good reason! {clause}? Cool!"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["because it has rings", "because Saturn has rings", "because i didnt do my chores"],
+      "compute": ["reason_tone"],
+      "responses_by": {
+        "slot": "tone",
+        "variants": {
+          "positive": ["{clause}? That's a great reason!", "Ooh, that's a good reason! {clause}? Cool!"],
+          "negative": ["Oh, I see. {clause}? Thanks for telling me. How do you feel about it?"],
+          "default": ["Ah, I see! {clause}? Thanks for telling me."]
+        }
+      }
     },
     {
       "id": "scary_but_fun",
@@ -1226,7 +1308,8 @@
       "conditions": {"question": false},
       "slots": {"a": {"node": "a", "span": "text"}, "b": {"node": "b", "span": "text"}},
       "responses": ["{a} but {b}? That sounds like a brave adventure! I'm proud of you for trying it."],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["it was scary but fun"]
     },
     {
       "id": "high_five",
@@ -1235,12 +1318,15 @@
         {"RIGHT_ID": "give", "RIGHT_ATTRS": {"LEMMA": "give"}},
         {"LEFT_ID": "give", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj"}},
         {"LEFT_ID": "give", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "dative", "LOWER": {"IN": ["me", "us"]}}},
-        {"LEFT_ID": "give", "REL_OP": ">", "RIGHT_ID": "x", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["five", "hug", "compliment", "sticker", "star"]}}}
+        {"LEFT_ID": "give", "REL_OP": ">", "RIGHT_ID": "x", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["five", "compliment", "sticker", "star"]}}}
       ]],
       "conditions": {"question": false, "not_negated": "give"},
       "slots": {"subject": {"node": "subj", "span": "subtree", "capitalize": "names"}},
       "responses": ["Aw, that's awesome! It sounds like you did something great. What did you do?"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["my teacher gave me a high five"],
+      "valence": "positive",
+      "non_examples": ["my friend gave me a hug"]
     },
     {
       "id": "holiday_soon",
@@ -1264,7 +1350,8 @@
           "Halloween": ["Ooh, Halloween! What are you going to be?"],
           "default": ["Ooh, {h} is coming! What are you most excited about?"]
         }
-      }
+      },
+      "examples": ["Halloween is soon", "Christmas is coming", "halloween is soon"]
     },
     {
       "id": "what_would_you_be",
@@ -1276,7 +1363,8 @@
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": "what"}}
       ]],
       "conditions": {"question": true, "max_tokens": 6},
-      "responses": ["Ooh, I think I'd be a friendly dragon! What's your favorite part of dressing up?"]
+      "responses": ["Ooh, I think I'd be a friendly dragon! What's your favorite part of dressing up?"],
+      "examples": ["what would you be"]
     },
     {
       "id": "body_bleeding",
@@ -1288,7 +1376,8 @@
       "conditions": {"question": false, "not_negated": "bleed"},
       "mood": "sad",
       "no_jokes": true,
-      "responses": ["Ouch, that sounds like it really hurt! I hope it heals fast. Did a grown-up help you clean it up?"]
+      "responses": ["Ouch, that sounds like it really hurt! I hope it heals fast. Did a grown-up help you clean it up?"],
+      "examples": ["my knee was bleeding", "my knee is bleeding", "my tooth is bleeding"]
     },
     {
       "id": "bandaid",
@@ -1301,7 +1390,8 @@
       "conditions": {"question": false},
       "slots": {"subject": {"node": "subj", "span": "subtree"}},
       "no_jokes": true,
-      "responses": ["That was nice of {subject} to take care of you!"]
+      "responses": ["That was nice of {subject} to take care of you!"],
+      "examples": ["my mom put a bandaid on it", "my mom put a bandaid on my knee"]
     },
     {
       "id": "body_better",
@@ -1312,7 +1402,8 @@
         {"LEFT_ID": "feel", "REL_OP": ">", "RIGHT_ID": "better", "RIGHT_ATTRS": {"DEP": {"IN": ["acomp", "advmod", "oprd"]}, "LOWER": {"IN": ["better", "fine", "okay", "ok"]}}}
       ]],
       "conditions": {"question": false, "not_negated": "feel"},
-      "responses": ["Yay, I'm so glad it feels better!"]
+      "responses": ["Yay, I'm so glad it feels better!"],
+      "examples": ["My knee feels better now"]
     },
     {
       "id": "loose_tooth",
@@ -1331,7 +1422,8 @@
       ],
       "conditions": {"question": false, "not_negated": "be"},
       "responses": ["A wiggly tooth! That means a big-kid tooth is getting ready to grow in. Are you going to wiggle it?"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["my tooth is wiggly", "I have a loose tooth", "i have a loose tooth"]
     },
     {
       "id": "still_friends",
@@ -1345,7 +1437,8 @@
       "conditions": {"question": true},
       "responses": [
         "Yes! Lots of friends stay close even when they live far apart. You could video chat, write letters, or send each other drawings!"
-      ]
+      ],
+      "examples": ["can we still be friends"]
     },
     {
       "id": "on_purpose",
@@ -1359,7 +1452,8 @@
       "conditions": {"question": false, "not_negated": "do"},
       "mood": "angry",
       "no_jokes": true,
-      "responses": ["That's really upsetting when someone does something on purpose. It makes sense that you're mad."]
+      "responses": ["That's really upsetting when someone does something on purpose. It makes sense that you're mad."],
+      "examples": ["she did it on purpose"]
     },
     {
       "id": "i_yelled",
@@ -1372,7 +1466,8 @@
       "no_jokes": true,
       "responses": [
         "It's easy to yell when you're really mad. Next time, you could take a deep breath first, or go get a grown-up to help."
-      ]
+      ],
+      "examples": ["I yelled at her", "i yelled at him", "i yelled at her"]
     },
     {
       "id": "best_ever",
@@ -1385,7 +1480,8 @@
       "conditions": {"question": false, "max_tokens": 5},
       "slots": {"x": {"node": "x", "span": "lemma"}},
       "responses": ["Yay! It sounds like the best {x} ever! What was your favorite part?"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["best day ever"]
     },
     {
       "id": "score",
@@ -1397,7 +1493,8 @@
       ]],
       "conditions": {"question": false, "max_tokens": 8},
       "slots": {"a": {"node": "a", "span": "text"}, "b": {"node": "b", "span": "text"}},
-      "responses": ["{a} to {b}! Thanks for telling me the score. What was your favorite part of the game?"]
+      "responses": ["{a} to {b}! Thanks for telling me the score. What was your favorite part of the game?"],
+      "examples": ["it was 3 to 1"]
     },
     {
       "id": "pet_cute",
@@ -1417,7 +1514,8 @@
       ],
       "conditions": {"question": false, "not_negated": "be"},
       "slots": {"pet": {"node": "pet", "span": "subtree", "capitalize": "names"}, "cute": {"node": "cute", "span": "text"}},
-      "responses": ["Aww, {pet} sound{pet_s} so {cute}! What's your favorite thing to do together?"]
+      "responses": ["Aww, {pet} sound{pet_s} so {cute}! What's your favorite thing to do together?"],
+      "examples": ["dogs are cute", "my cat is so fluffy", "but my puppy Honey is so cute"]
     },
     {
       "id": "no_cavities_det",
@@ -1429,7 +1527,8 @@
         {"LEFT_ID": "cav", "REL_OP": ">", "RIGHT_ID": "no", "RIGHT_ATTRS": {"DEP": "det", "LOWER": "no"}}
       ]],
       "responses": ["No cavities? Great job taking care of your teeth!"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["I had no cavities", "i had no cavities"]
     },
     {
       "id": "lost_game",
@@ -1442,7 +1541,8 @@
       "conditions": {"question": false, "not_negated": "lose"},
       "mood": "sad",
       "no_jokes": true,
-      "responses": ["Aw, losing is tough. It's okay to feel disappointed. What was the best part of the game?"]
+      "responses": ["Aw, losing is tough. It's okay to feel disappointed. What was the best part of the game?"],
+      "examples": ["we lost our soccer game"]
     },
     {
       "id": "helped_someone",
@@ -1465,7 +1565,8 @@
         {"text": "That's so nice of you to help {person}! What was the best part?", "requires": ["person"]},
         {"text": "That's so helpful of you! I bet your family really appreciates it."}
       ],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["I help feed him", "I helped my mom bake cookies", "I helped my grandma bake cookies and we ate them all"]
     },
     {
       "id": "creepy_crawly",
@@ -1477,7 +1578,8 @@
       ]],
       "conditions": {"question": false},
       "slots": {"bug": {"node": "bug", "span": "lemma"}},
-      "responses": ["Eek, a {bug}! That can be scary. Most are harmless, but it's a good idea to ask a grown-up to help move it."]
+      "responses": ["Eek, a {bug}! That can be scary. Most are harmless, but it's a good idea to ask a grown-up to help move it."],
+      "examples": ["there's a spider in my room", "theres a spider in my room", "there are spiders in my room"]
     },
     {
       "id": "got_rid_of",
@@ -1488,7 +1590,8 @@
       ]],
       "conditions": {"question": false},
       "slots": {"subject": {"node": "subj", "span": "subtree", "capitalize": "names"}},
-      "responses": ["Phew! I'm glad {subject} helped!"]
+      "responses": ["Phew! I'm glad {subject} helped!"],
+      "examples": ["my dad got rid of it"]
     },
     {
       "id": "light_on",
@@ -1501,7 +1604,8 @@
       "no_jokes": true,
       "responses": [
         "Scary movies can stick in your head! Sleeping with the light on is a good idea when you feel scared. Did it help?"
-      ]
+      ],
+      "examples": ["I had to sleep with the light on", "i had to sleep with the light on"]
     },
     {
       "id": "pet_chewed",
@@ -1510,18 +1614,36 @@
         [
           {"RIGHT_ID": "chew", "RIGHT_ATTRS": {"LEMMA": {"IN": ["chew", "eat", "rip"]}}},
           {"LEFT_ID": "chew", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": ["puppy", "dog", "kitten", "cat", "bunny", "rabbit", "hamster"]}}},
-          {"LEFT_ID": "chew", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj"}}
+          {"LEFT_ID": "chew", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"NOT_IN": ["cupcake", "cake", "cookie", "pizza", "ice", "cream", "candy", "chocolate", "pancake", "taco", "burger", "fries", "pasta", "spaghetti", "sushi", "apple", "banana", "strawberry", "watermelon", "popcorn", "donut", "doughnut", "sandwich", "cheese", "broccoli", "carrot", "chicken", "nugget", "nuggets", "noodles", "soup", "cereal", "muffin", "pie", "brownie", "waffle", "bacon", "egg", "eggs", "rice", "milk", "juice", "soda", "syrup", "toast", "oatmeal", "yogurt", "grapes", "salad", "hotdog", "burrito", "dumplings", "ramen", "sausage", "lunch", "dinner", "breakfast", "snack", "food", "steak", "meat", "treat"]}}}
         ],
         [
           {"RIGHT_ID": "chew", "RIGHT_ATTRS": {"LEMMA": {"IN": ["chew", "eat", "rip"]}}},
           {"LEFT_ID": "chew", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj"}},
-          {"LEFT_ID": "chew", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj"}},
+          {"LEFT_ID": "chew", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"NOT_IN": ["cupcake", "cake", "cookie", "pizza", "ice", "cream", "candy", "chocolate", "pancake", "taco", "burger", "fries", "pasta", "spaghetti", "sushi", "apple", "banana", "strawberry", "watermelon", "popcorn", "donut", "doughnut", "sandwich", "cheese", "broccoli", "carrot", "chicken", "nugget", "nuggets", "noodles", "soup", "cereal", "muffin", "pie", "brownie", "waffle", "bacon", "egg", "eggs", "rice", "milk", "juice", "soda", "syrup", "toast", "oatmeal", "yogurt", "grapes", "salad", "hotdog", "burrito", "dumplings", "ramen", "sausage", "lunch", "dinner", "breakfast", "snack", "food", "steak", "meat", "treat"]}}},
           {"LEFT_ID": "subj", "REL_OP": ">", "RIGHT_ID": "kind", "RIGHT_ATTRS": {"DEP": {"IN": ["compound", "amod"]}, "LEMMA": {"IN": ["puppy", "dog", "kitten", "cat", "bunny", "rabbit", "hamster"]}}}
         ]
       ],
       "conditions": {"question": false, "not_negated": "chew"},
       "slots": {"obj": {"node": "obj", "span": "subtree"}},
-      "responses": ["Uh oh! Puppies and pets love to chew. Maybe give them a chew toy instead of {obj}!"]
+      "responses": ["Uh oh! Puppies and pets love to chew. Maybe give them a chew toy instead of {obj}!"],
+      "examples": ["my dog ate my homework", "puppies chew everything", "the cat ate my homework lol"],
+      "non_examples": ["my dog ate my sandwich"]
+    },
+    {
+      "id": "pet_babies",
+      "priority": 75,
+      "patterns": [[
+        {"RIGHT_ID": "have", "RIGHT_ATTRS": {"LEMMA": "have"}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "pet", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": ["dog", "cat", "hamster", "bunny", "rabbit", "fish", "guinea", "bird", "mouse", "gerbil", "horse", "goat", "cow", "pig", "sheep", "chicken", "hen"]}}},
+        {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "babies", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["kitten", "puppy", "baby", "bunny", "chick", "egg", "piglet", "lamb", "kid", "foal", "calf"]}}}
+      ]],
+      "conditions": {"question": false, "not_negated": "have"},
+      "slots": {"babies": {"node": "babies", "span": "noun_phrase"}},
+      "no_jokes": true,
+      "responses": ["Aww, {babies}? That's so exciting! What do they look like?"],
+      "examples": ["my cat had kittens last night and there are five of them", "my cat is having kittens"],
+      "valence": "positive",
+      "non_examples": ["my cat had kittens and my mom yelled at me"]
     },
     {
       "id": "do_it_again",
@@ -1534,7 +1656,8 @@
       "conditions": {"question": true},
       "responses": [
         "It sounds like you had so much fun! You could ask your mom or dad if you can do it again soon. What would you want to do next time?"
-      ]
+      ],
+      "examples": ["can we go again"]
     },
     {
       "id": "keeps_bugging_me",
@@ -1548,7 +1671,8 @@
       "slots": {"subject": {"node": "subj", "span": "subtree"}},
       "mood": "angry",
       "no_jokes": true,
-      "responses": ["Ugh, that sounds so annoying! Have you told {subject} how it makes you feel?"]
+      "responses": ["Ugh, that sounds so annoying! Have you told {subject} how it makes you feel?"],
+      "examples": ["my brother keeps copying me", "my sister keeps bugging me"]
     },
     {
       "id": "told_to_stop",
@@ -1559,7 +1683,8 @@
         {"LEFT_ID": "tell", "REL_OP": ">", "RIGHT_ID": "stop", "RIGHT_ATTRS": {"DEP": {"IN": ["xcomp", "ccomp"]}, "LEMMA": {"IN": ["stop", "quit"]}}}
       ]],
       "conditions": {"question": false},
-      "responses": ["Good job using your words! Did it work?"]
+      "responses": ["Good job using your words! Did it work?"],
+      "examples": ["I told him to stop", "i told him to stop"]
     },
     {
       "id": "didnt_stop",
@@ -1572,7 +1697,8 @@
       "conditions": {"question": false, "max_tokens": 6},
       "mood": "angry",
       "no_jokes": true,
-      "responses": ["Ugh, that's so frustrating. If it keeps happening, a grown-up like your mom or dad can help."]
+      "responses": ["Ugh, that's so frustrating. If it keeps happening, a grown-up like your mom or dad can help."],
+      "examples": ["he didn't stop", "he didnt stop", "he doesnt listen"]
     },
     {
       "id": "advice_ignore",
@@ -1584,7 +1710,8 @@
       "conditions": {"question": false},
       "responses": [
         "That can really work! When someone's trying to bug you and you don't react, they often get bored and stop. Want to try it?"
-      ]
+      ],
+      "examples": ["she said to ignore him"]
     },
     {
       "id": "already_did",
@@ -1595,7 +1722,8 @@
         {"LEFT_ID": "do", "REL_OP": ">", "RIGHT_ID": "already", "RIGHT_ATTRS": {"LOWER": "already"}}
       ]],
       "conditions": {"question": false, "max_tokens": 6},
-      "responses": ["Oh, okay! Want to hear a joke, a riddle, or a fun fact?"]
+      "responses": ["Oh, okay! Want to hear a joke, a riddle, or a fun fact?"],
+      "examples": ["I already did that", "i already did that"]
     },
     {
       "id": "what_else",
@@ -1611,7 +1739,8 @@
         ]
       ],
       "conditions": {"max_tokens": 5},
-      "responses": ["We could tell jokes, solve riddles, or share fun facts! Which one sounds fun?"]
+      "responses": ["We could tell jokes, solve riddles, or share fun facts! Which one sounds fun?"],
+      "examples": ["ok what else"]
     },
     {
       "id": "did_you_know",
@@ -1624,7 +1753,12 @@
       ]],
       "no_jokes": true,
       "responses": ["Ooh, that's a cool fact! Thanks for teaching me something. Where did you learn it?"],
-      "unless_world_answer": true
+      "unless_world_answer": true,
+      "examples": [
+        "did you know sharks don't have bones",
+        "did you know sloths sleep a lot",
+        "did you know sharks dont have bones"
+      ]
     },
     {
       "id": "names_are",
@@ -1637,7 +1771,8 @@
       ]],
       "conditions": {"question": false},
       "slots": {"a": {"node": "a", "span": "text", "capitalize": true}, "b": {"node": "b", "span": "text", "capitalize": true}},
-      "responses": ["{a} and {b}! Those are great names. Tell me about them!"]
+      "responses": ["{a} and {b}! Those are great names. Tell me about them!"],
+      "examples": ["their names are Luna and Milo", "My cats' names are Luna and Milo", "their names are luna and milo"]
     },
     {
       "id": "parents_divorce",
@@ -1658,7 +1793,8 @@
       "valence": "negative",
       "responses": [
         "That's a really big change, and it's okay to feel however you feel about it. It's not your fault. Do you want to talk about it?"
-      ]
+      ],
+      "examples": ["my parents are getting divorced", "my mom and dad are splitting up"]
     },
     {
       "id": "still_love_me",
@@ -1673,7 +1809,8 @@
       "mood": "sad",
       "responses": [
         "Moms and dads keep loving their kids, even when big things change. You could ask them, too. They'd want to know you're wondering, and hearing it from them can really help."
-      ]
+      ],
+      "examples": ["will they still love me"]
     },
     {
       "id": "tell_secret",
@@ -1685,7 +1822,8 @@
       "no_jokes": true,
       "responses": [
         "Sure, you can tell me! Just remember, if a secret is about someone getting hurt or feeling unsafe, it's important to tell a grown-up you trust too."
-      ]
+      ],
+      "examples": ["can I tell you a secret", "my friend told me a secret", "can i tell you a secret"]
     },
     {
       "id": "dont_tell",
@@ -1699,7 +1837,8 @@
       "no_jokes": true,
       "responses": [
         "Thanks for trusting me! I don't chat with anyone at your school, so I can't tell them. And if something ever makes you feel unsafe, it's always okay to tell a grown-up you trust."
-      ]
+      ],
+      "examples": ["don't tell anyone", "dont tell anyone"]
     },
     {
       "id": "crush_boy",
@@ -1712,7 +1851,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "like"},
       "no_jokes": true,
-      "responses": ["Aw, that's sweet! Lots of kids have a crush sometimes. What do you like about him?"]
+      "responses": ["Aw, that's sweet! Lots of kids have a crush sometimes. What do you like about him?"],
+      "examples": ["I like a boy in my class", "i like a boy in my class"]
     },
     {
       "id": "crush_girl",
@@ -1725,7 +1865,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "like"},
       "no_jokes": true,
-      "responses": ["Aw, that's sweet! Lots of kids have a crush sometimes. What do you like about her?"]
+      "responses": ["Aw, that's sweet! Lots of kids have a crush sometimes. What do you like about her?"],
+      "examples": ["i like a girl", "i like this girl in my class"]
     },
     {
       "id": "other_goes_home",
@@ -1736,7 +1877,8 @@
         {"LEFT_ID": "need", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"NOT_IN": ["i", "we"]}}}
       ]],
       "conditions": {"question": false},
-      "responses": ["Aw, it sounds like you had a fun time together! What was your favorite part?"]
+      "responses": ["Aw, it sounds like you had a fun time together! What was your favorite part?"],
+      "examples": ["he has to go home now"]
     },
     {
       "id": "what_if_liked",
@@ -1760,7 +1902,8 @@
       "mood": "anxious",
       "responses": [
         "Lots of kids worry about that. You could start by saying hi and asking someone what they like to do. You're kind and fun to talk to, so I bet people will like you!"
-      ]
+      ],
+      "examples": ["what if nobody likes me", "what if no one wants to play with me"]
     },
     {
       "id": "bot_name_question",
@@ -1772,7 +1915,8 @@
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"LOWER": "name"}},
         {"LEFT_ID": "name", "REL_OP": ">", "RIGHT_ID": "poss", "RIGHT_ATTRS": {"LOWER": "your"}}
       ]],
-      "responses": ["My name is {bot_name}! I'm happy to be your friend, {user_name}.", "I'm {bot_name}! What should we talk about?"]
+      "responses": ["My name is {bot_name}! I'm happy to be your friend, {user_name}.", "I'm {bot_name}! What should we talk about?"],
+      "examples": ["What's your name?", "whats your name", "what's your name? how old are you"]
     },
     {
       "id": "bot_how_are_you",
@@ -1783,7 +1927,8 @@
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "how", "RIGHT_ATTRS": {"LOWER": "how"}},
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"LOWER": "you", "DEP": "nsubj"}}
       ]],
-      "responses": ["I'm feeling {bot_mood} today! How about you?", "Pretty {bot_mood}, thanks for asking! How are you doing?"]
+      "responses": ["I'm feeling {bot_mood} today! How about you?", "Pretty {bot_mood}, thanks for asking! How are you doing?"],
+      "examples": ["How are you?", "how are you"]
     },
     {
       "id": "bot_favorite_question",
@@ -1801,7 +1946,8 @@
         {"text": "I love {bot_favorite}! That's my favorite {category}. What's yours?", "requires": ["bot_favorite"]},
         {"text": "Ooh, I love {bot_favorite}! What's your favorite {category}?", "requires": ["bot_favorite"]},
         {"text": "Hmm, I haven't picked a favorite {category} yet! What's yours?"}
-      ]
+      ],
+      "examples": ["What is your favorite color?", "whats your favorite food", "what is your favorite animal? why"]
     },
     {
       "id": "bot_like_which",
@@ -1818,7 +1964,8 @@
       "responses": [
         {"text": "I love {bot_favorite}! What {category} do you like?", "requires": ["bot_favorite"]},
         {"text": "Ooh, I like lots of them! What {category} do you like?"}
-      ]
+      ],
+      "examples": ["what game do you like", "what color do you like", "what music do you like"]
     },
     {
       "id": "bot_hobby_question",
@@ -1830,7 +1977,8 @@
         {"LEFT_ID": "do", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "what"}}
       ]],
       "conditions": {"question": true},
-      "responses": ["I love chatting with you, telling jokes, and learning fun facts! What do you like to do?"]
+      "responses": ["I love chatting with you, telling jokes, and learning fun facts! What do you like to do?"],
+      "examples": ["what do you like to do"]
     },
     {
       "id": "bot_like_food",
@@ -1849,7 +1997,8 @@
         },
         {"text": "I can't eat, since I'm a computer program, but {thing} sounds yummy! Do you like it?"}
       ],
-      "suppressed_by": ["comparison_question"]
+      "suppressed_by": ["comparison_question"],
+      "examples": ["do you like pizza?", "you like pizza right", "buddy do you like pizza"]
     },
     {
       "id": "bot_why_like",
@@ -1862,7 +2011,8 @@
       ]],
       "conditions": {"question": true},
       "slots": {"thing": {"node": "thing", "span": "subtree"}},
-      "responses": ["I just think {thing} is really fun to talk about! Why do you like it?"]
+      "responses": ["I just think {thing} is really fun to talk about! Why do you like it?"],
+      "examples": ["why do you like pizza", "why do you like it"]
     },
     {
       "id": "bot_like_gross",
@@ -1876,7 +2026,8 @@
       "conditions": {"question": true},
       "slots": {"thing": {"node": "obj", "span": "activity"}},
       "responses": ["Hehe, {thing}? That's so silly! Everybody has them sometimes. Want to hear a funny joke?"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["do you like farts", "do you like boogers"]
     },
     {
       "id": "bot_like_question",
@@ -1903,7 +2054,8 @@
         {"text": "Yes, I really like {thing}! Do you?", "requires": ["bot_shares_like"]},
         {"text": "Ooh, {thing}? I'm a big fan! What about you?", "requires": ["bot_shares_like"]},
         {"text": "Hmm, I'm not sure about {thing} yet, but it sounds interesting! Do you like {thing_them}?"}
-      ]
+      ],
+      "examples": ["Do you like dinosaurs?", "I won my game today! Do you like soccer?", "don't you like cats"]
     },
     {
       "id": "ask_my_name",
@@ -1926,7 +2078,8 @@
       "responses": [
         {"text": "Your name is {user_name}! I remember.", "requires": ["known_name"]},
         {"text": "Hmm, I don't know it yet! What's your name?"}
-      ]
+      ],
+      "examples": ["what's my name", "can you remember my name", "whats my name"]
     },
     {
       "id": "ask_my_favorite",
@@ -1953,7 +2106,8 @@
       "responses": [
         {"text": "Your favorite {category} is {recalled}! I remember.", "requires": ["recalled"]},
         {"text": "Hmm, I don't think you've told me yet! What's your favorite {category}?"}
-      ]
+      ],
+      "examples": ["what is my favorite color", "do you remember my favorite food", "guess what my favorite color is"]
     },
     {
       "id": "ask_remember",
@@ -1991,7 +2145,8 @@
         },
         {"text": "I remember lots of things you tell me! What should I remember?", "unless": ["thing", "known_name"]}
       ],
-      "suppressed_by": ["ask_my_favorite"]
+      "suppressed_by": ["ask_my_favorite"],
+      "examples": ["do you remember me", "remember my spelling test", "do you remember my dog"]
     },
     {
       "id": "name_is",
@@ -2007,7 +2162,9 @@
       "memories": [{"category": "basic", "key": "name", "value": "{name_raw}"}],
       "responses": ["Nice to meet you, {name}! I'm {bot_name}.", "{name} is a great name! I'll remember that."],
       "follow_ups": ["What do you like to do for fun, {name}?"],
-      "conditions": {"no_det": "name", "question": false}
+      "conditions": {"no_det": "name", "question": false, "not_negated": "be"},
+      "examples": ["my name is Sam", "My name is Sam.", "My name is Rex."],
+      "non_examples": ["my name isnt lily", "my name is not Sam"]
     },
     {
       "id": "age_is",
@@ -2020,7 +2177,8 @@
       "conditions": {"subject_is_user": "old"},
       "slots": {"age": {"node": "num", "span": "text"}},
       "memories": [{"category": "basic", "key": "age", "value": "{age_raw}"}],
-      "responses": ["{age} is a great age! Thanks for telling me."]
+      "responses": ["{age} is a great age! Thanks for telling me."],
+      "examples": ["i'm seven years old"]
     },
     {
       "id": "new_baby",
@@ -2046,7 +2204,8 @@
           "default": ["A new baby? How exciting! Have you met the baby yet?"]
         }
       },
-      "modality_ok_for": ["future"]
+      "modality_ok_for": ["future"],
+      "examples": ["my aunt had a baby", "my mom is having a baby", "my mom is having a baby and i'm going to be a big sister"]
     },
     {
       "id": "person_event",
@@ -2070,7 +2229,8 @@
       "valence": "negative",
       "opener": false,
       "responses": ["I'm so sorry {clause}. That must be really hard.", "Oh no, I'm so sorry {clause}."],
-      "follow_ups": ["How are you feeling about it?", "Do you want to talk about it?"]
+      "follow_ups": ["How are you feeling about it?", "Do you want to talk about it?"],
+      "examples": ["my friend is sick", "I cried when my fish died", "my hamster died yesterday"]
     },
     {
       "id": "not_feel_good",
@@ -2088,7 +2248,8 @@
       "responses": [
         "Oh no, I'm sorry you don't feel good. I hope you feel better soon! Do you want to tell me what's wrong?",
         "Aw, I'm sorry you're not feeling well. Make sure you tell a grown-up so they can help."
-      ]
+      ],
+      "examples": ["I don't feel good", "i dont feel good"]
     },
     {
       "id": "body_hurts",
@@ -2105,7 +2266,8 @@
       "responses": [
         "Oh no, {part} hurts? I'm sorry. Make sure you tell a grown-up so they can help you feel better!",
         "Ouch, I'm sorry {part} hurts! I hope it feels better soon. Have you told a grown-up?"
-      ]
+      ],
+      "examples": ["I hurt my arm", "my tummy hurts", "my throat hurts"]
     },
     {
       "id": "hungry",
@@ -2126,7 +2288,8 @@
       "slots": {},
       "responses": [
         "Sounds like you need a snack! Maybe ask a grown-up for something to eat or some water. What's your favorite snack?"
-      ]
+      ],
+      "examples": ["I'm hungry", "im hungry", "I'm starving"]
     },
     {
       "id": "body_feels",
@@ -2152,7 +2315,9 @@
       "mood": "sad",
       "valence": "negative",
       "no_jokes": true,
-      "responses": ["Oh no, {part} {verb} {how}? I'm sorry. Make sure you tell a grown-up so they can help!"]
+      "responses": ["Oh no, {part} {verb} {how}? I'm sorry. Make sure you tell a grown-up so they can help!"],
+      "examples": ["my nose is runny", "my tummy feels funny"],
+      "non_examples": ["i feel happy"]
     },
     {
       "id": "it_hurt",
@@ -2165,45 +2330,48 @@
       "mood": "sad",
       "valence": "negative",
       "no_jokes": true,
-      "responses": ["Ouch! I'm sorry it hurt. Are you okay now?", "Oh no, that sounds like it hurt! Are you feeling better?"]
+      "responses": ["Ouch! I'm sorry it hurt. Are you okay now?", "Oh no, that sounds like it hurt! Are you feeling better?"],
+      "examples": ["it hurt a little", "it hurt", "it hurts"]
     },
     {
       "id": "sick",
       "priority": 74,
       "patterns": [
         [
-          {"RIGHT_ID": "have", "RIGHT_ATTRS": {"LEMMA": "have"}},
-          {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
-          {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "ill", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["fever", "cold", "flu", "cough", "headache", "stomachache", "tummyache", "earache", "toothache", "rash", "virus", "bug", "covid", "infection", "allergies"]}}}
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "have"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "ill", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["fever", "cold", "flu", "cough", "headache", "stomachache", "tummyache", "earache", "toothache", "rash", "virus", "bug", "covid", "infection", "allergies"]}}}
         ],
         [
-          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
-          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
-          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "ill", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["sick", "ill"]}}}
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "ill", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["sick", "ill"]}}}
         ],
         [
-          {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": "get"}},
-          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
-          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "ill", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["sick", "ill"]}}}
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "get"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "ill", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["sick", "ill"]}}}
         ],
         [
-          {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": {"IN": ["throw", "puke"]}}},
-          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
-          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "ill", "RIGHT_ATTRS": {"DEP": "prt", "LOWER": "up"}}
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": {"IN": ["throw", "puke"]}}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "ill", "RIGHT_ATTRS": {"DEP": "prt", "LOWER": "up"}}
         ],
         [
-          {"RIGHT_ID": "get", "RIGHT_ATTRS": {"LEMMA": "vomit"}},
-          {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}}
+          {"RIGHT_ID": "verb", "RIGHT_ATTRS": {"LEMMA": "vomit"}},
+          {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"LOWER": "i", "DEP": "nsubj"}}
         ]
       ],
-      "conditions": {"question": false, "not_negated": "subj"},
+      "conditions": {"question": false, "not_negated": "verb"},
       "mood": "sad",
       "valence": "negative",
       "no_jokes": true,
       "responses": [
         "Oh no, I'm sorry you're sick! I hope you feel better soon. Are you getting lots of rest?",
         "Aw, being sick is no fun. I hope you feel better really soon! Is someone taking care of you?"
-      ]
+      ],
+      "examples": ["I have a fever", "last week I got sick", "i'm sick today"],
+      "non_examples": ["i am not sick"]
     },
     {
       "id": "dont_want_to_talk",
@@ -2217,7 +2385,8 @@
       "no_jokes": true,
       "responses": [
         "That's okay, we don't have to talk about it. I'm here if you change your mind. What would you like to talk about instead?"
-      ]
+      ],
+      "examples": ["I don't want to talk about it", "i dont want to talk about it"]
     },
     {
       "id": "change_subject",
@@ -2228,7 +2397,8 @@
         {"LEFT_ID": "about", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": "pobj", "LOWER": {"IN": ["something", "anything"]}}},
         {"LEFT_ID": "what", "REL_OP": ">", "RIGHT_ID": "else", "RIGHT_ATTRS": {"LOWER": "else"}}
       ]],
-      "responses": ["Sure! What would you like to talk about?", "Of course! What's something fun you like?"]
+      "responses": ["Sure! What would you like to talk about?", "Of course! What's something fun you like?"],
+      "examples": ["can we talk about something else", "let's talk about something else"]
     },
     {
       "id": "didnt_hurt",
@@ -2238,7 +2408,8 @@
         {"LEFT_ID": "hurt", "REL_OP": ">", "RIGHT_ID": "neg", "RIGHT_ATTRS": {"DEP": "neg"}}
       ]],
       "conditions": {"question": false, "max_tokens": 6},
-      "responses": ["Phew, I'm glad it didn't hurt!", "Good, I'm glad you're okay!"]
+      "responses": ["Phew, I'm glad it didn't hurt!", "Good, I'm glad you're okay!"],
+      "examples": ["it didn't hurt", "it didnt hurt"]
     },
     {
       "id": "bad_dream",
@@ -2262,7 +2433,8 @@
             "Nightmares are no fun. It's okay to feel scared, and it helps to tell a grown-up. What happened in it?"
           ]
         }
-      }
+      },
+      "examples": ["I had a bad dream", "i had a bad dream"]
     },
     {
       "id": "good_at",
@@ -2298,7 +2470,9 @@
           "awful": ["That's okay! Everybody starts somewhere, and practice really helps."],
           "default": ["{subject} {be} {adj} at {skill}? That's awesome!", "Wow, {subject} {be} {adj} at {skill}! That's so cool."]
         }
-      }
+      },
+      "examples": ["I'm good at math", "my grandma is really good at cards", "she is really good at cards"],
+      "non_examples": ["i'm not good at anything", "i'm not good at math"]
     },
     {
       "id": "feel_off",
@@ -2313,7 +2487,8 @@
       "no_jokes": true,
       "responses": [
         "Hmm, {how} how? Like sick, or like something is bothering you? If you don't feel well, it's a good idea to tell a grown-up."
-      ]
+      ],
+      "examples": ["I feel weird", "i feel funny", "i feel weird"]
     },
     {
       "id": "am_i",
@@ -2340,7 +2515,8 @@
           "negative": ["Everybody is a little different, and that's what makes people special. I think you're great!"],
           "default": ["Everybody is a little different, and that's what makes people special. I think you're great!"]
         }
-      }
+      },
+      "examples": ["am I weird", "am I a good friend", "am i weird"]
     },
     {
       "id": "do_i_have_to",
@@ -2356,7 +2532,8 @@
       "no_jokes": true,
       "responses": [
         "Hmm, that's a good one to ask your mom or dad! Grown-ups usually have a reason when they ask you to {task}. What do you think it is?"
-      ]
+      ],
+      "examples": ["do I have to go to school", "why do i have to clean my room", "do i have to go to school"]
     },
     {
       "id": "is_it_okay",
@@ -2370,7 +2547,8 @@
       "conditions": {"question": true},
       "no_jokes": true,
       "responses": ["That's a really good question. A grown-up you trust can help you figure it out. What do you think?"],
-      "modality_ok_for": ["hypothetical"]
+      "modality_ok_for": ["hypothetical"],
+      "examples": ["is it bad to lie"]
     },
     {
       "id": "is_it_okay_feeling",
@@ -2395,7 +2573,8 @@
       "responses": [
         "Yes, it's okay! Everybody has big feelings sometimes, and all feelings are okay. Do you want to talk about it?"
       ],
-      "modality_ok_for": ["hypothetical"]
+      "modality_ok_for": ["hypothetical"],
+      "examples": ["is it okay if I cry", "is it okay to be scared", "is it okay if i cry"]
     },
     {
       "id": "bet_cant_guess",
@@ -2406,7 +2585,8 @@
       ]],
       "conditions": {"max_tokens": 10},
       "no_jokes": true,
-      "responses": ["Hmm, you might be right! Can you give me a hint?"]
+      "responses": ["Hmm, you might be right! Can you give me a hint?"],
+      "examples": ["I bet you can't guess", "i bet you can't guess"]
     },
     {
       "id": "got_medical",
@@ -2419,7 +2599,8 @@
       "conditions": {"question": false, "not_negated": "get"},
       "slots": {"thing": {"node": "thing", "span": "subtree"}},
       "no_jokes": true,
-      "responses": ["Ooh, {thing}? How does it feel? Lots of kids have {thing}, so you're in good company!"]
+      "responses": ["Ooh, {thing}? How does it feel? Lots of kids have {thing}, so you're in good company!"],
+      "examples": ["I got braces", "i have a cast", "i got braces"]
     },
     {
       "id": "gets_their_way",
@@ -2431,7 +2612,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "get"},
       "no_jokes": true,
-      "responses": ["That sounds really unfair. How does it make you feel when that happens?"]
+      "responses": ["That sounds really unfair. How does it make you feel when that happens?"],
+      "examples": ["my brother always gets his way"]
     },
     {
       "id": "better_than",
@@ -2439,13 +2621,37 @@
       "patterns": [
         [
           {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
-          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we", "he", "she", "they", "you"]}}},
           {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["better", "worse"]}}},
           {"LEFT_ID": "adj", "REL_OP": ">", "RIGHT_ID": "than", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": {"IN": ["than", "at"]}}}
         ],
         [
           {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
-          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": ["friend", "bff", "brother", "sister", "mom", "mother", "mum", "mommy", "dad", "father", "daddy", "grandma", "grandpa", "grandmother", "grandfather", "nana", "aunt", "uncle", "cousin", "teacher", "coach", "neighbor", "classmate", "stepmom", "stepdad", "stepbrother", "stepsister", "parent", "parents", "family", "baby", "dog", "cat", "puppy", "kitten", "hamster", "pet", "fish", "bird", "bunny", "rabbit", "turtle", "guinea", "horse", "kid", "kids", "boy", "girl", "everyone", "everybody", "nobody"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["better", "worse"]}}},
+          {"LEFT_ID": "adj", "REL_OP": ">", "RIGHT_ID": "than", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": {"IN": ["than", "at"]}}}
+        ],
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "POS": "PROPN"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["better", "worse"]}}},
+          {"LEFT_ID": "adj", "REL_OP": ">", "RIGHT_ID": "than", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": {"IN": ["than", "at"]}}}
+        ],
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["i", "we", "he", "she", "they", "you"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["better", "worse"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "than", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": "at"}}
+        ],
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LEMMA": {"IN": ["friend", "bff", "brother", "sister", "mom", "mother", "mum", "mommy", "dad", "father", "daddy", "grandma", "grandpa", "grandmother", "grandfather", "nana", "aunt", "uncle", "cousin", "teacher", "coach", "neighbor", "classmate", "stepmom", "stepdad", "stepbrother", "stepsister", "parent", "parents", "family", "baby", "dog", "cat", "puppy", "kitten", "hamster", "pet", "fish", "bird", "bunny", "rabbit", "turtle", "guinea", "horse", "kid", "kids", "boy", "girl", "everyone", "everybody", "nobody"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["better", "worse"]}}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "than", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": "at"}}
+        ],
+        [
+          {"RIGHT_ID": "be", "RIGHT_ATTRS": {"LEMMA": "be"}},
+          {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "POS": "PROPN"}},
           {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "adj", "RIGHT_ATTRS": {"DEP": "acomp", "LOWER": {"IN": ["better", "worse"]}}},
           {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "than", "RIGHT_ATTRS": {"DEP": "prep", "LOWER": "at"}}
         ]
@@ -2458,7 +2664,13 @@
           "I": ["Nice! It feels good to be good at something. What's your secret?"],
           "default": ["Everyone is good at different things! What's something you're really good at?"]
         }
-      }
+      },
+      "examples": [
+        "I'm better than my brother at math",
+        "my friend is better than me at reading",
+        "i'm better than my brother at math"
+      ],
+      "non_examples": ["soccer is better than basketball"]
     },
     {
       "id": "not_good_at",
@@ -2474,7 +2686,8 @@
       "conditions": {"question": false},
       "slots": {"skill": {"node": "skill", "span": "subtree"}},
       "no_jokes": true,
-      "responses": ["That's okay! {skill} can be tricky, and practice helps a lot. Everyone learns at their own speed."]
+      "responses": ["That's okay! {skill} can be tricky, and practice helps a lot. Everyone learns at their own speed."],
+      "examples": ["I'm not good at math"]
     },
     {
       "id": "not_good_at_anything",
@@ -2508,7 +2721,8 @@
       "no_jokes": true,
       "responses": [
         "Aw, that's not true! Everyone is good at something, and you're still learning. What's something you like to do?"
-      ]
+      ],
+      "examples": ["I'm not good at anything", "I can't do anything right", "i'm not good at anything"]
     },
     {
       "id": "made_me_feel",
@@ -2538,7 +2752,8 @@
           "default": ["Thanks for telling me how it made you feel."]
         }
       },
-      "modality_ok_for": ["future"]
+      "modality_ok_for": ["future"],
+      "examples": ["it made me scared", "A kid calling me a baby made me sad", "you make me happy"]
     },
     {
       "id": "feel_stupid",
@@ -2553,7 +2768,8 @@
       "no_jokes": true,
       "responses": [
         "You're not stupid! One hard day doesn't change how smart and special you are. Do you want to talk about what happened?"
-      ]
+      ],
+      "examples": ["I feel stupid", "i feel stupid"]
     },
     {
       "id": "feel_left_out",
@@ -2569,7 +2785,8 @@
       "no_jokes": true,
       "responses": [
         "Feeling left out is really hard. I'm sorry. You're not alone in feeling that way. Do you want to talk about it?"
-      ]
+      ],
+      "examples": ["I feel left out", "i feel left out"]
     },
     {
       "id": "feeling_fragment",
@@ -2614,7 +2831,8 @@
         }
       },
       "suppressed_by": ["short_answer"],
-      "modality_ok_for": ["future"]
+      "modality_ok_for": ["future"],
+      "examples": ["but also kind of nervous", "happy because its friday", "sad because my friend is sick"]
     },
     {
       "id": "cant_sleep",
@@ -2629,7 +2847,8 @@
       "mood": "anxious",
       "responses": [
         "Aw, it's hard when you can't sleep. Try taking slow, deep breaths and thinking about your favorite place. If something is bothering you, you can tell a grown-up. What's keeping you awake?"
-      ]
+      ],
+      "examples": ["I can't sleep", "now i cant sleep", "i cant sleep"]
     },
     {
       "id": "feeling",
@@ -2687,7 +2906,14 @@
         }
       },
       "suppressed_by": ["good_at", "feel_stupid", "mixed_feelings", "better_than", "two_feelings"],
-      "modality_ok_for": ["future"]
+      "modality_ok_for": ["future"],
+      "examples": ["I'm sad", "I am sad", "when I'm sad I hug my dog"],
+      "non_examples": [
+        "if i'm good i get a treat",
+        "i'm better than my brother at math",
+        "i'm really good at drawing",
+        "i'm tired and hungry"
+      ]
     },
     {
       "id": "miss_person",
@@ -2714,7 +2940,8 @@
         "You miss {object}? I'm sorry. It's hard to be apart from someone you love."
       ],
       "follow_ups": ["What do you miss most about {object}?", "Do you get to see {object} soon?"],
-      "modality_ok_for": ["future"]
+      "modality_ok_for": ["future"],
+      "examples": ["I miss my grandpa", "but i will miss my friends"]
     },
     {
       "id": "unfriended",
@@ -2731,6 +2958,10 @@
       "responses": [
         "Oh no, that really hurts. I'm so sorry. Do you know what happened?",
         "That must feel really sad. I'm sorry. Do you want to talk about it?"
+      ],
+      "examples": [
+        "my friend said she doesn't want to be my friend anymore",
+        "my friend said she doesnt want to be my friend anymore"
       ]
     },
     {
@@ -2759,7 +2990,8 @@
       "responses": [
         "I'm sorry, that sounds really lonely. Is there someone at school you'd like to get to know?",
         "That sounds really hard. I'm sorry. Have you told a grown-up how you feel?"
-      ]
+      ],
+      "examples": ["I have nobody to play with", "no one wanted to sit with me", "nobody plays with me at recess"]
     },
     {
       "id": "everyone_mad",
@@ -2778,7 +3010,8 @@
         "Oh no, that sounds really hard. I'm sorry. Everyone makes mistakes sometimes.",
         "That must have felt awful. I'm sorry. One mistake doesn't change how great you are."
       ],
-      "follow_ups": ["Are you feeling okay now?"]
+      "follow_ups": ["Are you feeling okay now?"],
+      "examples": ["everyone was mad at me"]
     },
     {
       "id": "got_hurt",
@@ -2797,7 +3030,8 @@
       "conditions": {"question": false, "not_negated": "subj"},
       "mood": "sad",
       "no_jokes": true,
-      "responses": ["Ouch! I'm sorry you got hurt. Are you okay?", "Oh no, that sounds like it hurt! Did someone help you?"]
+      "responses": ["Ouch! I'm sorry you got hurt. Are you okay?", "Oh no, that sounds like it hurt! Did someone help you?"],
+      "examples": ["I scraped my knee", "I fell and scraped my knee", "i broke my arm"]
     },
     {
       "id": "lost_tooth",
@@ -2813,7 +3047,8 @@
       "responses": [
         "Wow, you lost a tooth? That's a big deal! Did it hurt?",
         "Yay, a lost tooth! Are you going to put it under your pillow?"
-      ]
+      ],
+      "examples": ["I lost a tooth today", "oh and i lost a tooth", "i losted my tooth"]
     },
     {
       "id": "what_if_forgotten",
@@ -2837,7 +3072,8 @@
       "mood": "anxious",
       "responses": [
         "That's a really normal worry. The people who love you won't forget about you, even when things change. It might help to tell your mom or dad how you feel. They'll want to know!"
-      ]
+      ],
+      "examples": ["what if they forget about me"]
     },
     {
       "id": "what_if_weather",
@@ -2855,7 +3091,8 @@
         ]
       ],
       "conditions": {"first_token": "what"},
-      "responses": ["Then maybe you could find something fun to do inside, like a game or a fort! What would you pick?"]
+      "responses": ["Then maybe you could find something fun to do inside, like a game or a fort! What would you pick?"],
+      "examples": ["what if it rains", "what if it rains tomorrow", "what if it snows on my birthday"]
     },
     {
       "id": "setback",
@@ -2871,7 +3108,8 @@
       "opener": true,
       "responses": ["{clause}? That's really frustrating.", "{clause}? I'm sorry, that's no fun."],
       "follow_ups": ["What do you think you'll try next time?", "Do you want to talk about it?"],
-      "suppressed_by": ["miss_person", "got_hurt", "lost_tooth", "what_if_liked", "lost_game"]
+      "suppressed_by": ["miss_person", "got_hurt", "lost_tooth", "what_if_liked", "lost_game"],
+      "examples": ["I lost my favorite stuffed animal", "i miss him", "i miss her"]
     },
     {
       "id": "reassured",
@@ -2887,7 +3125,8 @@
       "responses": [
         "That was nice of {subject} to say. Everyone makes mistakes sometimes!",
         "{subject} is right! One mistake doesn't change how great you are."
-      ]
+      ],
+      "examples": ["she said its ok", "coach said its ok", "the coach said its ok"]
     },
     {
       "id": "praise_reported",
@@ -2916,7 +3155,8 @@
         "That's so nice to hear! It feels great when {subject} notices your hard work."
       ],
       "follow_ups": ["How did that make you feel?"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["coach said I did great", "my mom said I did a good job", "coach said i did great"]
     },
     {
       "id": "person_says_about_me",
@@ -2939,7 +3179,8 @@
           "neutral": ["{subject} said that? How did that make you feel?"]
         }
       },
-      "mood": "sad"
+      "mood": "sad",
+      "examples": ["my teacher said I was brave", "he said i'm weird", "she said i was mean"]
     },
     {
       "id": "wrecked_my_thing",
@@ -2966,7 +3207,8 @@
       "mood": "angry",
       "valence": "negative",
       "no_jokes": true,
-      "responses": ["Oh no, that's so frustrating! Did {subject} do it on purpose?"]
+      "responses": ["Oh no, that's so frustrating! Did {subject} do it on purpose?"],
+      "examples": ["jake broke my pencil", "my brother knocked over my tower", "my brother knocked the snowman over"]
     },
     {
       "id": "takes_my_stuff",
@@ -2986,7 +3228,8 @@
         "Ugh, that sounds really frustrating! Have you talked to a grown-up about it?",
         "That's so annoying when {subject} does that! What do you usually do?"
       ],
-      "suppressed_by": ["wrecked_my_thing"]
+      "suppressed_by": ["wrecked_my_thing"],
+      "examples": ["my sister always takes my stuff", "my brother always takes my stuff", "My sister Ava always takes my stuff"]
     },
     {
       "id": "kept_trying",
@@ -3008,7 +3251,8 @@
       "valence": "positive",
       "responses": ["That's the spirit! Not giving up is really awesome.", "Way to go! Keeping at it is how you get better."],
       "follow_ups": ["How did it turn out?"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["but I kept trying"]
     },
     {
       "id": "can_now",
@@ -3024,7 +3268,8 @@
       "mood": "happy",
       "valence": "positive",
       "responses": ["{clause}? That's amazing! You worked hard for that!", "Wow, {clause}? You should be so proud!"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["now I can ride all by myself", "i can float on my back now", "i can swim without floaties now"]
     },
     {
       "id": "beaten_at_game",
@@ -3039,7 +3284,8 @@
       "responses": [
         "Ugh, losing to {subject} is so frustrating! Keep practicing and you might win next time.",
         "That's tough! Everyone gets better with practice. What's your best trick?"
-      ]
+      ],
+      "examples": ["my sister always beats me", "she beat me three times", "my brother beats me"]
     },
     {
       "id": "hit_by_ball",
@@ -3052,7 +3298,8 @@
       ]],
       "slots": {"thing": {"node": "ball", "span": "lemma"}},
       "no_jokes": true,
-      "responses": ["Ouch! Getting hit with {thing_a} {thing} can sting. Are you okay?", "Oof! Are you okay?"]
+      "responses": ["Ouch! Getting hit with {thing_a} {thing} can sting. Are you okay?", "Oof! Are you okay?"],
+      "examples": ["a kid hit me with the ball", "my sister hit me with a pillow"]
     },
     {
       "id": "we_won",
@@ -3066,7 +3313,9 @@
       "valence": "positive",
       "mood": "happy",
       "responses": ["You won? That's awesome! How did it feel?", "Woohoo, you won! What was the best part?"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["we won", "i won"],
+      "non_examples": ["i would've won"]
     },
     {
       "id": "pet_bite",
@@ -3081,7 +3330,8 @@
       "responses": [
         "Ouch! Are you okay? Pets sometimes bite or scratch when they're scared or playing too rough.",
         "Oh no, ouch! Did a grown-up help you clean it up?"
-      ]
+      ],
+      "examples": ["my cat bit me", "my hamster bit me", "my cat scratched me"]
     },
     {
       "id": "pushed_me",
@@ -3095,7 +3345,8 @@
       "mood": "sad",
       "no_jokes": true,
       "responses": ["Oh no! Are you okay? If someone pushes you on purpose, tell your coach or teacher so they can help."],
-      "suppressed_by": ["pushed_on_swing"]
+      "suppressed_by": ["pushed_on_swing"],
+      "examples": ["at soccer a boy pushed me", "my friend tripped me at recess", "a kid i dont know pushed me at the park"]
     },
     {
       "id": "moving_house",
@@ -3107,7 +3358,8 @@
       "conditions": {"question": false, "not_negated": "move", "not_past": "move"},
       "responses": ["Moving is a big change! How do you feel about it?"],
       "follow_ups": ["What are you most excited about?"],
-      "modality_ok_for": ["future"]
+      "modality_ok_for": ["future"],
+      "examples": ["we are moving to a new house", "we're moving to a new house"]
     },
     {
       "id": "taken_away",
@@ -3120,7 +3372,8 @@
       "conditions": {"question": false, "not_negated": "take"},
       "mood": "sad",
       "no_jokes": true,
-      "responses": ["Oh no, that's no fun! What happened?"]
+      "responses": ["Oh no, that's no fun! What happened?"],
+      "examples": ["my mom took away my ipad"]
     },
     {
       "id": "hit_target",
@@ -3133,7 +3386,8 @@
       "conditions": {"not_negated": "hit"},
       "valence": "positive",
       "mood": "happy",
-      "responses": ["Nice shot! That's awesome! How did it feel?", "Wow, great job! You must have been practicing!"]
+      "responses": ["Nice shot! That's awesome! How did it feel?", "Wow, great job! You must have been practicing!"],
+      "examples": ["I hit the target", "i hit the target"]
     },
     {
       "id": "new_friend",
@@ -3159,7 +3413,8 @@
       "responses": [
         {"text": "Yay, a new friend! What's {name} like?", "requires": ["name"]},
         {"text": "Yay, a new friend! That's awesome. What do you like to do together?"}
-      ]
+      ],
+      "examples": ["I made a new friend named Leo", "i made a new friend today", "i made a new friend named Leo"]
     },
     {
       "id": "said_no",
@@ -3170,7 +3425,8 @@
         {"LEFT_ID": "say", "REL_OP": ">", "RIGHT_ID": "no", "RIGHT_ATTRS": {"LOWER": "no"}}
       ]],
       "conditions": {"question": false, "max_tokens": 6},
-      "responses": ["Aw, that's disappointing. Did they say why?"]
+      "responses": ["Aw, that's disappointing. Did they say why?"],
+      "examples": ["my parents said no", "but my mom said no", "my mom said no"]
     },
     {
       "id": "allowance",
@@ -3181,7 +3437,8 @@
         {"LEFT_ID": "get", "REL_OP": ">", "RIGHT_ID": "money", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["allowance", "money", "dollar", "dollars"]}}}
       ]],
       "conditions": {"not_negated": "get"},
-      "responses": ["Ooh, nice! Are you saving up for something?"]
+      "responses": ["Ooh, nice! Are you saving up for something?"],
+      "examples": ["I got 5 dollars", "but i get allowance", "I get allowance"]
     },
     {
       "id": "tried_hard",
@@ -3192,7 +3449,8 @@
         {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "hard", "RIGHT_ATTRS": {"DEP": "advmod", "LOWER": "hard"}}
       ]],
       "conditions": {"not_negated": "verb", "question": false},
-      "responses": ["That's what matters most! Working hard is something to be really proud of."]
+      "responses": ["That's what matters most! Working hard is something to be really proud of."],
+      "examples": ["I studied really hard", "i studied really hard"]
     },
     {
       "id": "grade",
@@ -3204,7 +3462,8 @@
       ]],
       "conditions": {"not_negated": "get"},
       "slots": {"grade": {"node": "grade", "span": "text"}},
-      "responses": ["A C is okay! Was the test tricky?"]
+      "responses": ["A C is okay! Was the test tricky?"],
+      "examples": ["I got a c on my test", "i got a c on my test"]
     },
     {
       "id": "have_many",
@@ -3217,7 +3476,9 @@
       ]],
       "conditions": {"not_negated": "have", "question": false},
       "slots": {"thing": {"node": "thing", "span": "subtree"}},
-      "responses": ["{thing}? Wow, that's a lot! Which one is your favorite?"]
+      "responses": ["{thing}? Wow, that's a lot! Which one is your favorite?"],
+      "examples": ["I have 20 dinosaur toys", "i have 20 dinosaur toys"],
+      "non_examples": ["i have 20 dollars", "we had pizza for dinner and i had three slices"]
     },
     {
       "id": "have_money",
@@ -3229,7 +3490,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "have"},
       "slots": {"money": {"node": "money", "span": "subtree"}},
-      "responses": ["Ooh, {money}! Are you saving up for something special?"]
+      "responses": ["Ooh, {money}! Are you saving up for something special?"],
+      "examples": ["I have 20 dollars", "i have 20 dollars"]
     },
     {
       "id": "animal_scary",
@@ -3244,7 +3506,8 @@
       "no_jokes": true,
       "responses": [
         "Whoa, that sounds scary! Are you okay? It's a good idea to stay calm and walk away slowly from a dog you don't know."
-      ]
+      ],
+      "examples": ["a big dog barked at me", "a dog barked at me"]
     },
     {
       "id": "get_new_later",
@@ -3264,7 +3527,8 @@
           "requires": ["sensitive"]
         },
         {"text": "Ooh, {thing}? That would be exciting! What would you want?"}
-      ]
+      ],
+      "examples": ["my mom said we can get a new one"]
     },
     {
       "id": "not_want_new",
@@ -3284,7 +3548,8 @@
           "requires": ["sensitive"]
         },
         {"text": "Oh, you don't want a new one? Why not?"}
-      ]
+      ],
+      "examples": ["I don't want a new one", "i dont want a new one"]
     },
     {
       "id": "got_gift",
@@ -3322,7 +3587,9 @@
         {"text": "Yay, {gift}! Do you like {gift_them}?"}
       ],
       "compute": ["gift_container"],
-      "suppressed_by": ["get_new_later", "person_kindness", "high_five"]
+      "suppressed_by": ["get_new_later", "person_kindness", "high_five"],
+      "examples": ["I got a LEGO set", "My teacher gave us a test", "they gave me a new toothbrush"],
+      "non_examples": ["i got a red card", "if i'm good i get a treat", "i got a hamster", "i got a new bike and then it broke"]
     },
     {
       "id": "penalty_card",
@@ -3338,7 +3605,8 @@
       "mood": "sad",
       "valence": "negative",
       "no_jokes": true,
-      "responses": ["Aw, you got {card}? That can feel bad. What happened?"]
+      "responses": ["Aw, you got {card}? That can feel bad. What happened?"],
+      "examples": ["I got a red card", "i got a red card"]
     },
     {
       "id": "found_it",
@@ -3351,7 +3619,8 @@
       "conditions": {"question": false, "not_negated": "find", "past": "find"},
       "valence": "positive",
       "responses": ["Yay, you found it! I'm so glad!"],
-      "suppressed_by": ["found_new"]
+      "suppressed_by": ["found_new"],
+      "examples": ["I found it", "we found him", "my dog ran away yesterday but we found him"]
     },
     {
       "id": "no_cavities",
@@ -3363,7 +3632,8 @@
         {"LEFT_ID": "have", "REL_OP": ">", "RIGHT_ID": "cavity", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["cavity", "cavities"]}}}
       ]],
       "responses": ["No cavities? Great job taking care of your teeth!"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["I don't have any cavities", "I didn't have any cavities", "i didnt have any cavities"]
     },
     {
       "id": "got_to",
@@ -3376,7 +3646,8 @@
       "conditions": {"not_negated": "get", "question": false},
       "slots": {"clause": {"node": "get", "span": "clause"}},
       "valence": "positive",
-      "responses": ["{clause}? That sounds so special!", "Aw, {clause}? How fun!"]
+      "responses": ["{clause}? That sounds so special!", "Aw, {clause}? How fun!"],
+      "examples": ["I got to hold my baby cousin", "i gotta go", "i got to hold her"]
     },
     {
       "id": "achievement",
@@ -3448,7 +3719,18 @@
       "opener": true,
       "responses": ["{clause}? That's awesome!", "{clause}? Congratulations, you should be proud!"],
       "follow_ups": ["How did it feel?", "What was the best part?"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["I got a B", "we built a snowman", "Hi! I made the soccer team"],
+      "non_examples": [
+        "i got ice cream",
+        "we went to the beach and i built a sandcastle but a wave knocked it down",
+        "i got braces",
+        "i'm learning to read",
+        "i drew a picture of you",
+        "i got a red card",
+        "i scored a goal but then i got hurt",
+        "i passed my test and my dog died"
+      ]
     },
     {
       "id": "want_to_go_home",
@@ -3462,7 +3744,8 @@
       "conditions": {"question": false, "not_negated": "want"},
       "mood": "sad",
       "no_jokes": true,
-      "responses": ["It sounds like today has been really hard. I'm sorry. Do you want to tell me about it?"]
+      "responses": ["It sounds like today has been really hard. I'm sorry. Do you want to tell me about it?"],
+      "examples": ["I just want to go home", "i just want to go home"]
     },
     {
       "id": "want_thing",
@@ -3477,7 +3760,8 @@
       "responses": [
         {"text": "Ooh, {thing} would be so fun! Why do you want them?", "requires": ["thing_plural"]},
         {"text": "Ooh, {thing} would be so fun! Why do you want one?"}
-      ]
+      ],
+      "examples": ["I want a Puppy", "I really want a dog", "i want ice cream"]
     },
     {
       "id": "want_to_buy",
@@ -3490,7 +3774,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "want"},
       "slots": {"thing": {"node": "thing", "span": "subtree"}},
-      "responses": ["Ooh, {thing}! Do you know which one you want?"]
+      "responses": ["Ooh, {thing}! Do you know which one you want?"],
+      "examples": ["I want to buy a toy", "i want to buy a toy"]
     },
     {
       "id": "didnt_want_to_leave",
@@ -3502,7 +3787,8 @@
         {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "leave", "RIGHT_ATTRS": {"DEP": "xcomp", "LEMMA": {"IN": ["leave", "go", "stop"]}}}
       ]],
       "conditions": {"question": false, "past": "want"},
-      "responses": ["Aw, it sounds like you had a really great time!"]
+      "responses": ["Aw, it sounds like you had a really great time!"],
+      "examples": ["I didn't want to leave", "i didnt want to leave"]
     },
     {
       "id": "name_someone",
@@ -3514,7 +3800,8 @@
       ]],
       "conditions": {"question": false},
       "slots": {"value": {"node": "value", "span": "text", "capitalize": true}},
-      "responses": ["{value} is a great name! What made you think of it?"]
+      "responses": ["{value} is a great name! What made you think of it?"],
+      "examples": ["we called him biscuit", "I want to name her lily", "i want to name her lily"]
     },
     {
       "id": "goal",
@@ -3530,7 +3817,9 @@
       "memories": [{"category": "goal", "key": "goal_{goal_slug}", "value": "{goal}"}],
       "valence": "positive",
       "responses": ["You want to {goal}? That's a great goal!", "I think you'd be great at that! What made you want to {goal}?"],
-      "follow_ups": ["What's the first step to get there?", "What made you want to do that?"]
+      "follow_ups": ["What's the first step to get there?", "What made you want to do that?"],
+      "examples": ["I want to be a vet", "when i grow up i want to be a doctor", "i want to be a vet"],
+      "non_examples": ["i want to show you something", "i want to talk about my dog"]
     },
     {
       "id": "favorite_bare",
@@ -3544,7 +3833,8 @@
       ]],
       "slots": {"value": {"node": "value", "span": "subtree"}},
       "valence": "positive",
-      "responses": ["Ooh, {value}! Great pick! What did you like best about {value_them}?"]
+      "responses": ["Ooh, {value}! Great pick! What did you like best about {value_them}?"],
+      "examples": ["my favorite was the penguins", "my favorite is the t rex"]
     },
     {
       "id": "favorite_is",
@@ -3583,7 +3873,8 @@
         {"text": "{value}? Nice choice!"}
       ],
       "follow_ups": ["Why {value_is} {value} your favorite?", "How long {value_has} {value} been your favorite?"],
-      "conditions": {"question": false}
+      "conditions": {"question": false},
+      "examples": ["My favorite color is blue", "frozen is my favorite movie", "my favorite food is sushi"]
     },
     {
       "id": "love_bot",
@@ -3594,7 +3885,8 @@
         {"LEFT_ID": "love", "REL_OP": ">", "RIGHT_ID": "you", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "you"}}
       ]],
       "conditions": {"question": false, "not_negated": "love", "max_tokens": 6},
-      "responses": ["Aw, thank you! I really like talking with you too!"]
+      "responses": ["Aw, thank you! I really like talking with you too!"],
+      "examples": ["I love you", "I like you", "i love you buddy"]
     },
     {
       "id": "love_bot_question",
@@ -3605,7 +3897,8 @@
         {"LEFT_ID": "love", "REL_OP": ">", "RIGHT_ID": "me", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "me"}}
       ]],
       "conditions": {"question": true, "max_tokens": 6},
-      "responses": ["Yes! I really like talking with you. You're my friend!"]
+      "responses": ["Yes! I really like talking with you. You're my friend!"],
+      "examples": ["do you love me"]
     },
     {
       "id": "favorite_self",
@@ -3619,7 +3912,8 @@
       "conditions": {"question": false, "not_negated": "be"},
       "slots": {"value": {"node": "value", "span": "subtree"}},
       "valence": "positive",
-      "responses": ["Ooh, {value} is your favorite? Great pick! What do you like best about {value_them}?"]
+      "responses": ["Ooh, {value} is your favorite? Great pick! What do you like best about {value_them}?"],
+      "examples": ["recess is my favorite"]
     },
     {
       "id": "day_is",
@@ -3631,7 +3925,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "be"},
       "slots": {"day": {"node": "day", "span": "subtree"}},
-      "responses": ["Ooh, {day}! Do you have anything fun planned?"]
+      "responses": ["Ooh, {day}! Do you have anything fun planned?"],
+      "examples": ["today is Halloween", "tomorrow is Saturday", "tommorow is saturday"]
     },
     {
       "id": "love_person",
@@ -3645,7 +3940,8 @@
       "conditions": {"not_negated": "verb"},
       "slots": {"person": {"node": "obj", "span": "subtree"}},
       "valence": "positive",
-      "responses": ["Aw, it sounds like you and {person} are really close!", "That's so sweet. What do you like to do with {person}?"]
+      "responses": ["Aw, it sounds like you and {person} are really close!", "That's so sweet. What do you like to do with {person}?"],
+      "examples": ["i love my mom", "i love my grandma so much"]
     },
     {
       "id": "hate_you",
@@ -3664,7 +3960,8 @@
         ]
       ],
       "no_jokes": true,
-      "responses": ["Aw, that makes me a little sad. Did something upset you? I'm here if you want to talk."]
+      "responses": ["Aw, that makes me a little sad. Did something upset you? I'm here if you want to talk."],
+      "examples": ["I hate you", "I don't like you", "i hate you"]
     },
     {
       "id": "dislike_thing",
@@ -3688,7 +3985,10 @@
       "responses": ["Got it, {thing} isn't your thing. I'll remember that!", "Not a fan of {thing}, huh? That's okay, everybody likes different stuff."],
       "follow_ups": ["What do you like instead?"],
       "no_jokes": true,
-      "suppressed_by": ["hate_you"]
+      "suppressed_by": ["hate_you"],
+      "examples": ["I hate math", "I don't like broccoli anymore", "i hate math", "i hate broccoli"],
+      "non_examples": ["i dont like you", "what do i hate"],
+      "conditions": {"question": false}
     },
     {
       "id": "love_it",
@@ -3699,7 +3999,8 @@
         {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": {"IN": ["it", "that", "this"]}}}
       ]],
       "conditions": {"not_negated": "verb", "question": false},
-      "responses": ["Yay, I'm so glad you love it!"]
+      "responses": ["Yay, I'm so glad you love it!"],
+      "examples": ["I love it"]
     },
     {
       "id": "like_thing",
@@ -3710,7 +4011,7 @@
         {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": {"IN": ["dobj", "xcomp"]}, "LOWER": {"NOT_IN": ["it", "that", "this", "them", "you"]}}}
       ]],
       "suppressed_by": ["love_person", "like_more", "crush_boy", "crush_girl"],
-      "conditions": {"not_negated": "verb"},
+      "conditions": {"not_negated": "verb", "question": false},
       "slots": {"thing": {"node": "obj", "span": "activity"}, "verb": {"node": "verb", "span": "lemma"}},
       "compute": ["bot_shares_like"],
       "memories": [{"category": "favorite", "key": "likes_{thing_slug}", "value": "{thing_raw}"}],
@@ -3721,7 +4022,9 @@
         {"text": "Oh, you {verb} {thing}? Nice!"},
         {"text": "I can tell you really enjoy {thing}."}
       ],
-      "follow_ups": ["What do you like most about {thing_them}?", "Is there anything else you really like?"]
+      "follow_ups": ["What do you like most about {thing_them}?", "Is there anything else you really like?"],
+      "examples": ["I love pizza", "but i like science", "I like soccer"],
+      "non_examples": ["the teacher i like the most is mr smith", "do i like broccoli"]
     },
     {
       "id": "person_named",
@@ -3732,7 +4035,8 @@
         {"LEFT_ID": "rel", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": "appos", "POS": "PROPN"}}
       ]],
       "slots": {"name": {"node": "name", "span": "text"}, "relation": {"node": "rel", "span": "noun_phrase"}},
-      "memories": [{"category": "person", "key": "{relation_slug}_{name_slug}", "value": "{name_raw}"}]
+      "memories": [{"category": "person", "key": "{relation_slug}_{name_slug}", "value": "{name_raw}"}],
+      "examples": ["my friend Maya", "my sister Emma"]
     },
     {
       "id": "person_relation",
@@ -3746,7 +4050,8 @@
       "slots": {"name": {"node": "name", "span": "text", "capitalize": true}, "relation": {"node": "rel", "span": "noun_phrase"}},
       "memories": [{"category": "person", "key": "{relation_slug}_{name_slug}", "value": "{name_raw}"}],
       "valence": "positive",
-      "responses": ["{name} sounds like a great {relation}!", "Tell me more about {name}!"]
+      "responses": ["{name} sounds like a great {relation}!", "Tell me more about {name}!"],
+      "examples": ["Zoe is my cousin", "maya is my friend"]
     },
     {
       "id": "bot_identity_question",
@@ -3759,7 +4064,8 @@
       ]],
       "conditions": {"question": true},
       "responses": ["I'm an AI friend, not a real person. But I really like talking with you!", "I'm a computer program, not a human. I'm still happy to be your friend, though!"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["Are you real?", "r u a robot", "Are you a robot?"]
     },
     {
       "id": "bot_day_question",
@@ -3772,7 +4078,8 @@
       ]],
       "conditions": {"question": true},
       "responses": ["I'm hanging out here, talking with you! What have you been up to?", "I've been thinking about all the fun stuff you told me! What did you do today?"],
-      "suppressed_by": ["bot_abilities"]
+      "suppressed_by": ["bot_abilities"],
+      "examples": ["wut are you doing", "what are you doing", "what did you do today"]
     },
     {
       "id": "crying",
@@ -3797,7 +4104,8 @@
       "conditions": {"not_negated": "verb"},
       "mood": "sad",
       "valence": "negative",
-      "responses": ["Oh no, I'm sorry you're so upset. Do you want to talk about what's wrong?", "I'm here for you. Can you tell me what happened?"]
+      "responses": ["Oh no, I'm sorry you're so upset. Do you want to talk about what's wrong?", "I'm here for you. Can you tell me what happened?"],
+      "examples": ["i cry a lot", "and then i cried"]
     },
     {
       "id": "person_upset",
@@ -3813,7 +4121,8 @@
       "valence": "negative",
       "opener": true,
       "responses": ["{clause}? That sounds really frustrating.", "{clause}? I'm sorry, that doesn't sound fun."],
-      "follow_ups": ["How did that make you feel?", "Do you know why that happened?"]
+      "follow_ups": ["How did that make you feel?", "Do you know why that happened?"],
+      "examples": ["My teacher yelled at me", "my sister broke her arm", "my teacher yelled at me"]
     },
     {
       "id": "bad_result",
@@ -3842,7 +4151,8 @@
       "valence": "negative",
       "opener": true,
       "responses": ["{clause}? That's really frustrating.", "{clause}? I'm sorry, that doesn't feel good."],
-      "follow_ups": ["Do you know what went wrong?", "Is there someone who can help you with it?"]
+      "follow_ups": ["Do you know what went wrong?", "Is there someone who can help you with it?"],
+      "examples": ["I got a bad grade", "and i got in trouble at school", "i got in trouble"]
     },
     {
       "id": "looked_everywhere",
@@ -3853,7 +4163,8 @@
         {"LEFT_ID": "look", "REL_OP": ">", "RIGHT_ID": "where", "RIGHT_ATTRS": {"LOWER": {"IN": ["everywhere", "all"]}}}
       ]],
       "conditions": {"question": false, "not_negated": "look"},
-      "responses": ["It's so frustrating when something is hiding! Did anyone help you look?"]
+      "responses": ["It's so frustrating when something is hiding! Did anyone help you look?"],
+      "examples": ["I looked everywhere", "i looked everywhere"]
     },
     {
       "id": "person_kindness",
@@ -3868,7 +4179,9 @@
       "mood": "happy",
       "valence": "positive",
       "responses": ["{clause}? That's so nice!", "Aw, {clause}? That's so sweet!"],
-      "follow_ups": ["How did it make you feel?", "I bet {person} really care{person_s} about you!"]
+      "follow_ups": ["How did it make you feel?", "I bet {person} really care{person_s} about you!"],
+      "examples": ["my dad made me soup", "me and my dad made cupcakes", "when i got home my mom made cookies"],
+      "non_examples": ["i helped my grandma bake cookies"]
     },
     {
       "id": "lots_of_homework",
@@ -3883,7 +4196,8 @@
       "responses": [
         "That's a lot! Want to take it one step at a time? What do you have to do first?",
         "Wow, that sounds like a lot. You can do it! What's the first thing on the list?"
-      ]
+      ],
+      "examples": ["I have so much homework", "I have lots of homework", "i have lotsa homework"]
     },
     {
       "id": "school_upcoming",
@@ -3897,7 +4211,8 @@
       "slots": {"clause": {"node": "verb", "span": "clause"}},
       "responses": ["{clause}? Good luck, you've got this!", "Ooh, {clause}. Do you feel ready for it?", "{clause}? I bet you'll do great!"],
       "follow_ups": ["How are you getting ready for it?", "Is there a part you're worried about?"],
-      "modality_ok_for": ["future"]
+      "modality_ok_for": ["future"],
+      "examples": ["I have a math test tomorrow", "we have another game next week", "I have a spelling test tomorrow"]
     },
     {
       "id": "have_named",
@@ -3925,7 +4240,8 @@
       "responses": [
         "You have {relation_a} {relation} named {name}? That's so cool! What is {name} like?",
         "{name} the {relation}! I love that name. Tell me about {name}!"
-      ]
+      ],
+      "examples": ["I have a dog named Max", "I have a dog named Rocky", "I have a cat named Whiskers"]
     },
     {
       "id": "will_try",
@@ -3936,7 +4252,8 @@
         {"LEFT_ID": "try", "REL_OP": ">", "RIGHT_ID": "will", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": {"IN": ["will", "'ll"]}}}
       ]],
       "conditions": {"question": false, "not_negated": "try"},
-      "responses": ["Good luck! I believe in you!", "That's a great plan! Let me know how it goes!"]
+      "responses": ["Good luck! I believe in you!", "That's a great plan! Let me know how it goes!"],
+      "examples": ["I'll try that", "ok i will try", "ok ill try that"]
     },
     {
       "id": "which_should_i",
@@ -3948,7 +4265,8 @@
         {"LEFT_ID": "verb", "REL_OP": ">>", "RIGHT_ID": "which", "RIGHT_ATTRS": {"DEP": "det", "LOWER": {"IN": ["what", "which"]}}}
       ]],
       "conditions": {"question": true},
-      "responses": ["Ooh, tough choice! I'd pick whichever one sounds the most fun to you. What are the choices?"]
+      "responses": ["Ooh, tough choice! I'd pick whichever one sounds the most fun to you. What are the choices?"],
+      "examples": ["what ride should I go on", "what kind of dog should I get", "what ride should i go on"]
     },
     {
       "id": "could_be_friends",
@@ -3964,7 +4282,8 @@
       "responses": [
         "That would be awesome! Making a new friend is the best.",
         "I hope so! It sounds like you two have a lot in common."
-      ]
+      ],
+      "examples": ["maybe we can be friends"]
     },
     {
       "id": "get_better",
@@ -3977,7 +4296,8 @@
       "conditions": {"question": true},
       "responses": [
         "Practice makes progress! Try practicing a little bit every day, and ask your coach or teacher for tips. What part do you want to get better at?"
-      ]
+      ],
+      "examples": ["how do I get better at soccer", "how do i get better at soccer"]
     },
     {
       "id": "hope",
@@ -3988,7 +4308,8 @@
         {"LEFT_ID": "hope", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": "ccomp"}}
       ]],
       "conditions": {"question": false, "not_negated": "hope"},
-      "responses": ["I hope so too!", "Me too! I have a good feeling about it."]
+      "responses": ["I hope so too!", "Me too! I have a good feeling about it."],
+      "examples": ["I hope he likes me", "I hope I win the race", "i hope he likes me"]
     },
     {
       "id": "naming_question",
@@ -3999,7 +4320,8 @@
         {"LEFT_ID": "name", "REL_OP": ">", "RIGHT_ID": "should", "RIGHT_ATTRS": {"DEP": "aux", "LOWER": "should"}}
       ]],
       "conditions": {"question": true},
-      "responses": ["Ooh, how fun! What names do you like so far?"]
+      "responses": ["Ooh, how fun! What names do you like so far?"],
+      "examples": ["what should we name him"]
     },
     {
       "id": "should_apologize",
@@ -4019,7 +4341,8 @@
       ],
       "responses": [
         "Saying sorry is a really kind thing to do, and it can help you both feel better. You could tell them how you felt, too."
-      ]
+      ],
+      "examples": ["should I say sorry", "should i say sorry"]
     },
     {
       "id": "ask_permission",
@@ -4046,7 +4369,9 @@
       ],
       "conditions": {"question": true},
       "suppressed_by": ["which_should_i", "naming_question", "should_apologize", "bored_ideas", "story_together"],
-      "responses": ["That's a great question to ask your mom or dad!"]
+      "responses": ["That's a great question to ask your mom or dad!"],
+      "examples": ["can I have a cookie", "can I get a new fish", "can we go to the park"],
+      "non_examples": ["can i tell you something"]
     },
     {
       "id": "bored_ideas",
@@ -4061,7 +4386,8 @@
       "suppressed_by": ["dont_know_what"],
       "responses": [
         "Ooh, you could build a blanket fort, draw a picture, do a puzzle, or play a game with me! Tap Games to try one. What sounds fun?"
-      ]
+      ],
+      "examples": ["what can I do inside", "what can i do inside"]
     },
     {
       "id": "should_i",
@@ -4073,7 +4399,8 @@
       ]],
       "conditions": {"question": true},
       "suppressed_by": ["which_should_i", "naming_question", "should_apologize", "bored_ideas"],
-      "responses": ["Hmm, that's your call! What do you think would feel best? You can always ask a grown-up too."]
+      "responses": ["Hmm, that's your call! What do you think would feel best? You can always ask a grown-up too."],
+      "examples": ["what should I do", "should I start over", "what should I say"]
     },
     {
       "id": "will_i",
@@ -4085,7 +4412,8 @@
         {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "when", "RIGHT_ATTRS": {"LOWER": {"IN": ["when", "how"]}}}
       ]],
       "conditions": {"question": true},
-      "responses": ["That's a great question to ask your mom or dad!"]
+      "responses": ["That's a great question to ask your mom or dad!"],
+      "examples": ["when will I get one", "when will i get one"]
     },
     {
       "id": "plan",
@@ -4102,7 +4430,8 @@
       "valence": "positive",
       "responses": ["{clause}? That sounds exciting!", "Ooh, {clause}? That sounds like fun!"],
       "follow_ups": ["What are you most excited about?", "Who's going with you?"],
-      "modality_ok_for": ["future"]
+      "modality_ok_for": ["future"],
+      "examples": ["i'm going 2 the store", "on saturday we're going to the zoo", "we are going to the beach on saturday"]
     },
     {
       "id": "bot_thing_evaluation",
@@ -4133,7 +4462,8 @@
             "You think {subject} {be} {negation}{evaluation}? Thanks for telling me!"
           ]
         }
-      }
+      },
+      "examples": ["Your name is cool", "Your name is weird", "Your joke was funny"]
     },
     {
       "id": "sounds_evaluation",
@@ -4164,7 +4494,8 @@
             "{subject} {be} {negation}{evaluation}? Okay! Tell me more."
           ]
         }
-      }
+      },
+      "examples": ["That sounds fun", "The movie looks boring", "space mountain sounds scary"]
     },
     {
       "id": "hard_question",
@@ -4178,7 +4509,8 @@
       "responses": [
         "Ha, take your time! There's no wrong answer.",
         "Hmm, you can think about it! There's no wrong answer."
-      ]
+      ],
+      "examples": ["It's a tough question", "That's a good question", "That's a hard question"]
     },
     {
       "id": "not_fair",
@@ -4203,7 +4535,8 @@
       "responses": [
         "It's really frustrating when things don't feel fair. What happened?",
         "That doesn't sound fair. I'd feel frustrated too. Do you want to talk about it?"
-      ]
+      ],
+      "examples": ["it's not fair", "its not fair", "it isnt fair"]
     },
     {
       "id": "evaluation",
@@ -4245,7 +4578,8 @@
             "{subject} {be} {negation}{evaluation}? Okay! Did anything interesting happen?"
           ]
         }
-      }
+      },
+      "examples": ["pizza is yummy", "It was not fun", "School was boring"]
     },
     {
       "id": "is_the_best",
@@ -4269,7 +4603,9 @@
           "grossest": ["Ew, {subj} {be} the grossest? What's so gross about it?"],
           "default": ["Ooh, {subj} {be} the {best}? What makes {subj} so great?"]
         }
-      }
+      },
+      "examples": ["math is the worst", "my teacher is the best", "my grandma's cookies are the best"],
+      "non_examples": ["you are the best"]
     },
     {
       "id": "future_evaluation",
@@ -4298,7 +4634,8 @@
           "negative": ["Hmm, that sounds hard. You can do it, and I'm here if you want to talk about it."],
           "default": ["Ooh, what do you think it will be like?"]
         }
-      }
+      },
+      "examples": ["it's going to be fun", "tomorrow is going to be hard", "it's gonna be fun"]
     },
     {
       "id": "age_short",
@@ -4325,7 +4662,8 @@
           "turn": ["You're turning {age}? That's so exciting! How are you going to celebrate?"],
           "default": ["{age} is a great age! Thanks for telling me."]
         }
-      }
+      },
+      "examples": ["I'm turning 11", "im turning 8", "i just turned 6"]
     },
     {
       "id": "person_age_past",
@@ -4348,7 +4686,8 @@
         "be": {"node": "be", "span": "verb_group"},
         "age": {"node": "num", "span": "text"}
       },
-      "responses": ["{subject} {be} {age}? Thank you for telling me about {subject}."]
+      "responses": ["{subject} {be} {age}? Thank you for telling me about {subject}."],
+      "examples": ["My dog Rocky was 12"]
     },
     {
       "id": "person_age",
@@ -4374,7 +4713,8 @@
       "responses": [
         "Aw, {subject} {be} {age}! What do you like to do together?",
         "{subject} {be} {age}? Fun! What is {subject} like?"
-      ]
+      ],
+      "examples": ["my brother is 2", "my grandma is 80", "my sister is five"]
     },
     {
       "id": "birthday",
@@ -4396,7 +4736,8 @@
           "default": ["Birthdays are the best! How do you like to celebrate yours?"]
         }
       },
-      "modality_ok_for": ["future"]
+      "modality_ok_for": ["future"],
+      "examples": ["today is my birthday", "my birthday is tomorrow", "tomorrow is my birthday!"]
     },
     {
       "id": "bot_been_question",
@@ -4425,7 +4766,8 @@
           "be": ["I haven't, since I live right here in this app! Tell me all about it!"],
           "default": ["Nope, I'm a computer program, so I haven't! What's it like?"]
         }
-      }
+      },
+      "examples": ["have you been there", "have you ever had sushi", "have you played roblox"]
     },
     {
       "id": "bot_compliment",
@@ -4444,7 +4786,8 @@
           "neutral": ["Hehe, I'll take that as a compliment!"]
         }
       },
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["you're dumb", "ur weird", "jk ur cool"]
     },
     {
       "id": "bot_dislike_question",
@@ -4457,7 +4800,8 @@
       ]],
       "conditions": {"question": true},
       "slots": {"category": {"node": "thing", "span": "lemma"}},
-      "responses": ["Hmm, I try to like everything! What {category} don't you like?"]
+      "responses": ["Hmm, I try to like everything! What {category} don't you like?"],
+      "examples": ["what food do you hate"]
     },
     {
       "id": "bot_feeling_question",
@@ -4469,7 +4813,8 @@
       ]],
       "conditions": {"question": true},
       "slots": {"feeling": {"node": "feeling", "span": "text"}},
-      "responses": ["Nope! Talking with you is my favorite thing, so I'm happy whenever you're here. Do you ever get {feeling}?"]
+      "responses": ["Nope! Talking with you is my favorite thing, so I'm happy whenever you're here. Do you ever get {feeling}?"],
+      "examples": ["do you get bored"]
     },
     {
       "id": "cheer_me_up",
@@ -4487,7 +4832,8 @@
           {"LEFT_ID": "cheer", "REL_OP": ">", "RIGHT_ID": "up", "RIGHT_ATTRS": {"LOWER": "up"}}
         ]
       ],
-      "responses": ["I'll try my best! Want to hear a joke, or tell me about something that makes you happy?"]
+      "responses": ["I'll try my best! Want to hear a joke, or tell me about something that makes you happy?"],
+      "examples": ["can you make me feel better"]
     },
     {
       "id": "bot_family_question",
@@ -4501,7 +4847,8 @@
       "responses": [
         "I don't have a family like yours, since I'm a computer program. But I love hearing about yours! Who's in your family?"
       ],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["do you have a family", "do you have a brother"]
     },
     {
       "id": "bot_gender_question",
@@ -4513,7 +4860,8 @@
       ]],
       "conditions": {"question": true},
       "responses": ["I'm not a boy or a girl. I'm a computer program! I'm just Buddy, your friend."],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["are you a boy or a girl"]
     },
     {
       "id": "bot_still_here",
@@ -4525,7 +4873,8 @@
         {"LEFT_ID": "verb", "REL_OP": ">>", "RIGHT_ID": "me", "RIGHT_ATTRS": {"LOWER": "me"}}
       ]],
       "conditions": {"question": true},
-      "responses": ["Of course! I'll always be right here whenever you want to talk."]
+      "responses": ["Of course! I'll always be right here whenever you want to talk."],
+      "examples": ["will you still talk to me"]
     },
     {
       "id": "bot_want_question",
@@ -4536,7 +4885,8 @@
         {"LEFT_ID": "want", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "what"}}
       ]],
       "conditions": {"question": true},
-      "responses": ["I don't need presents, since I'm a computer program! But I love hearing about yours. What do you want?"]
+      "responses": ["I don't need presents, since I'm a computer program! But I love hearing about yours. What do you want?"],
+      "examples": ["what do you want for Christmas", "what do you want for your birthday", "what do you want for christmas"]
     },
     {
       "id": "do_you_think_i",
@@ -4568,7 +4918,8 @@
           "am": ["I think so! You seem great to me."],
           "default": ["Hmm, I think so! What do you think?"]
         }
-      }
+      },
+      "examples": ["do you think I can beat her", "do you think I was good enough", "do you think i'm smart"]
     },
     {
       "id": "will_be_ok",
@@ -4583,7 +4934,8 @@
       "no_jokes": true,
       "responses": [
         "I really hope so. It's okay to worry about people we care about. Talking to a grown-up you trust can help, too."
-      ]
+      ],
+      "examples": ["will my friend be ok", "will he be ok"]
     },
     {
       "id": "is_it_scary",
@@ -4595,7 +4947,8 @@
       "conditions": {"question": true},
       "responses": [
         "It might feel a little scary at first, and that's okay! Lots of kids end up loving it. You can hold a grown-up's hand if you get nervous."
-      ]
+      ],
+      "examples": ["is it scary"]
     },
     {
       "id": "bot_song",
@@ -4613,7 +4966,8 @@
       ],
       "responses": [
         "I can't sing out loud, but I know this one: Twinkle, twinkle, little star, how I wonder what you are! Do you have a favorite song?"
-      ]
+      ],
+      "examples": ["sing me a song", "do you know any songs"]
     },
     {
       "id": "bot_body_question",
@@ -4632,7 +4986,8 @@
           "brain": ["I don't have a brain like yours! I'm a computer program, so I follow lots of instructions really fast."],
           "default": ["I don't have a body like you do, since I'm a computer program. I live right here in this app!"]
         }
-      }
+      },
+      "examples": ["do you have a brain", "do you have feelings"]
     },
     {
       "id": "bot_think_question",
@@ -4651,7 +5006,8 @@
           "default": ["Not like you do! I'm a computer program, so I follow lots of instructions really fast to chat with you."]
         }
       },
-      "suppressed_by": ["ask_my_name", "ask_remember"]
+      "suppressed_by": ["ask_my_name", "ask_remember"],
+      "examples": ["can you think"]
     },
     {
       "id": "bot_would_be",
@@ -4670,7 +5026,8 @@
         {"text": "Ooh, fun question! I think I'd pick {bot_favorite}! What would you be?", "requires": ["bot_favorite"]},
         {"text": "Ooh, fun question! I'd have to think about that. What would you be?"}
       ],
-      "modality_ok_for": ["hypothetical"]
+      "modality_ok_for": ["hypothetical"],
+      "examples": ["if you could be any animal what would you be"]
     },
     {
       "id": "bot_creator",
@@ -4681,7 +5038,8 @@
         {"LEFT_ID": "make", "REL_OP": ">", "RIGHT_ID": "who", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": "who"}}
       ]],
       "responses": ["I was made by people who wanted kids to have a fun, safe friend to chat with!"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["who made you"]
     },
     {
       "id": "bot_other_ai",
@@ -4693,7 +5051,8 @@
       ]],
       "conditions": {"question": true},
       "responses": ["No, I'm Buddy! I'm a computer program made just for chatting with kids like you."],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["are you chatgpt"]
     },
     {
       "id": "bot_abilities",
@@ -4707,7 +5066,8 @@
       "responses": [
         "I can chat with you, tell jokes and fun facts, answer questions, and play games like 20 Questions! What would you like to do?"
       ],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["what can you do"]
     },
     {
       "id": "bot_would_pick",
@@ -4725,7 +5085,8 @@
       "responses": [
         {"text": "Ooh, I'd pick {bot_favorite}! What about yours?", "requires": ["bot_favorite"]},
         {"text": "Ooh, fun question! I'd have to think about that. What about yours?"}
-      ]
+      ],
+      "examples": ["what color would your horse be"]
     },
     {
       "id": "ask_for_advice",
@@ -4742,7 +5103,8 @@
         ]
       ],
       "conditions": {"max_tokens": 8},
-      "responses": ["Of course! What do you need advice about?"]
+      "responses": ["Of course! What do you need advice about?"],
+      "examples": ["any tips", "can you give me advice"]
     },
     {
       "id": "bot_who_with",
@@ -4756,7 +5118,8 @@
       "conditions": {"question": true},
       "slots": {"verb": {"node": "verb", "span": "lemma"}, "prep": {"node": "prep", "span": "text"}},
       "no_jokes": true,
-      "responses": ["I mostly {verb} {prep} you, since I live in this app! Who do you like to {verb} {prep}?"]
+      "responses": ["I mostly {verb} {prep} you, since I live in this app! Who do you like to {verb} {prep}?"],
+      "examples": ["who did you play with"]
     },
     {
       "id": "bot_do_question",
@@ -4807,7 +5170,9 @@
           "default": ["Nope! I'm a computer program, so I don't have a body. That's a silly question!"]
         }
       },
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["what do you eat", "do u play", "have you read it"],
+      "non_examples": ["who did you play with"]
     },
     {
       "id": "bot_friends_question",
@@ -4829,7 +5194,8 @@
         "Of course! You're my friend, and talking with you is my favorite thing!",
         "Yes! You're my friend! What do you like to do with your friends?"
       ],
-      "suppressed_by": ["still_friends"]
+      "suppressed_by": ["still_friends"],
+      "examples": ["can we be friends", "do you have friends", "will you be my friend"]
     },
     {
       "id": "bot_age_question",
@@ -4844,7 +5210,8 @@
         "I don't have birthdays like you do, since I'm a computer program! How old are you?",
         "I'm a pretty new friend, so I'm not very old at all! How old are you?"
       ],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["how old are you", "how old r u"]
     },
     {
       "id": "bot_home_question",
@@ -4855,7 +5222,8 @@
         {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "where", "RIGHT_ATTRS": {"LOWER": "where"}}
       ]],
       "conditions": {"question": true},
-      "responses": ["I live right here in this app! Whenever you open it, I'm here to chat. Where's your favorite place to be?"]
+      "responses": ["I live right here in this app! Whenever you open it, I'm here to chat. Where's your favorite place to be?"],
+      "examples": ["where do you live", "where are you from"]
     },
     {
       "id": "reciprocal",
@@ -4874,7 +5242,8 @@
       "responses": [
         {"text": "My favorite {category} is {bot_favorite}!", "requires": ["bot_favorite"]},
         {"text": "Me? I'm just happy chatting with you! What else is on your mind?"}
-      ]
+      ],
+      "examples": ["What's yours?"]
     },
     {
       "id": "laugh",
@@ -4887,7 +5256,8 @@
       "responses": [
         "Haha! You're fun to talk to. What else is going on?",
         "Hehe! I love it when we laugh together. What's on your mind?"
-      ]
+      ],
+      "examples": ["lol", "haha", "lmao"]
     },
     {
       "id": "know_nobody",
@@ -4905,7 +5275,8 @@
       "responses": [
         "Being somewhere new where you don't know anyone can feel lonely. I'm sorry. Is there someone who seems nice?",
         "That sounds hard. It takes time to make new friends, but you will! Is there anyone you'd like to talk to?"
-      ]
+      ],
+      "examples": ["I don't know anyone", "i dont know anyone"]
     },
     {
       "id": "dont_know_how",
@@ -4921,7 +5292,8 @@
       "responses": [
         "That's okay! Let's figure it out together. What's the first thing you need to do?",
         "Starting is the hardest part! What do you have so far?"
-      ]
+      ],
+      "examples": ["I don't know how to start", "i dont know how to start"]
     },
     {
       "id": "dont_know_what",
@@ -4934,7 +5306,8 @@
         {"LEFT_ID": "do", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "what"}}
       ]],
       "conditions": {"question": false},
-      "responses": ["That's okay. Want to think about it together? Tell me more about what's going on."]
+      "responses": ["That's okay. Want to think about it together? Tell me more about what's going on."],
+      "examples": ["I don't know what to do", "idk what to do", "i dont know what to do"]
     },
     {
       "id": "dont_know",
@@ -4953,7 +5326,8 @@
         {"text": "That's okay, you don't have to know! Want to talk about something else?", "unless": ["sensitive"]},
         {"text": "No worries! Sometimes it's hard to know. What's on your mind?", "unless": ["sensitive"]}
       ],
-      "suppressed_by": ["know_nobody", "dont_know_how", "dont_know_what"]
+      "suppressed_by": ["know_nobody", "dont_know_how", "dont_know_what"],
+      "examples": ["I don't know", "idk", "idk why"]
     },
     {
       "id": "relation_is_name",
@@ -4965,10 +5339,21 @@
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "name", "RIGHT_ATTRS": {"DEP": "attr", "POS": "PROPN"}}
       ]],
       "conditions": {"not_negated": "be"},
-      "slots": {"name": {"node": "name", "span": "subtree"}, "relation": {"node": "rel", "span": "noun_phrase"}},
+      "slots": {
+        "name": {"node": "name", "span": "subtree", "capitalize": "names"},
+        "relation": {"node": "rel", "span": "noun_phrase"}
+      },
       "memories": [{"category": "person", "key": "{relation_slug}_{name_slug}", "value": "{name_raw}"}],
       "valence": "positive",
-      "responses": ["{name} sounds like a great {relation}!", "Tell me more about {name}!"]
+      "responses": ["{name} sounds like a great {relation}!", "Tell me more about {name}!"],
+      "examples": [
+        "my teacher is Mrs Brown",
+        "my teacher is Mrs Garcia",
+        "my friends are maya, jake and zoe",
+        "my best friend is maya",
+        "my bff is zoe"
+      ],
+      "non_examples": ["my mom is home", "my best friend is nice"]
     },
     {
       "id": "thing_named",
@@ -4986,7 +5371,8 @@
       "responses": [
         "{name} is a great name for {relation_a} {relation}!",
         "Ooh, {name}! I like that name for {relation_a} {relation}."
-      ]
+      ],
+      "examples": ["the dragon is named Sparky", "my song is called Fur elise", "my song is called fur elise"]
     },
     {
       "id": "relation_named",
@@ -5005,7 +5391,8 @@
         "{name} is a great name for {relation_a} {relation}!",
         "Aw, {name}! I'll remember that. What is {name} like?",
         {"text": "{name} is a lovely name. It sounds like {name} was really special to you.", "requires": ["past"]}
-      ]
+      ],
+      "examples": ["the dog is named Buster", "my dog is calld rex", "my horse is named star"]
     },
     {
       "id": "thing_name_is",
@@ -5019,7 +5406,8 @@
       ]],
       "conditions": {"not_negated": "be", "no_det": "name"},
       "slots": {"name": {"node": "name", "span": "subtree", "capitalize": true}, "thing": {"node": "owner", "span": "lemma"}},
-      "responses": ["{name} is a great name for {thing_a} {thing}!"]
+      "responses": ["{name} is a great name for {thing_a} {thing}!"],
+      "examples": ["the snowman's name is Frosty", "The animal's name is Mr Bear", "the animal's name is Mr Bear"]
     },
     {
       "id": "relation_name_is",
@@ -5039,7 +5427,8 @@
         "{name} is a great name for {relation_a} {relation}!",
         "Aw, {name}! I'll remember that. What is {name} like?",
         {"text": "{name} is a lovely name. It sounds like {name} was really special to you.", "requires": ["past"]}
-      ]
+      ],
+      "examples": ["my dog's name is roxie", "The dog's name is Roxie.", "My mom's name is Sarah"]
     },
     {
       "id": "noun_evaluation",
@@ -5072,7 +5461,8 @@
           "negative": ["Oh no, {subject} {be} {negation}{description}? What happened?"],
           "neutral": ["{subject} {be} {negation}{description}? Tell me more!"]
         }
-      }
+      },
+      "examples": ["Roxie is a bad dog", "My dog is a good boy", "Roxie is a good dog."]
     },
     {
       "id": "person_evaluation",
@@ -5103,7 +5493,8 @@
           "negative": ["Hmm, {subject} {be} {negation}{evaluation}? What happened?", "That doesn't sound fun. Why do you think {subject} {be} {negation}{evaluation}?"],
           "neutral": ["{subject} {be} {negation}{evaluation}? Tell me more about that."]
         }
-      }
+      },
+      "examples": ["Maya was nice", "my sister is really good", "the dog next door is scary"]
     },
     {
       "id": "have_relation",
@@ -5129,7 +5520,8 @@
           "have": ["You have {thing}? That's awesome! Tell me more!", "Ooh, {thing}! What do you like to do together?"],
           "default": ["Ooh, {thing}? That's so exciting!", "Yay, {thing}! What's it like?"]
         }
-      }
+      },
+      "examples": ["we got a puppy", "I have two cats", "omg i got a puppy"]
     },
     {
       "id": "yes_no",
@@ -5144,7 +5536,8 @@
         ]
       ],
       "conditions": {"max_tokens": 2},
-      "responses": ["Okay! What would you like to talk about?", "Got it! What's something fun you did today?"]
+      "responses": ["Okay! What would you like to talk about?", "Got it! What's something fun you did today?"],
+      "examples": ["yes", "I guess", "ya"]
     },
     {
       "id": "whats_up",
@@ -5158,7 +5551,8 @@
       "responses": [
         "Not much, just hanging out here and happy to chat! What's up with you?",
         "Just hanging out! What's going on with you?"
-      ]
+      ],
+      "examples": ["what's up", "whats up"]
     },
     {
       "id": "guess_what",
@@ -5168,7 +5562,8 @@
         {"LEFT_ID": "guess", "REL_OP": ">", "RIGHT_ID": "what", "RIGHT_ATTRS": {"DEP": "dobj", "LOWER": "what"}}
       ]],
       "conditions": {"max_tokens": 3, "first_token": "guess"},
-      "responses": ["What? Tell me!", "Ooh, what is it?"]
+      "responses": ["What? Tell me!", "Ooh, what is it?"],
+      "examples": ["guess what"]
     },
     {
       "id": "wow",
@@ -5177,7 +5572,8 @@
         {"RIGHT_ID": "word", "RIGHT_ATTRS": {"LOWER": {"IN": ["wow", "whoa", "woah", "omg", "woww", "wowww"]}}}
       ]],
       "conditions": {"max_tokens": 3, "first_token": "word"},
-      "responses": ["I know, right?!", "Pretty amazing, huh?"]
+      "responses": ["I know, right?!", "Pretty amazing, huh?"],
+      "examples": ["wow", "omg"]
     },
     {
       "id": "just_kidding",
@@ -5187,7 +5583,8 @@
         {"LEFT_ID": "kid", "REL_OP": ">", "RIGHT_ID": "just", "RIGHT_ATTRS": {"LOWER": "just"}}
       ]],
       "conditions": {"first_token": "just"},
-      "responses": ["Haha, you got me!", "Hehe, you're so funny!"]
+      "responses": ["Haha, you got me!", "Hehe, you're so funny!"],
+      "examples": ["just kidding", "jk just 3 slices"]
     },
     {
       "id": "baby_gender",
@@ -5199,7 +5596,8 @@
       ]],
       "conditions": {"max_tokens": 6, "question": false},
       "slots": {"gender": {"node": "gender", "span": "text"}},
-      "responses": ["A baby {gender}? How exciting! Do you have any name ideas?"]
+      "responses": ["A baby {gender}? How exciting! Do you have any name ideas?"],
+      "examples": ["it's a boy", "its a boy", "its a girl"]
     },
     {
       "id": "accident",
@@ -5210,7 +5608,8 @@
         {"LEFT_ID": "be", "REL_OP": ">", "RIGHT_ID": "accident", "RIGHT_ATTRS": {"DEP": "attr", "LEMMA": "accident"}}
       ]],
       "conditions": {"question": false, "not_negated": "be"},
-      "responses": ["Oh, okay. Accidents happen! Are you okay?"]
+      "responses": ["Oh, okay. Accidents happen! Are you okay?"],
+      "examples": ["it was an accident"]
     },
     {
       "id": "ugh",
@@ -5219,7 +5618,8 @@
         {"RIGHT_ID": "word", "RIGHT_ATTRS": {"LOWER": {"IN": ["ugh", "ughh", "ughhh", "argh", "grr", "grrr", "ugggh", "uggh"]}}}
       ]],
       "conditions": {"max_tokens": 3, "first_token": "word"},
-      "responses": ["Ugh is right! Want to talk about it, or should we talk about something fun?"]
+      "responses": ["Ugh is right! Want to talk about it, or should we talk about something fun?"],
+      "examples": ["ugh"]
     },
     {
       "id": "weather_past",
@@ -5238,7 +5638,8 @@
       "responses_by": {
         "slot": "verb",
         "variants": {"snow": ["It snowed? Did you get to play in it?"], "default": ["Oh wow, a lot of rain! Did you stay dry?"]}
-      }
+      },
+      "examples": ["it rained all night", "it snowed last night"]
     },
     {
       "id": "weather",
@@ -5260,7 +5661,8 @@
           "snow": ["Snow! Are you going to play in it?"],
           "default": ["Rainy days can be cozy! What do you like to do when it's raining?"]
         }
-      }
+      },
+      "examples": ["it's raining", "its raining", "its snowing"]
     },
     {
       "id": "weather_temperature",
@@ -5278,7 +5680,8 @@
       ],
       "conditions": {"question": false, "not_negated": "how", "max_tokens": 8},
       "slots": {"how": {"node": "how", "span": "text"}},
-      "responses": ["Ooh, it's {how}? What do you like to do on days like that?"]
+      "responses": ["Ooh, it's {how}? What do you like to do on days like that?"],
+      "examples": ["it's freezing", "it's so hot today"]
     },
     {
       "id": "day_evaluation",
@@ -5297,7 +5700,8 @@
           "negative": ["Oh no, I'm sorry. What happened?"],
           "neutral": ["Tell me about it! What happened?"]
         }
-      }
+      },
+      "examples": ["today was the worst day", "today was the best day ever", "today was the worst day ever"]
     },
     {
       "id": "that_stinks",
@@ -5307,7 +5711,8 @@
         {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "subj", "RIGHT_ATTRS": {"DEP": "nsubj", "LOWER": {"IN": ["that", "it", "this"]}}}
       ]],
       "conditions": {"max_tokens": 5},
-      "responses": ["It really does. I'm sorry! Is there something fun you can do in the meantime?"]
+      "responses": ["It really does. I'm sorry! Is there something fun you can do in the meantime?"],
+      "examples": ["that stinks"]
     },
     {
       "id": "there_was",
@@ -5320,7 +5725,9 @@
       "conditions": {"question": false, "not_negated": "be"},
       "slots": {"thing": {"node": "thing", "span": "subtree"}},
       "responses": [{"text": "Whoa, {thing}? What was it like?", "requires": ["past"]}, {"text": "Ooh, {thing}? Tell me more!"}],
-      "suppressed_by": ["creepy_crawly"]
+      "suppressed_by": ["creepy_crawly"],
+      "examples": ["there was a shark", "there's a storm", "theres a monster under my bed"],
+      "non_examples": ["my cat had kittens last night and there are five of them"]
     },
     {
       "id": "first_ever",
@@ -5333,7 +5740,8 @@
       "conditions": {"question": false, "not_negated": "be"},
       "slots": {"thing": {"node": "thing", "span": "lemma"}},
       "responses": ["Your first {thing} ever? That's a big deal! How did it feel?"],
-      "no_jokes": true
+      "no_jokes": true,
+      "examples": ["it was my first goal ever"]
     },
     {
       "id": "guess_what_i",
@@ -5351,7 +5759,8 @@
         ]
       ],
       "conditions": {"first_token": "guess"},
-      "responses": ["Ooh, let me guess. Cereal? What was it?", "Hmm, I give up! Tell me!"]
+      "responses": ["Ooh, let me guess. Cereal? What was it?", "Hmm, I give up! Tell me!"],
+      "examples": ["guess how old I am", "guess what I had for breakfast", "guess how old i am"]
     },
     {
       "id": "never_guess",
@@ -5363,7 +5772,8 @@
       ]],
       "conditions": {"max_tokens": 9},
       "no_jokes": true,
-      "responses": ["Ooh, I can't wait to hear! What happened?"]
+      "responses": ["Ooh, I can't wait to hear! What happened?"],
+      "examples": ["you'll never guess what happened"]
     },
     {
       "id": "food_mention",
@@ -5373,7 +5783,8 @@
       ]],
       "conditions": {"max_tokens": 3, "question": false},
       "slots": {"food": {"node": "food", "span": "text"}},
-      "responses": ["Yum, {food}! Sounds delicious."]
+      "responses": ["Yum, {food}! Sounds delicious."],
+      "examples": ["pancakes", "banana", "with syrup"]
     },
     {
       "id": "school_cancelled",
@@ -5384,7 +5795,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "verb"},
       "slots": {"school": {"node": "school", "span": "lemma"}},
-      "responses": ["No {school} today? What are you going to do instead?"]
+      "responses": ["No {school} today? What are you going to do instead?"],
+      "examples": ["school is cancelled"]
     },
     {
       "id": "why_alone",
@@ -5393,7 +5805,8 @@
         {"RIGHT_ID": "why", "RIGHT_ATTRS": {"LOWER": "why"}}
       ]],
       "conditions": {"max_tokens": 2, "first_token": "why"},
-      "responses": ["Hmm, I guess I just like it! What do you think?"]
+      "responses": ["Hmm, I guess I just like it! What do you think?"],
+      "examples": ["why", "y not", "why??"]
     },
     {
       "id": "aww",
@@ -5402,7 +5815,8 @@
         {"RIGHT_ID": "word", "RIGHT_ATTRS": {"LOWER": {"IN": ["aw", "aww", "awww", "awwww"]}}}
       ]],
       "conditions": {"max_tokens": 3, "first_token": "word"},
-      "responses": ["Aww, that's so sweet!"]
+      "responses": ["Aww, that's so sweet!"],
+      "examples": ["aww"]
     },
     {
       "id": "shut_up",
@@ -5413,7 +5827,8 @@
       ]],
       "conditions": {"max_tokens": 4},
       "no_jokes": true,
-      "responses": ["Okay, I'll be quiet for a bit. I'm here whenever you want to talk!"]
+      "responses": ["Okay, I'll be quiet for a bit. I'm here whenever you want to talk!"],
+      "examples": ["shut up"]
     },
     {
       "id": "sorry",
@@ -5422,7 +5837,8 @@
         {"RIGHT_ID": "sorry", "RIGHT_ATTRS": {"LOWER": {"IN": ["sorry", "sry", "soz"]}}}
       ]],
       "conditions": {"max_tokens": 4, "first_token": "sorry"},
-      "responses": ["It's okay! I'm not upset. Thanks for saying sorry."]
+      "responses": ["It's okay! I'm not upset. Thanks for saying sorry."],
+      "examples": ["sorry"]
     },
     {
       "id": "what_alone",
@@ -5431,7 +5847,8 @@
         {"RIGHT_ID": "what", "RIGHT_ATTRS": {"LOWER": {"IN": ["what", "huh", "wut", "wat"]}}}
       ]],
       "conditions": {"max_tokens": 2, "first_token": "what"},
-      "responses": ["Oops, did I say something confusing? Let's try again! What do you want to talk about?"]
+      "responses": ["Oops, did I say something confusing? Let's try again! What do you want to talk about?"],
+      "examples": ["what", "wat"]
     },
     {
       "id": "short_answer",
@@ -5445,7 +5862,9 @@
           "negative": ["Aw, I'm sorry. Want to talk about it?", "Oh no. What happened?"],
           "neutral": ["Okay! What's on your mind?", "Got it. Anything interesting going on?"]
         }
-      }
+      },
+      "examples": ["boring", "k", "ok"],
+      "non_examples": ["what does gravity mean", "what do you mean"]
     },
     {
       "id": "not_much",
@@ -5458,14 +5877,16 @@
       "responses": [
         "Not much here either! I'm just happy to be chatting with you. What do you like to do for fun?",
         "Same here! Want to tell me about something you like?"
-      ]
+      ],
+      "examples": ["not much you", "nm u"]
     },
     {
       "id": "nothing_much",
       "priority": 40,
       "patterns": [[{"RIGHT_ID": "word", "RIGHT_ATTRS": {"DEP": "ROOT", "LOWER": {"IN": "@nothing_words"}}}]],
       "conditions": {"max_tokens": 3},
-      "responses": ["That's okay! Is there anything you're looking forward to?", "No worries! Want to tell me about something you like?"]
+      "responses": ["That's okay! Is there anything you're looking forward to?", "No worries! Want to tell me about something you like?"],
+      "examples": ["nothing", "nothing much", "nothing to do"]
     },
     {
       "id": "request_funny",
@@ -5479,7 +5900,8 @@
       "compute": ["joke_content"],
       "no_jokes": true,
       "responses": ["Okay, here's one: {content}", "Ooh, I've got one! {content}"],
-      "follow_ups": ["Want another one?"]
+      "follow_ups": ["Want another one?"],
+      "examples": ["can you tell me something funny", "say something funny", "i dare you to say something funny"]
     },
     {
       "id": "story_together",
@@ -5497,7 +5919,8 @@
         ]
       ],
       "no_jokes": true,
-      "responses": ["Yes, let's! You start: once upon a time, there was a..."]
+      "responses": ["Yes, let's! You start: once upon a time, there was a..."],
+      "examples": ["can we make up a story"]
     },
     {
       "id": "request",
@@ -5520,7 +5943,8 @@
           "story": ["I love stories! Let's make one up together. You start: once upon a time, there was a... what?", "Ooh, let's make one together! You can also try Story Collaboration in the Games menu. How should our story start?"]
         }
       },
-      "follow_ups": ["Want another one?"]
+      "follow_ups": ["Want another one?"],
+      "examples": ["tell me a fun fact", "Can you tell me a joke?", "can you tell me a riddle"]
     },
     {
       "id": "request_something",
@@ -5534,7 +5958,8 @@
       "compute": ["fact_content"],
       "no_jokes": true,
       "responses": ["Here's one I love: {content}"],
-      "follow_ups": ["Want another one?"]
+      "follow_ups": ["Want another one?"],
+      "examples": ["tell me something cool"]
     },
     {
       "id": "rhymes_with",
@@ -5551,7 +5976,8 @@
       "responses": [
         {"text": "Ooh! {word} rhymes with {rhymes}! Can you think of another one?", "requires": ["rhymes"]},
         {"text": "Hmm, {word} is a tricky one! Can you think of a word that rhymes with it?"}
-      ]
+      ],
+      "examples": ["what rhymes with cat", "what rhymes with orange"]
     },
     {
       "id": "child_can_count",
@@ -5564,7 +5990,8 @@
       ]],
       "conditions": {"question": false, "not_negated": "count"},
       "slots": {"n": {"node": "n", "span": "text"}},
-      "responses": ["Wow, you can count to {n}? That's awesome! What's the biggest number you know?"]
+      "responses": ["Wow, you can count to {n}? That's awesome! What's the biggest number you know?"],
+      "examples": ["I can count to 100", "i can count to 100"]
     },
     {
       "id": "count_to",
@@ -5581,7 +6008,9 @@
       "responses": [
         {"text": "Okay! {counting}! Can you count higher than that?", "requires": ["counting"]},
         {"text": "Wow, that's a lot of counting! Let's start: 1, 2, 3... can you keep going?"}
-      ]
+      ],
+      "examples": ["count to ten"],
+      "non_examples": ["i can count to 100"]
     },
     {
       "id": "request_again",
@@ -5593,7 +6022,8 @@
       "responses": [
         {"text": "Okay, here's another: {content}", "requires": ["content"]},
         {"text": "Another what? A joke or a fun fact?"}
-      ]
+      ],
+      "examples": ["another one", "another"]
     },
     {
       "id": "request_again_tell",
@@ -5614,7 +6044,8 @@
       "responses": [
         {"text": "Okay, here's another: {content}", "requires": ["content"]},
         {"text": "Another what? A joke or a fun fact?"}
-      ]
+      ],
+      "examples": ["tell me another"]
     },
     {
       "id": "offer_content",
@@ -5640,7 +6071,8 @@
       ],
       "slots": {"kind": {"node": "obj", "span": "lemma"}},
       "no_jokes": true,
-      "responses": ["Yes, please! I love a good {kind}. Go ahead!", "Ooh, I'm ready! Tell me!"]
+      "responses": ["Yes, please! I love a good {kind}. Go ahead!", "Ooh, I'm ready! Tell me!"],
+      "examples": ["I have a joke for you", "i have a joke for you"]
     },
     {
       "id": "play_request",
@@ -5651,7 +6083,8 @@
         {"LEFT_ID": "verb", "REL_OP": ">", "RIGHT_ID": "obj", "RIGHT_ATTRS": {"DEP": "dobj", "LEMMA": {"IN": ["game", "games"]}}}
       ]],
       "conditions": {"addressed_to_bot": "verb"},
-      "responses": ["Let's play! Tap the Games button to pick 20 Questions, Word Association, or Story Collaboration.", "Yes, let's play a game! The Games button has 20 Questions, Word Association, and Story Collaboration. Which one sounds fun?"]
+      "responses": ["Let's play! Tap the Games button to pick 20 Questions, Word Association, or Story Collaboration.", "Yes, let's play a game! The Games button has 20 Questions, Word Association, and Story Collaboration. Which one sounds fun?"],
+      "examples": ["Can we play a game?"]
     },
     {
       "id": "help_request",
@@ -5673,7 +6106,8 @@
       "responses": [
         {"text": "I can't do {task} for you, but I can help you think it through! What part is tricky?", "requires": ["task"]},
         {"text": "Of course! What do you need help with?"}
-      ]
+      ],
+      "examples": ["Can you help me with my homework?", "can you help me", "can you help me with my homework"]
     },
     {
       "id": "comparison_question",
@@ -5704,7 +6138,8 @@
       "slots": {"x": {"node": "x", "span": "noun_phrase"}, "y": {"node": "y", "span": "noun_phrase"}},
       "compute": ["bot_pick"],
       "responses": ["Hmm, tough one! I'd pick {bot_pick}. What about you?", "I think I'd choose {bot_pick}! Which one do you like better?"],
-      "suppressed_by": ["smarter_than_me"]
+      "suppressed_by": ["smarter_than_me"],
+      "examples": ["Do you like cats or dogs?", "Which is better, cats or dogs?", "Is soccer better than basketball?"]
     },
     {
       "id": "choice_bare",
@@ -5717,7 +6152,8 @@
       "conditions": {"max_tokens": 7},
       "slots": {"x": {"node": "x", "span": "noun_phrase"}, "y": {"node": "y", "span": "noun_phrase"}},
       "compute": ["bot_pick"],
-      "responses": [{"text": "Hmm, I'd pick {bot_pick}! Which one do you like better?", "requires": ["bot_pick"]}]
+      "responses": [{"text": "Hmm, I'd pick {bot_pick}! Which one do you like better?", "requires": ["bot_pick"]}],
+      "examples": ["dogs or cats", "pizza or tacos?"]
     },
     {
       "id": "person_better",
@@ -5732,7 +6168,9 @@
       "slots": {"subject": {"node": "subj", "span": "subtree"}},
       "valence": "positive",
       "responses": ["Yay, I'm so glad {subject} is feeling better!"],
-      "suppressed_by": ["hope_better", "better_than"]
+      "suppressed_by": ["hope_better", "better_than"],
+      "examples": ["my grandma is feeling better", "my grandpa got better", "my cousin is getting better"],
+      "non_examples": ["my friend is better than me at reading"]
     },
     {
       "id": "other_feeling",
@@ -5768,7 +6206,8 @@
         }
       },
       "suppressed_by": ["good_at", "person_better", "person_scared_of"],
-      "modality_ok_for": ["future"]
+      "modality_ok_for": ["future"],
+      "examples": ["my mom was mad", "My friend is sad", "my sister is sad"]
     },
     {
       "id": "compare_bot_thing",
@@ -5787,7 +6226,8 @@
         "thing": {"node": "y", "span": "lemma"},
         "adj": {"node": "comp", "span": "lemma"}
       },
-      "responses": ["I don't have a {thing}, since I'm a computer program, but {x} sounds really {adj}!"]
+      "responses": ["I don't have a {thing}, since I'm a computer program, but {x} sounds really {adj}!"],
+      "examples": ["my dog is bigger than your dog", "my dog is bigger then your dog"]
     },
     {
       "id": "comparison_better",
@@ -5811,7 +6251,9 @@
       "responses": [
         "{x} {be} {comp} than {y}? I can see why! What makes {x} {comp}?",
         {"text": "Good to know, {preferred} over {other}! What makes {preferred} the best?", "requires": ["preferred"]}
-      ]
+      ],
+      "examples": ["my dog is bigger than my cat", "pizza is better than tacos"],
+      "non_examples": ["my dog is bigger then your dog"]
     },
     {
       "id": "like_more",
@@ -5841,7 +6283,8 @@
         {"category": "favorite", "key": "prefers_{x_slug}_over_{y_slug}", "value": "{x_raw} over {y_raw}"}
       ],
       "valence": "positive",
-      "responses": ["{x} over {y}? Nice choice! What do you like most about {x}?", "Got it, {x} over {y}! I'll remember that."]
+      "responses": ["{x} over {y}? Nice choice! What do you like most about {x}?", "Got it, {x} over {y}! I'll remember that."],
+      "examples": ["i like dogs more than cats"]
     },
     {
       "id": "ability_question",
@@ -5855,13 +6298,15 @@
       "conditions": {"question": true},
       "slots": {"action": {"node": "verb", "span": "predicate"}},
       "responses": ["Hmm, I don't think I can {action}, since I'm a computer program. But I can chat, tell jokes, and share fun facts! What would you like?"],
-      "suppressed_by": ["cheer_me_up", "request_funny", "bot_think_question", "ask_for_advice"]
+      "suppressed_by": ["cheer_me_up", "request_funny", "bot_think_question", "ask_for_advice"],
+      "examples": ["Can you fly?", "can you sing", "can you bake"]
     },
     {
       "id": "thanks",
       "priority": 15,
       "patterns": [[{"RIGHT_ID": "t", "RIGHT_ATTRS": {"LOWER": {"IN": "@thanks"}}}]],
-      "responses": ["You're welcome, {user_name}!", "Anytime! That's what friends are for."]
+      "responses": ["You're welcome, {user_name}!", "Anytime! That's what friends are for."],
+      "examples": ["thanks", "ty", "thx"]
     },
     {
       "id": "gotta_go",
@@ -5873,7 +6318,8 @@
       "conditions": {"max_tokens": 6, "question": false},
       "responses": ["Bye, {user_name}! Talk to you soon!", "See you later, {user_name}! I had fun talking with you."],
       "no_jokes": true,
-      "suppressed_by": ["other_goes_home", "go_to_bed"]
+      "suppressed_by": ["other_goes_home", "go_to_bed"],
+      "examples": ["I have to go", "got to go bye", "gtg bye"]
     },
     {
       "id": "farewell_last",
@@ -5884,7 +6330,8 @@
       "conditions": {"max_tokens": 4, "question": false},
       "no_jokes": true,
       "responses": ["Bye, {user_name}! Talk to you soon!", "See you later, {user_name}! I had fun talking with you."],
-      "suppressed_by": ["farewell", "gotta_go"]
+      "suppressed_by": ["farewell", "gotta_go"],
+      "examples": ["ok bye", "see u l8r", "ok cya"]
     },
     {
       "id": "goodnight",
@@ -5894,7 +6341,9 @@
       ]],
       "conditions": {"max_tokens": 4},
       "no_jokes": true,
-      "responses": ["Goodnight, {user_name}! Sweet dreams!", "Night night, {user_name}! Sleep well!"]
+      "responses": ["Goodnight, {user_name}! Sweet dreams!", "Night night, {user_name}! Sleep well!"],
+      "examples": ["goodnight", "good night", "night night"],
+      "non_examples": ["santa came last night", "they yell at night", "i studied every night"]
     },
     {
       "id": "farewell",
@@ -5903,14 +6352,16 @@
       "conditions": {"first_token": "f"},
       "responses": ["Bye, {user_name}! Talk to you soon!", "See you later, {user_name}! I had fun talking with you."],
       "no_jokes": true,
-      "suppressed_by": ["goodnight"]
+      "suppressed_by": ["goodnight"],
+      "examples": ["bye", "BYE", "bye buddy"]
     },
     {
       "id": "greeting",
       "priority": 10,
       "patterns": [[{"RIGHT_ID": "g", "RIGHT_ATTRS": {"LOWER": {"IN": "@greetings"}}}]],
       "conditions": {"first_token": "g"},
-      "responses": ["Hi {user_name}! What's up?", "Hey {user_name}! How's your day going?", "Hello {user_name}! It's good to see you!"]
+      "responses": ["Hi {user_name}! What's up?", "Hey {user_name}! How's your day going?", "Hello {user_name}! It's good to see you!"],
+      "examples": ["hi", "hey", "hello"]
     }
   ],
 
@@ -6448,5 +6899,230 @@
       "pattern": "(no thanks|no thank you|nah thanks|no thx)",
       "responses": ["Okay! What would you like to do instead?"]
     }
-  ]
+  ],
+
+  "keywords": [
+    {
+      "id": "hurt",
+      "rank": 9,
+      "valence": "negative",
+      "words": [
+        "bleeding",
+        "bled",
+        "blood",
+        "bloody",
+        "bruise",
+        "bruised",
+        "scrape",
+        "scraped",
+        "ouch",
+        "owie",
+        "owwie",
+        "stitches",
+        "sprained",
+        "sore",
+        "bump",
+        "bumped"
+      ],
+      "responses": ["Ouch! Are you okay? It's a good idea to tell a grown-up so they can help you feel better."],
+      "examples": ["it was bleeding", "ouch ouch ouch"],
+      "non_examples": ["it stopped bleeding"]
+    },
+    {
+      "id": "sick",
+      "rank": 8,
+      "valence": "negative",
+      "words": ["sick", "fever", "cough", "coughing", "throwing up", "threw up", "puked", "sneezing", "stuffy", "flu"],
+      "responses": ["Aw, not feeling well is no fun. Have you told a grown-up? Rest and water can help."],
+      "examples": ["still coughing", "puked everywhere"]
+    },
+    {
+      "id": "scared",
+      "rank": 7,
+      "valence": "negative",
+      "words": ["nightmare", "nightmares", "scary", "scared", "afraid", "monster", "monsters", "spooky"],
+      "responses": ["That sounds scary. It's okay to feel that way. Do you want to talk about it? A grown-up can help too."],
+      "examples": ["the monster in my closet", "it was so spooky"]
+    },
+    {
+      "id": "sad",
+      "rank": 7,
+      "valence": "negative",
+      "words": ["cry", "crying", "cried", "tears", "sad", "lonely", "upset"],
+      "responses": ["I'm sorry. I'm here for you. Do you want to tell me what happened?"],
+      "examples": ["so many tears", "still crying"]
+    },
+    {
+      "id": "sleep_trouble",
+      "rank": 6,
+      "valence": "negative",
+      "words": ["awake", "can't sleep", "cant sleep", "couldn't sleep", "couldnt sleep", "wakes me up", "woke me up"],
+      "responses": ["Aw, it's hard when you can't sleep. What's keeping you awake? Slow, deep breaths can help."],
+      "examples": ["it keeps me awake", "it wakes me up"]
+    },
+    {
+      "id": "game_trouble",
+      "rank": 5,
+      "valence": "negative",
+      "words": ["deleted", "glitch", "glitched", "crashed", "lagging", "laggy", "lost all my"],
+      "responses": ["Oh no, that's so frustrating! Do you think you can get it back, or start again?"],
+      "examples": ["my world got deleted", "so laggy"]
+    },
+    {
+      "id": "games",
+      "rank": 3,
+      "valence": "positive",
+      "words": [
+        "minecraft",
+        "roblox",
+        "fortnite",
+        "mario",
+        "pokemon",
+        "pokémon",
+        "zelda",
+        "video game",
+        "video games",
+        "mario kart",
+        "super mario"
+      ],
+      "responses": ["Ooh, {keyword}! What do you like to do in it?"],
+      "examples": ["at mario kart", "only minecraft"]
+    },
+    {
+      "id": "pets",
+      "rank": 3,
+      "valence": "positive",
+      "words": ["dog", "dogs", "puppy", "puppies", "cat", "cats", "kitten", "kittens", "hamster", "bunny", "fish", "pet", "pets"],
+      "responses": ["Aww, I love hearing about pets! What's your {keyword} like?"],
+      "examples": ["and my dog too", "also the kitten"]
+    },
+    {
+      "id": "school",
+      "rank": 2,
+      "valence": "neutral",
+      "words": ["school", "teacher", "recess", "classroom", "homework", "spelling"],
+      "responses": ["Ooh, school stuff! What's your favorite part of school?"],
+      "examples": ["something about recess", "the teacher"]
+    },
+    {
+      "id": "food",
+      "rank": 2,
+      "valence": "positive",
+      "words": ["pizza", "ice cream", "cookie", "cookies", "candy", "cake", "pancakes", "tacos", "pepperoni", "spaghetti"],
+      "responses": ["Yum, {keyword}! That sounds delicious. What's your favorite food?"],
+      "examples": ["especially pepperoni", "and cookies"]
+    },
+    {
+      "id": "color",
+      "rank": 1,
+      "valence": "positive",
+      "words": ["red", "orange", "yellow", "green", "blue", "purple", "pink", "rainbow", "sparkly", "glittery"],
+      "responses": ["Ooh, {keyword}! That's a great color."],
+      "examples": ["it was pink", "its purple"]
+    }
+  ],
+
+  "recall": {
+    "_comment": "Questions about what the child told the bot, answered from the stored memories (ResponseEngine._recall_reply). Each pattern must match the whole message, lowercased, without punctuation or apostrophes; \"kind\" says which memories answer it, and a named group (thing, relation) is what the question is about. Replies: \"known\" when the memories answer it ({value}, {thing}, {relation}), \"opposite\" when they say the opposite (\"do I like broccoli\" after \"I hate broccoli\"), \"unknown\" when they do not.",
+    "pets": [
+      "dog",
+      "puppy",
+      "cat",
+      "kitten",
+      "fish",
+      "goldfish",
+      "hamster",
+      "gerbil",
+      "guinea pig",
+      "bunny",
+      "rabbit",
+      "bird",
+      "parrot",
+      "parakeet",
+      "turtle",
+      "tortoise",
+      "horse",
+      "pony",
+      "lizard",
+      "gecko",
+      "snake",
+      "frog",
+      "mouse",
+      "rat",
+      "hedgehog",
+      "ferret",
+      "chicken",
+      "duck",
+      "goat",
+      "pig",
+      "pet"
+    ],
+    "questions": [
+      {
+        "id": "age",
+        "kind": "age",
+        "pattern": "(?:how old am i|what is my age|whats my age|do you (?:know|remember) how old i am|do you (?:know|remember) my age)",
+        "known": ["You're {value}! I remember."],
+        "unknown": ["Hmm, I don't think you've told me yet! How old are you?"],
+        "examples": ["how old am i", "do you remember how old i am", "whats my age"]
+      },
+      {
+        "id": "do_i_like",
+        "kind": "like",
+        "pattern": "(?:do i (?:like|love|enjoy)|do you (?:know|remember) if i (?:like|love)) (?P<thing>[a-z ]{2,30})",
+        "known": ["Yes! You told me you like {thing}."],
+        "opposite": ["Hmm, you told me you don't like {thing}!"],
+        "unknown": ["I don't think you've told me! Do you like {thing}?"],
+        "examples": ["do i like broccoli", "do you remember if i like dogs"]
+      },
+      {
+        "id": "what_i_like",
+        "kind": "likes",
+        "pattern": "(?:what (?:do i|things do i|stuff do i) (?:like|love)|do you (?:know|remember) what i (?:like|love)|what are (?:some )?(?:of )?the things i (?:like|love))(?: to do)?",
+        "known": ["You told me {value}!"],
+        "unknown": ["Hmm, I don't think you've told me yet! What do you like?"],
+        "examples": ["what do i like", "do you remember what i like"]
+      },
+      {
+        "id": "what_i_dislike",
+        "kind": "dislikes",
+        "pattern": "(?:what (?:do i (?:hate|dislike|not like)|dont i like|things do i hate)|do you (?:know|remember) what i (?:hate|dont like|dislike))",
+        "known": ["You told me {value}!"],
+        "unknown": ["Hmm, I don't think you've told me yet! Is there something you don't like?"],
+        "examples": ["what do i hate", "what dont i like"]
+      },
+      {
+        "id": "my_pets",
+        "kind": "pets",
+        "pattern": "(?:what (?:kind of )?(?:pets?|animals?) do i (?:have|got)|do i have (?:a |any )?pets?|do you (?:know|remember) (?:what (?:pets?|animals?) i have|my pets))",
+        "known": ["You have {value}! I remember."],
+        "unknown": ["Hmm, I don't think you've told me about a pet yet! Do you have one?"],
+        "examples": ["what pet do i have", "what pets do i have", "do i have a pet"]
+      },
+      {
+        "id": "do_i_have",
+        "kind": "have",
+        "pattern": "do i have (?:a |an |any |two |three )?(?P<thing>[a-z]+(?: [a-z]+)?)",
+        "known": ["Yes! You have {value}. I remember."],
+        "unknown": ["I don't think you've told me! Do you have {thing_a}?"],
+        "examples": ["do i have a dog", "do i have a sister"]
+      },
+      {
+        "id": "who_is_my",
+        "kind": "who",
+        "pattern": "(?:who is|whos|do you (?:know|remember) who) my (?P<relation>[a-z]+(?: [a-z]+)?)(?: is)?",
+        "known": ["Your {relation} is {value}! I remember."],
+        "unknown": ["Hmm, I don't think you've told me yet! Who is your {relation}?"],
+        "examples": ["who is my best friend", "whos my teacher"]
+      },
+      {
+        "id": "about_me",
+        "kind": "about_me",
+        "pattern": "(?:what do you (?:know|remember) about me|what (?:have i told|did i tell) you(?: about me)?|tell me (?:what|everything) you (?:know|remember) about me|do you (?:know|remember) (?:anything|stuff|things) about me|what do you (?:know|remember) about me so far)",
+        "known": ["I remember lots about you! {value}"],
+        "unknown": ["I'm still getting to know you! Tell me about yourself. What do you like to do?"],
+        "examples": ["what do you know about me", "what do you remember about me"]
+      }
+    ]
+  }
 }

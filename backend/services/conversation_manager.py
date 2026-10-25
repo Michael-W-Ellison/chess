@@ -20,7 +20,7 @@ from services.llm_service import llm_service
 from services.safety_filter import safety_filter
 from services.bullying_keyword_list import bullying_keyword_list
 from services.crisis_keyword_list import crisis_keyword_list
-from services import crisis_context
+from services import correction_handler, crisis_context
 from services.memory_manager import memory_manager
 from services.personality_manager import personality_manager
 from services.conversation_tracker import conversation_tracker
@@ -128,6 +128,14 @@ _NAME_CORRECTION_RE = re.compile(
     re.IGNORECASE,
 )
 
+# "no she works there" after a caring reply to "my grandma is in the hospital": the bot read
+# something as sad that was not (not "no I don't want to", "no thanks")
+_MISREAD_RE = re.compile(
+    r"^\s*(?:no+|nope|nah|actually|wait)\b[\s,!.]+"
+    r"(?!(?:i\s+)?(?:don'?t|do not|not|never|thanks|thank|way|more|i'?m\s+(?:not|okay|ok|fine))\b)\w+\s+\w+",
+    re.IGNORECASE,
+)
+
 _NOT_NAMES = {
     "hi", "hey", "hello", "yo", "sup", "yes", "no", "yeah", "yep", "nope", "ok", "okay", "maybe",
     "fine", "good", "great", "bad", "back", "here", "home", "done", "ready", "sorry", "bored",
@@ -167,6 +175,12 @@ class ConversationManager:
         self._topic_messages: Dict[int, deque] = {}
         # Messages like "my sister always beats me" whose meaning the bot asked about
         self._pending_clarification: Dict[int, str] = {}
+        # The bot's last reply to each user, for telling a correction ("no its Sammy") from an
+        # answer to a yes/no question ("Do you like tacos too?" "no, burgers")
+        self._last_reply: Dict[int, str] = {}
+        # Users whose last message got a caring reply only for its words ("hospital"), with no
+        # sad, scared or angry event in its parse: the reading may have been wrong
+        self._upset_by_words: set = set()
 
     def start_conversation(self, user_id: int, db: Session) -> Dict:
         """
@@ -257,6 +271,8 @@ class ConversationManager:
         Returns:
             Dictionary with response and metadata
         """
+        was_upset_by_words = user_id in self._upset_by_words
+        self._upset_by_words.discard(user_id)
         recent = self._recent_messages.setdefault(user_id, deque(maxlen=RECENT_MESSAGES))
         recent_messages = list(recent)
         recent.append(user_message)
@@ -419,6 +435,20 @@ class ConversationManager:
         if safety_result["severity"] != "none":
             safety_filter.log_safety_event(db, user_id, safety_result, message_id=user_msg.id)
 
+        # "no its Sammy", "I didn't say that": the bot got something wrong, so the message is
+        # not scored as engagement with its last reply
+        if memory_manager.awaiting_correction(user_id):
+            correction = correction_handler.answer(user_message)  # "frogs" after "What did you mean?"
+            if correction is None:
+                memory_manager.forget_retracted(user_id)
+        else:
+            correction = correction_handler.detect(user_message)
+            if (correction and correction.plain_no
+                    and correction_handler.asks_yes_no(self._last_reply.get(user_id))):
+                correction = None
+        if correction and (correction.value or correction.kind != correction_handler.REPLACE):
+            engagement_tracker.discard_pending(user_id)
+
         # Score how engaged this message is and credit the choices in the bot's last reply
         self._record_engagement(user_id, user_message, db)
 
@@ -437,8 +467,11 @@ class ConversationManager:
         analysis_message = self._resolve_references(
             self._capitalize_known_names(self._name_introduction(user_message, user_id), user_id, db), user_id)
 
-        # 5. Extract and store memories
+        # 5. Extract and store memories, and change the ones the child corrected
+        previous_memories = memory_manager.last_written(user_id)
         memory_manager.extract_and_store_memories(analysis_message, user_id, db)
+        corrected = (self._apply_correction(correction, previous_memories, user_id, analysis_message, db)
+                     if correction else None)
         awaiting_name = user_id in self._awaiting_name
 
         # 6. Build context
@@ -448,8 +481,14 @@ class ConversationManager:
         # cheerful emojis or "What happened next?" in this reply and the next few
         upset = (context.get("detected_mood") in ("sad", "anxious", "angry")
                  or emoji_quirk_service.is_negative(user_message))
+        # "no she works there": the caring reply was a misreading, so the gentle replies stop
+        misread = bool(was_upset_by_words and not upset and not corrected and _MISREAD_RE.match(user_message))
         if upset:
             self._sensitive_replies[user_id] = SENSITIVE_REPLIES
+            if not self._parsed_mood(analysis_message):
+                self._upset_by_words.add(user_id)
+        elif misread:
+            self._sensitive_replies.pop(user_id, None)
         elif context.get("detected_mood") == "happy" or _CHEERFUL_RE.search(user_message):
             self._sensitive_replies.pop(user_id, None)  # "but then we laughed"
         sensitive = self._sensitive_replies.get(user_id, 0) > 0
@@ -465,7 +504,11 @@ class ConversationManager:
         allow_reflection = safety_result["severity"] == "none"
         reply_features: Dict[str, str] = {}
         try:
-            if settings.USE_LLM and llm_service.ensure_loaded(timeout=60.0):
+            if corrected:
+                # Say what the bot now remembers ("Oops, got it! Your dog is named Rex.")
+                raw_response = corrected["reply"]
+                reply_features["rule"] = "correction"
+            elif settings.USE_LLM and llm_service.ensure_loaded(timeout=60.0):
                 reply_plan = self._plan_llm_reply(context, personality, db)
                 prompt = self._build_prompt(context, user_message, personality, reply_plan)
                 raw_response = llm_service.generate(prompt, max_tokens=300, temperature=0.7)
@@ -483,6 +526,10 @@ class ConversationManager:
                 analysis_message, context, personality, allow_reflection, db, reply_features
             )
 
+        if misread:
+            raw_response = "Oh, sorry, I misunderstood! " + re.sub(r"^Oh,\s+(\w)", lambda m: m.group(1).upper(),
+                                                                   raw_response)
+
         # "Hi" after the bot asked the child's name: ask again
         if awaiting_name and reply_features.get("rule") == "greeting":
             raw_response = random.choice(ASK_NAME_AGAIN)
@@ -493,7 +540,7 @@ class ConversationManager:
             raw_response, personality, user_message, features=reply_features,
             # A requested joke or fact does not get another one added, and advice gets none
             allow_jokes=not response_engine.rule_flag(reply_features.get("rule"), "no_jokes")
-            and not context.get("advice") and not sensitive
+            and not corrected and not context.get("advice") and not sensitive
             and not self._mentions_person(user_id),
             emoji_mood="concerned" if upset else None,
             allow_emojis=upset or not sensitive,
@@ -519,6 +566,7 @@ class ConversationManager:
 
         # 10. Store assistant response
         self._store_message(conversation_id, "assistant", final_response, db)
+        self._last_reply[user_id] = final_response
 
         # 11. Update conversation count
         conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
@@ -710,18 +758,22 @@ class ConversationManager:
         advice_detection = advice_category_detector.detect_advice_request(user_message)
 
         # Everything the child has told the bot, by key ("favorite_color": "purple"), so it
-        # can answer "What's my favorite color?" and "Do you remember my dog?"
+        # can answer "What's my favorite color?" and "Do you remember my dog?"; with categories
+        # too ("person": a pet's or person's name), for "What pets do I have?"
         try:
-            known_facts = {m.key: m.value for m in db.query(UserProfile).filter(UserProfile.user_id == user_id).all()}
+            rows = db.query(UserProfile).filter(UserProfile.user_id == user_id).all()
+            known_facts = {m.key: m.value for m in rows}
+            known_memories = [(m.category, m.key, m.value) for m in rows]
         except Exception as e:
             logger.error(f"Error loading memories: {e}", exc_info=True)
-            known_facts = {}
+            known_facts, known_memories = {}, []
 
         return {
             "personality": personality,
             "keywords": keywords,
             "relevant_memories": memories,
             "known_facts": known_facts,
+            "known_memories": known_memories,
             "recent_messages": recent_messages,
             "detected_mood": detected_mood,
             "advice_request": advice_detection,
@@ -1173,6 +1225,37 @@ INSTRUCTIONS:
             logger.error(f"Error resolving references: {e}", exc_info=True)
             return user_message
 
+    @staticmethod
+    def _apply_correction(correction, previous_memories: List[Dict], user_id: int, message: str,
+                          db: Session) -> Optional[Dict]:
+        """
+        Change the memories a correction is about (see MemoryManager.apply_correction), and
+        the name of a pet or person the child is talking about ("oops his name is Rex")
+        """
+        try:
+            corrected = memory_manager.apply_correction(user_id, correction, previous_memories, db, message)
+        except Exception as e:
+            logger.error(f"Error applying a correction: {e}", exc_info=True)
+            db.rollback()
+            return None
+        if corrected and corrected.get("renamed"):
+            old, new = corrected["renamed"]
+            for person in response_engine.references.state(user_id).people:
+                if person.name and person.name.lower() == old.lower():
+                    person.name = new
+        return corrected
+
+    @staticmethod
+    def _parsed_mood(message: str) -> Optional[str]:
+        """The mood of an event in the message's parse ("my dog died": sad), if any"""
+        if not response_engine.is_available():
+            return None
+        try:
+            return response_engine.detect_mood(message)
+        except Exception as e:
+            logger.error(f"Error detecting mood from parse: {e}")
+            return None
+
     def _record_engagement(self, user_id: int, user_message: str, db: Session) -> None:
         """Score the child's message against the bot's previous reply (never blocks a reply)"""
         try:
@@ -1264,8 +1347,10 @@ INSTRUCTIONS:
             name = match.group(1)
             if not awaiting and not name[0].isupper():
                 return message
-        elif awaiting and re.fullmatch(r"\s*[A-Za-z][A-Za-z'-]{1,19}\s*[.!]*\s*", message):
-            name = message.strip(" .!")
+        elif awaiting and re.fullmatch(r"\s*(?:it'?s\s+|it is\s+)?[A-Za-z][A-Za-z'-]{1,19}\s*[.!]*\s*", message,
+                                       re.IGNORECASE):
+            # "lily", "it's Lily"
+            name = re.sub(r"^\s*(?:it'?s|it is)\s+", "", message, flags=re.IGNORECASE).strip(" .!")
         else:
             return message
         # "hii" is a greeting; "SAM" is Sam

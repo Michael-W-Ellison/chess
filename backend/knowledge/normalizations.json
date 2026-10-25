@@ -1,0 +1,932 @@
+{
+  "_comment": "How children's messages are rewritten before parsing (services/utterance_parser.py, normalize). \"words\" maps a child spelling to the standard one, word by word; \"digit_shorthand\" does the same for shorthand with digits; \"greetings\" turns stretched greetings into the word. \"steps\" run in order: a step with \"pattern\" is a regular expression replaced by \"replace\" (Python's \\\\1 for a group) or \"template\" ({1} for a group, {1|upper}, {1|capitalize}, {1|title} or {1|title_and} to change its case); \"keep_if_group_matches\" leaves a match as it is when the named group matches its pattern, and \"only_if\" runs the step only when the whole message matches; \"word_list\" fills {words} in the pattern with the words, longest first. A step with \"code\" runs a function in the parser. \"examples\" pairs a message with what normalize returns for it; tests/test_normalizations.py checks them.",
+  "words": {
+    "i": "I",
+    "im": "I'm",
+    "ive": "I've",
+    "dont": "don't",
+    "cant": "can't",
+    "wont": "won't",
+    "didnt": "didn't",
+    "doesnt": "doesn't",
+    "isnt": "isn't",
+    "wasnt": "wasn't",
+    "luv": "love",
+    "u": "you",
+    "ur": "your",
+    "r": "are",
+    "becuz": "because",
+    "becoz": "because",
+    "cuz": "because",
+    "bc": "because",
+    "wanna": "want to",
+    "gonna": "going to",
+    "gotta": "got to",
+    "fav": "favorite",
+    "fave": "favorite",
+    "favourite": "favorite",
+    "colour": "color",
+    "pls": "please",
+    "plz": "please",
+    "bday": "birthday",
+    "bro": "brother",
+    "sis": "sister",
+    "shes": "she's",
+    "hes": "he's",
+    "theyre": "they're",
+    "youre": "you're",
+    "arent": "aren't",
+    "werent": "weren't",
+    "couldnt": "couldn't",
+    "wouldnt": "wouldn't",
+    "shouldnt": "shouldn't",
+    "havent": "haven't",
+    "hasnt": "hasn't",
+    "whos": "who's",
+    "lotsa": "lots of",
+    "kinda": "kind of",
+    "sorta": "sort of",
+    "outta": "out of",
+    "gimme": "give me",
+    "lemme": "let me",
+    "dunno": "don't know",
+    "yall": "you all",
+    "y'all": "you all",
+    "wheres": "where's",
+    "goed": "went",
+    "runned": "ran",
+    "eated": "ate",
+    "hitted": "hit",
+    "drawed": "drew",
+    "throwed": "threw",
+    "losted": "lost",
+    "beated": "beat",
+    "builded": "built",
+    "swimmed": "swam",
+    "catched": "caught",
+    "buyed": "bought",
+    "bringed": "brought",
+    "brang": "brought",
+    "brung": "brought",
+    "teached": "taught",
+    "thinked": "thought",
+    "falled": "fell",
+    "feeled": "felt",
+    "sleeped": "slept",
+    "maked": "made",
+    "taked": "took",
+    "gived": "gave",
+    "comed": "came",
+    "sayed": "said",
+    "telled": "told",
+    "finded": "found",
+    "rided": "rode",
+    "writed": "wrote",
+    "drinked": "drank",
+    "blowed": "blew",
+    "growed": "grew",
+    "knowed": "knew",
+    "hided": "hid",
+    "bited": "bit",
+    "breaked": "broke",
+    "choosed": "chose",
+    "forgetted": "forgot",
+    "getted": "got",
+    "digged": "dug",
+    "standed": "stood",
+    "sitted": "sat",
+    "stealed": "stole",
+    "sticked": "stuck",
+    "weared": "wore",
+    "winned": "won",
+    "leaved": "left",
+    "meeted": "met",
+    "keeped": "kept",
+    "speaked": "spoke",
+    "waked": "woke",
+    "shaked": "shook",
+    "spinned": "spun",
+    "drived": "drove",
+    "feeded": "fed",
+    "hurted": "hurt",
+    "cutted": "cut",
+    "shutted": "shut",
+    "spended": "spent",
+    "sended": "sent",
+    "haved": "had",
+    "doed": "did",
+    "flyed": "flew",
+    "fighted": "fought",
+    "freezed": "froze",
+    "readed": "read",
+    "ringed": "rang",
+    "shooted": "shot",
+    "slided": "slid",
+    "swinged": "swung",
+    "throwded": "threw",
+    "thats": "that's",
+    "theres": "there's",
+    "heres": "here's",
+    "whats": "what's",
+    "idk": "I don't know",
+    "nm": "not much",
+    "rn": "right now",
+    "gtg": "got to go",
+    "g2g": "got to go",
+    "ttyl": "talk to you later",
+    "brb": "be right back",
+    "jk": "just kidding",
+    "lik": "like",
+    "liek": "like",
+    "alot": "a lot",
+    "bilt": "built",
+    "hous": "house",
+    "rlly": "really",
+    "rly": "really",
+    "realy": "really",
+    "wierd": "weird",
+    "tomorow": "tomorrow",
+    "tmrw": "tomorrow",
+    "favrite": "favorite",
+    "awsome": "awesome",
+    "beutiful": "beautiful",
+    "togther": "together",
+    "becuase": "because",
+    "beacuse": "because",
+    "frend": "friend",
+    "freind": "friend",
+    "frends": "friends",
+    "freinds": "friends",
+    "skool": "school",
+    "wat": "what",
+    "wut": "what",
+    "sumthing": "something",
+    "somthing": "something",
+    "gud": "good",
+    "kool": "cool",
+    "prolly": "probably",
+    "probly": "probably",
+    "tmr": "tomorrow",
+    "tommorow": "tomorrow",
+    "2day": "today",
+    "2morrow": "tomorrow",
+    "b4": "before",
+    "gr8": "great",
+    "nvm": "never mind",
+    "ppl": "people",
+    "cya": "bye",
+    "thx": "thanks",
+    "ty": "thank you",
+    "favorit": "favorite",
+    "pizzza": "pizza",
+    "sooo": "so",
+    "soo": "so",
+    "verry": "very",
+    "vary": "very",
+    "dinosour": "dinosaur",
+    "dinosours": "dinosaurs",
+    "minecraf": "minecraft",
+    "helo": "hello",
+    "hellow": "hello",
+    "nme": "name",
+    "naem": "name",
+    "calld": "called",
+    "caled": "called",
+    "relly": "really",
+    "reely": "really",
+    "dogz": "dogs",
+    "catz": "cats",
+    "k": "ok",
+    "kk": "ok",
+    "okk": "ok",
+    "okey": "okay",
+    "sed": "said",
+    "becaus": "because",
+    "scool": "school",
+    "favirite": "favorite",
+    "pritty": "pretty"
+  },
+  "names": ["ty"],
+  "digit_shorthand": {
+    "b4": "before",
+    "2day": "today",
+    "2morrow": "tomorrow",
+    "2moro": "tomorrow",
+    "2nite": "tonight",
+    "l8r": "later",
+    "l8": "late",
+    "gr8": "great",
+    "h8": "hate",
+    "m8": "mate",
+    "w8": "wait",
+    "any1": "anyone",
+    "some1": "someone",
+    "every1": "everyone",
+    "no1": "no one"
+  },
+  "greetings": [
+    [
+      "^h+i+$",
+      "hi"
+    ],
+    [
+      "^h+e+y+$",
+      "hey"
+    ],
+    [
+      "^h+e+l+o+$",
+      "hello"
+    ],
+    [
+      "^b+y+e+$",
+      "bye"
+    ],
+    [
+      "^y+o+$",
+      "yo"
+    ]
+  ],
+  "steps": [
+    {
+      "note": "\"hiiii\", \"heyyy\", \"byeee\": the greeting the stretched word is",
+      "code": "stretched_greetings",
+      "examples": [
+        [
+          "hiiii",
+          "hi"
+        ],
+        [
+          "heyyy buddy",
+          "hey buddy"
+        ],
+        [
+          "byeeee",
+          "bye"
+        ]
+      ]
+    },
+    {
+      "note": "Shorthand with digits (\"b4\", \"2day\", \"l8r\"), which the word step does not see",
+      "code": "digit_shorthand",
+      "examples": [
+        [
+          "see u l8r",
+          "see you later"
+        ],
+        [
+          "2day was fun",
+          "today was fun"
+        ]
+      ]
+    },
+    {
+      "note": "Child spellings, word by word (the \"words\" table); spellings first, so \"its rlly big\" reads \"its really big\" before \"its\" -> \"it's\". \"ur\" is left for the steps below",
+      "code": "words",
+      "examples": [
+        [
+          "k",
+          "ok"
+        ],
+        [
+          "jk",
+          "just kidding"
+        ],
+        [
+          "ty",
+          "thank you"
+        ],
+        [
+          "im ty",
+          "I'm ty"
+        ],
+        [
+          "my name is ty",
+          "my name is Ty"
+        ]
+      ]
+    },
+    {
+      "note": "\"to much homework\", \"it's to hot\"; not after a verb of going (\"we went to Big Bear\")",
+      "pattern": "\\b(\\w+) to(?= (much|hot|cold|big|small|hard|scary|loud|late|early|tired|full|long|fast|slow|short|high|heavy|far|young|old|spicy|sweet|bright|dark)\\b)",
+      "ignore_case": true,
+      "template": "{1} too",
+      "keep_if_group_matches": {
+        "group": 1,
+        "pattern": "(go|goes|going|went|gone|come|came|coming|walk|walked|drive|drove|ran|run|moved?|travel|flew|fly|trip|visit|back|way|road|welcome|next|due|according|close|up|down|out|over|on|from)$",
+        "ignore_case": true
+      },
+      "examples": [
+        [
+          "its to hot outside",
+          "it's too hot outside"
+        ],
+        [
+          "i have to much homework",
+          "I have too much homework"
+        ]
+      ]
+    },
+    {
+      "note": "\"its so fun\" -> \"it's so fun\"",
+      "pattern": "\\bits(?= (so|really|very|not|too|just|a|an|the|my|ok|okay|fine|fun|boring|hard|easy|cool|great|good|bad|true|time|going|gonna|like|always|never|raining|snowing|gross|yummy|awesome|amazing|weird|scary|funny|cute|about|mine|yours|over|super|kind|pretty|beautiful|ugly|big|bigger|small|smaller|huge|tiny|heavy|soft|red|orange|yellow|green|blue|purple|pink|brown|black|white|gray|grey|sticky|shiny|sparkly|broken|done|finished|lost|gone|made|called|still|almost|my)\\b)",
+      "ignore_case": true,
+      "replace": "it's",
+      "examples": [
+        [
+          "its huge",
+          "it's huge"
+        ],
+        [
+          "its a boy",
+          "it's a boy"
+        ]
+      ]
+    },
+    {
+      "note": "\"ur weird\" -> \"you're weird\"",
+      "pattern": "\\bur(?= (so|really|very|not|the|a|an|my|weird|cool|funny|nice|mean|smart|awesome|silly|dumb|stupid|annoying|best|worst|welcome|right|wrong|crazy|lying|kidding|joking|amazing|great|good|bad|too)\\b)",
+      "ignore_case": true,
+      "replace": "you're",
+      "examples": [
+        [
+          "ur weird",
+          "you're weird"
+        ],
+        [
+          "jk ur cool",
+          "just kidding you're cool"
+        ]
+      ]
+    },
+    {
+      "note": "\"your so funny\", \"your the best\"; an adjective only at the end (\"your funny face\" stays)",
+      "pattern": "\\byour(?= (so|really|very|not|the|a|an|too|being|going|gonna|welcome|always|never|my|such|kidding|joking|lying)\\b|(?= (funny|silly|cool|nice|mean|smart|awesome|weird|dumb|cute|amazing|annoying|right|wrong|crazy|great|best|the best)\\s*[.!?]*$))",
+      "ignore_case": true,
+      "replace": "you're",
+      "examples": [
+        [
+          "your so funny",
+          "you're so funny"
+        ],
+        [
+          "your the best",
+          "you're the best"
+        ]
+      ]
+    },
+    {
+      "note": "\"I could of won\" -> \"I could have won\"",
+      "pattern": "\\b(could|would|should|must|might) of\\b",
+      "ignore_case": true,
+      "replace": "\\1 have",
+      "examples": [
+        [
+          "i could of won",
+          "I could have won"
+        ]
+      ]
+    },
+    {
+      "note": "\"lets play\" -> \"let's play\"",
+      "pattern": "\\blets(?= (play|go|do|make|watch|build|talk|be|see|try|have|pretend|sing|draw|read)\\b)",
+      "ignore_case": true,
+      "replace": "let's",
+      "examples": [
+        [
+          "lets play tag",
+          "let's play tag"
+        ],
+        [
+          "lets be friends",
+          "let's be friends"
+        ]
+      ]
+    },
+    {
+      "note": "\"ill try\" -> \"I'll try\"",
+      "pattern": "\\bill(?= (try|do|be|go|ask|tell|practice|study|see|talk|play|have|get|make|show|let|just|never|always|probably|draw|read|call|text|come|help|work|remember|eat|drink|wait|clean|finish|sleep|bring|buy|use|build|write|stop|take|give|send|keep|think|put|pick|sit|stay|watch|listen|look|fix|share|win|beat|check|miss|need|wear|sing|dance|run|swim|ride)\\b)",
+      "ignore_case": true,
+      "replace": "I'll",
+      "examples": [
+        [
+          "ok ill try that",
+          "ok I'll try that"
+        ],
+        [
+          "fine ill eat broccoli",
+          "fine I'll eat broccoli"
+        ]
+      ]
+    },
+    {
+      "note": "Any other \"ur\" is \"your\" (\"ur dog\")",
+      "pattern": "\\bur\\b",
+      "ignore_case": true,
+      "replace": "your",
+      "examples": [
+        [
+          "ur dog",
+          "your dog"
+        ]
+      ]
+    },
+    {
+      "note": "\"my moms room\" -> \"my mom's room\"",
+      "pattern": "\\b(mom|dad|mommy|daddy|sister|brother|grandma|grandpa|friend|cousin|aunt|uncle|cat|dog|puppy|kitten|hamster|fish|bunny|horse)s (?=(room|house|car|bed|phone|office|work|birthday|friend|dog|cat|toys?|lap|side|name|bowl|food|tail|collar|cage|leash)\\b)",
+      "ignore_case": true,
+      "replace": "\\1's ",
+      "examples": [
+        [
+          "my moms room",
+          "my mom's room"
+        ],
+        [
+          "what is my cats name",
+          "what is my cat's name"
+        ]
+      ]
+    },
+    {
+      "note": "\"a dog named max\" -> \"a dog named Max\"",
+      "pattern": "\\b(named|called) (?!(after|it|him|her|them|me|you|us|that|this|what|a|an|the|my)\\b)([a-z])",
+      "template": "{1} {3|upper}",
+      "examples": [
+        [
+          "my dog is calld rex",
+          "my dog is called Rex"
+        ],
+        [
+          "I have a dog named max",
+          "I have a dog named Max"
+        ]
+      ]
+    },
+    {
+      "note": "\"his name is max\" -> \"his name is Max\"",
+      "pattern": "\\b(name (?:is|was|'s)) (?!(not|a|an|the|my|so|really|very|too|kind|cool|weird|nice|funny|silly|pretty|great|awesome|beautiful|long|short|hard|easy|dumb|stupid|ugly|cute|good|bad|special|unique|strange|boring|perfect|fine|ok|okay|lovely|fancy|same|different|tricky|interesting)\\b)([a-z])",
+      "template": "{1} {3|upper}",
+      "examples": [
+        [
+          "my nme is jak",
+          "my name is Jak"
+        ],
+        [
+          "my name is sam",
+          "my name is Sam"
+        ]
+      ]
+    },
+    {
+      "note": "\"their names are max and coco\" -> \"... Max and Coco\"",
+      "pattern": "\\b(names are) ([a-z]+) and ([a-z]+)\\b",
+      "template": "{1} {2|capitalize} and {3|capitalize}",
+      "examples": [
+        [
+          "their names are luna and milo",
+          "their names are Luna and Milo"
+        ]
+      ]
+    },
+    {
+      "note": "Place names (\"texas\" -> \"Texas\")",
+      "pattern": "\\b({words})\\b",
+      "template": "{1|title}",
+      "word_list": [
+        "africa",
+        "alabama",
+        "alaska",
+        "arizona",
+        "arkansas",
+        "australia",
+        "brazil",
+        "california",
+        "canada",
+        "chicago",
+        "china",
+        "colorado",
+        "connecticut",
+        "delaware",
+        "disney world",
+        "disneyland",
+        "england",
+        "europe",
+        "florida",
+        "france",
+        "georgia",
+        "germany",
+        "hawaii",
+        "idaho",
+        "illinois",
+        "india",
+        "indiana",
+        "iowa",
+        "italy",
+        "japan",
+        "kansas",
+        "kentucky",
+        "london",
+        "louisiana",
+        "maine",
+        "maryland",
+        "massachusetts",
+        "mexico",
+        "michigan",
+        "minnesota",
+        "mississippi",
+        "missouri",
+        "montana",
+        "nebraska",
+        "nevada",
+        "new york",
+        "ohio",
+        "oklahoma",
+        "oregon",
+        "paris",
+        "pennsylvania",
+        "spain",
+        "tennessee",
+        "texas",
+        "utah",
+        "vermont",
+        "virginia",
+        "washington",
+        "wisconsin",
+        "wyoming"
+      ],
+      "examples": [
+        [
+          "they live in texas",
+          "they live in Texas"
+        ],
+        [
+          "he lives in florida",
+          "he lives in Florida"
+        ]
+      ]
+    },
+    {
+      "note": "Titles of songs, games and shows (the parser's _TITLES table, also used by the reference tracker)",
+      "code": "titles",
+      "examples": [
+        [
+          "roblox",
+          "Roblox"
+        ],
+        [
+          "my pokemon",
+          "my Pokémon"
+        ]
+      ]
+    },
+    {
+      "note": "\"on saturday\" -> \"on Saturday\" (\"may\" and \"march\" are also words, so they stay)",
+      "pattern": "\\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|april|june|july|august|september|october|november|december)\\b",
+      "template": "{1|capitalize}",
+      "examples": [
+        [
+          "june",
+          "June"
+        ],
+        [
+          "im june",
+          "I'm June"
+        ]
+      ]
+    },
+    {
+      "note": "\"its fun\" (the whole message) -> \"it's fun\"; not \"its wings\"",
+      "pattern": "^its (?=[a-z]*[a-rt-z][.!]*$)",
+      "ignore_case": true,
+      "replace": "it's ",
+      "examples": [
+        [
+          "its math",
+          "it's math"
+        ]
+      ]
+    },
+    {
+      "note": "\"buddy do you like pizza\": the bot's name before a question is dropped",
+      "pattern": "^buddy,? (?=(?:do|does|did|can|could|will|would|are|guess|what|why|how|where|who|when|i|you|look|listen|tell|let's|lets|wanna|want)\\b)",
+      "ignore_case": true,
+      "replace": "",
+      "examples": [
+        [
+          "buddy do you like pizza",
+          "do you like pizza"
+        ]
+      ]
+    },
+    {
+      "note": "\"hey buddy guess what\": the greeting is set off by a comma",
+      "pattern": "^((?:hey|hi|hello) buddy)(?= (?:do|does|did|can|could|will|would|are|guess|what|why|how|where|who|when|i|you|look|listen|tell|let's|lets|wanna|want)\\b)",
+      "ignore_case": true,
+      "replace": "\\1,",
+      "examples": [
+        [
+          "hey buddy guess what",
+          "hey buddy, guess what"
+        ]
+      ]
+    },
+    {
+      "note": "\"i love you buddy\": the name at the end is dropped",
+      "pattern": "\\b(you|thanks|bye|goodnight|night),? buddy\\s*([.!?]*)$",
+      "ignore_case": true,
+      "replace": "\\1\\2",
+      "examples": [
+        [
+          "bye buddy",
+          "bye"
+        ],
+        [
+          "ok bye buddy",
+          "ok bye"
+        ]
+      ]
+    },
+    {
+      "note": "\"home.it was fun\": a sentence run together after the period",
+      "pattern": "(?<=[a-z])\\.(?=(?:i|it|we|he|she|they|my|the|then|and|but|so|you|that|there|this)\\b)",
+      "replace": ". ",
+      "examples": [
+        [
+          "i went home.it was fun",
+          "I went home. it was fun"
+        ]
+      ]
+    },
+    {
+      "note": "\"my mom n dad\", \"me & my sister\" -> \"and\"",
+      "pattern": "(?<=\\w) (?:n|&|\\+) (?=\\w)",
+      "replace": " and ",
+      "examples": [
+        [
+          "me & my sister made cookies",
+          "my sister and I made cookies"
+        ],
+        [
+          "my mom n dad took me to the park",
+          "my mom and dad took me to the park"
+        ]
+      ]
+    },
+    {
+      "note": "\"w/ my grandma\" -> \"with my grandma\"",
+      "pattern": "\\bw/(?=\\s)",
+      "ignore_case": true,
+      "replace": "with",
+      "examples": [
+        [
+          "i went w/ my grandma",
+          "I went with my grandma"
+        ]
+      ]
+    },
+    {
+      "note": "\"going 2 the store\" -> \"going to the store\" (\"I have 2 dogs\" stays)",
+      "pattern": "\\b(go|going|went|goes|come|came|want|wanna|have|need|got|talk|listen|back|up|next|way|time|to|due) 2 (?=(?:the|my|a|school|bed|sleep|play|go|eat|be|see|get|do|work|church|grandma's|grandpa's)\\b)",
+      "ignore_case": true,
+      "replace": "\\1 to ",
+      "examples": [
+        [
+          "i'm going 2 the store",
+          "I'm going to the store"
+        ],
+        [
+          "i have 2 dogs",
+          "I have 2 dogs"
+        ]
+      ]
+    },
+    {
+      "note": "\"you like pizza right\" -> \"do you like pizza?\"; \"dogs are cute aren't they\" -> \"dogs are cute\"; \"that's right\" stays",
+      "code": "tag_question",
+      "examples": [
+        [
+          "you like pizza right",
+          "do you like pizza?"
+        ],
+        [
+          "dogs are cute aren't they",
+          "dogs are cute"
+        ]
+      ]
+    },
+    {
+      "note": "\"i dare you to say something funny\": the dare is the request",
+      "pattern": "^i (?:dare|double dare|triple dare) you to ",
+      "ignore_case": true,
+      "replace": "",
+      "examples": [
+        [
+          "i dare you to say something funny",
+          "say something funny"
+        ]
+      ]
+    },
+    {
+      "note": "\"I'm a dinosaur rawr\": the growl is its own sentence",
+      "pattern": "(?<=[a-z])\\s+((?:rawr+|roa+r+|grr+|meow+|woof+|moo+|oink+)\\W*)$",
+      "ignore_case": true,
+      "replace": "! \\1",
+      "examples": [
+        [
+          "i'm a dinosaur rawr",
+          "I'm a dinosaur! rawr"
+        ]
+      ]
+    },
+    {
+      "note": "\"y'all\" -> \"you all\"",
+      "pattern": "\\by'?all\\b",
+      "ignore_case": true,
+      "replace": "you all",
+      "examples": [
+        [
+          "y'all are funny",
+          "you all are funny"
+        ]
+      ]
+    },
+    {
+      "note": "\"which is better pizza or tacos\": a comma before the choices",
+      "pattern": "^((?:which|what)(?: one)? (?:is|do you like|would you pick|do you pick|would you choose)(?: better| more| best)?),?\\s+(\\w+(?: \\w+)?) or (\\w+(?: \\w+)?)\\s*\\??$",
+      "ignore_case": true,
+      "replace": "\\1, \\2 or \\3?",
+      "examples": [
+        [
+          "which is better pizza or tacos",
+          "which is better, pizza or tacos?"
+        ]
+      ]
+    },
+    {
+      "note": "Quotes around what someone said: 'my mom said \"no way\"'",
+      "pattern": "[\\\"“”]",
+      "replace": "",
+      "examples": [
+        [
+          "my mom said \"no way\"",
+          "my mom said no way"
+        ],
+        [
+          "she said “stop”",
+          "she said stop"
+        ]
+      ]
+    },
+    {
+      "note": "\"what do i do\": asking for advice",
+      "pattern": "^what do i do\\b",
+      "ignore_case": true,
+      "replace": "what should I do",
+      "examples": [
+        [
+          "what do i do if i'm scared",
+          "what should I do if I'm scared"
+        ]
+      ]
+    },
+    {
+      "note": "\"what does gravity mean\" -> \"what is gravity\" (the world answers' form)",
+      "pattern": "^what does (?!(?:that|it|this|he|she|they|you|mine)\\b)([\\w ]+?) mean\\b",
+      "ignore_case": true,
+      "replace": "what is \\1",
+      "examples": [
+        [
+          "what does gravity mean",
+          "what is gravity"
+        ]
+      ]
+    },
+    {
+      "note": "\"i watched frozen\": a movie title after a word for watching",
+      "pattern": "\\b(watch|watched|watching|saw|seen|see|love|loved|like|liked)( the movie)? (frozen|moana|encanto|coco|elemental|luca|tangled|bluey|trolls|turning red|inside out|toy story|zootopia|minions|despicable me|shrek|wicked|lilo and stitch|the lion king)(?=\\s*(?:[.!?,]|$)|\\s+(?:and|with|today|yesterday|again|last|at|on|tonight|so|too|two|2)\\b)",
+      "ignore_case": true,
+      "template": "{1}{2} {3|title_and}",
+      "examples": [
+        [
+          "i watched frozen",
+          "I watched Frozen"
+        ],
+        [
+          "do you like frozen",
+          "do you like Frozen"
+        ]
+      ]
+    },
+    {
+      "note": "\"i wonder why the sky is blue\" -> \"why is the sky blue?\"",
+      "pattern": "^i (?:wonder|want to know|wanna know|wish i knew) (why|how|where|what|when) ((?:the |a |my |your )?\\w+) (is|are|was|were|can|do|does) (.+?)[.!?]*$",
+      "ignore_case": true,
+      "template": "{1} {3} {2} {4}?",
+      "examples": [
+        [
+          "i wonder why the sky is blue",
+          "why is the sky blue?"
+        ]
+      ]
+    },
+    {
+      "note": "\"i wonder if dogs can swim\" -> \"can dogs swim?\"",
+      "pattern": "^i (?:wonder|want to know|wanna know|wish i knew) if ((?:the |a |my |your )?\\w+) (is|are|was|were|can|do|does) (.+?)[.!?]*$",
+      "ignore_case": true,
+      "template": "{2} {1} {3}?",
+      "examples": [
+        [
+          "i wonder if dogs can swim",
+          "can dogs swim?"
+        ]
+      ]
+    },
+    {
+      "note": "\"y is the sky blue\", \"y not\": \"why\"",
+      "pattern": "^y(?= (is|are|do|does|did|not|can|can't|would|wouldn't|should|won't|cant|dont|don't|was|were)\\b)|^y(?=\\W*$)",
+      "ignore_case": true,
+      "replace": "why",
+      "examples": [
+        [
+          "y not",
+          "why not"
+        ],
+        [
+          "y is the sky blue",
+          "why is the sky blue"
+        ]
+      ]
+    },
+    {
+      "note": "\"lets fish\" at the start: \"let's fish\"",
+      "pattern": "^lets\\b",
+      "ignore_case": true,
+      "replace": "let's",
+      "examples": [
+        [
+          "lets race",
+          "let's race"
+        ],
+        [
+          "lets paint",
+          "let's paint"
+        ]
+      ]
+    },
+    {
+      "note": "\"me and lily played tag\" -> \"lily and I played tag\" (the parser reads \"me and\" badly)",
+      "pattern": "(^|[.!?] )me and ((?:my |our )?(?!my\\b|our\\b)[a-z]+)(?= [a-z])",
+      "ignore_case": true,
+      "template": "{1}{2|subject} and I",
+      "examples": [
+        [
+          "me and lily played tag",
+          "lily and I played tag"
+        ],
+        [
+          "me and him built a fort",
+          "he and I built a fort"
+        ],
+        [
+          "me and my friend went",
+          "my friend and I went"
+        ]
+      ]
+    },
+    {
+      "note": "\"mr smith\" -> \"Mr Smith\"",
+      "pattern": "\\b(mr|mrs|ms|dr)\\.? ([a-z])",
+      "ignore_case": true,
+      "template": "{1|capitalize} {2|upper}",
+      "examples": [
+        [
+          "my teacher mr kim",
+          "my teacher Mr Kim"
+        ],
+        [
+          "my coach is mr lee",
+          "my coach is Mr Lee"
+        ]
+      ]
+    },
+    {
+      "note": "\"what's your name and how old are you\": two questions, answered one by one",
+      "pattern": ",?\\s+and\\s+(?=(how|what|where|when|why|who|do you|are you|can you|will you)\\b)",
+      "ignore_case": true,
+      "replace": "? ",
+      "only_if": {
+        "pattern": "^(what|how|where|when|why|who|do|does|are|is|can|will)\\b",
+        "ignore_case": true
+      },
+      "examples": [
+        [
+          "whats your name and how old are you",
+          "what's your name? how old are you"
+        ],
+        [
+          "what is your favorite animal and why",
+          "what is your favorite animal? why"
+        ]
+      ]
+    }
+  ]
+}
