@@ -2091,6 +2091,8 @@ class ResponseEngine:
                     correct=last["correct"])
         if checked is not None:
             fact, right = checked
+            if right and "?" in self._last_bot_reply.get(user_id, ""):
+                return None  # "it has rings" answering "Why is Saturn your favorite?": the answer gets the reply
             self._last_fact[user_id] = fact
             options = replies.get("right") if right else fact.get("wrong") or replies.get("wrong")
             reply = self._pick(options, user_id, "fact:right" if right else f"fact:wrong:{fact['id']}")

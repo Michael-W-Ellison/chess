@@ -21,7 +21,8 @@ _IS_RE = re.compile(r" (?:is|are|r|was|were)(?P<neg>nt| not| never)? ")
 # "penguins can fly high": words after the verb that still say the same thing (not "dogs fly kites")
 _CAN_ENDINGS = (r"(?: (?:really |very |so |super )?(?:high|fast|far|well|good|at all|too|either|around|away"
                 r"|south|in the sky|in the air|like (?:a )?birds?|like (?:a )?fish|really well|very well))?")
-_NEGATED_MODALS = ("can not", "cannot", "cant", "couldnt", "dont", "do not", "doesnt", "does not")
+_NEGATED_MODALS = ("can not", "cannot", "cant", "couldnt", "dont", "do not", "doesnt", "does not", "didnt",
+                   "did not")
 
 _CACHE: Dict[Tuple[str, float], "FactBase"] = {}
 
@@ -33,7 +34,7 @@ FACT_OPENERS_RE = re.compile(
 )
 # Not a statement about the real world: "my spider has 6 legs", "in my game penguins can fly"
 _NOT_REAL_RE = re.compile(
-    r"\b(?:my|your|his|her|their|our|pretend|imagine|imagined|if|wish|story|game|dream|dreamed|cartoon|movie"
+    r"\b(?:my|your|his|her|their(?! own)|our|pretend|imagine|imagined|if|wish|story|game|dream|dreamed|cartoon|movie"
     r"|book|minecraft|roblox|show|toy|stuffed|drawing|joke|kidding|jk|lol|haha|maybe|might|some|sometimes"
     r"|this|that|these|those|one of)\b"
 )
@@ -95,7 +96,7 @@ class FactBase:
             return re.compile(rf"there (?:are|is|r|re)(?P<neg>nt| not)? {self._number} {fact['noun']}")
         if fact["type"] == "can":
             return re.compile(rf"{fact['subject']} {adverb}(?P<mod>can not |cannot |cant |can |could |couldnt |dont "
-                              rf"|do not |doesnt |does not )?(?:really )?{fact['verb']}{_CAN_ENDINGS}")
+                              rf"|do not |doesnt |does not |didnt |did not |do |does |did )?(?:really )?{fact['verb']}{_CAN_ENDINGS}")
         raise ValueError(f"Unknown fact type {fact['type']!r} for {fact['id']}")
 
     def judge_value(self, fact: Dict, value: str) -> Optional[bool]:

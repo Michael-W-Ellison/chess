@@ -53,7 +53,9 @@ def test_generated_facts_are_up_to_date_and_answer_their_examples():
     assert problems == []
     assert FACTS["sets"] == sets, "run python scripts/build_facts.py"
     assert FACTS["generated"] == generated, "run python scripts/build_facts.py"
-    assert len(generated) > 2000
+    assert len(generated) > 4000
+    # Mostly science: no more than 21 number facts (0 to 20)
+    assert sum(f["id"].startswith("number_") for f in generated) == 21
     assert all(f.get("correct") and any(v == "wrong" for _, v in f["examples"]) for f in generated)
 
 
@@ -70,6 +72,21 @@ def test_generated_facts_are_up_to_date_and_answer_their_examples():
     ("february has 30 days", "month_days_february", False),
     ("9 is a prime number", "number_9", False),
     ("brazil is in south america", "continent_brazil", True),
+    ("platypuses dont lay eggs", "eggs_platypus", False),
+    ("dogs lay eggs", "eggs_dog", False),
+    ("snakes are warm blooded", "blood_snake", False),
+    ("whales have gills", "gills_whale", False),
+    ("jellyfish are fish", "class_jellyfish", False),
+    ("the sun goes around the earth", "orbit_sun_earth", False),
+    ("the moon makes its own light", "light_moon", False),
+    ("magnets attract wood", "magnet_wood", False),
+    ("ice is a liquid", "matter_ice", False),
+    ("mushrooms are plants", "mushroom_fungus", False),
+    ("blood is blue", "blood_red", False),
+    ("dinosaurs lived with people", "dinosaurs_people", False),
+    ("t rex ate plants", "dino_not_ate_t_rex", False),
+    ("pterodactyls are dinosaurs", "pterodactyl_reptile", False),
+    ("sound can travel in space", "sound_space", False),
 ])
 def test_generated_facts(engine, message, fact_id, right):
     checked = engine.check_fact(message)

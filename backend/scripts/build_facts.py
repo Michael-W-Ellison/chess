@@ -1,6 +1,9 @@
 """
-Build the "generated" facts in knowledge/facts.json from the tables below (capitals, continents,
-animals, planets, measurements, numbers). The hand-written "facts" in the file are kept as they
+Build the "generated" facts in knowledge/facts.json from the tables below. Most are science:
+animals (class, legs, flying, diet, blood, backbone, eggs, feathers, fur, scales, gills, lungs,
+babies), space, matter, magnets and electricity, light and sound, plants, the human body, the
+Earth and dinosaurs. The rest are geography (capitals, continents), measurements, and the
+numbers 0 to 20. The hand-written "facts" in the file are kept as they
 are; "sets" and "generated" are replaced.
 
 Each generated fact gets one wrong and one right example. The build stops if a fact's examples
@@ -352,7 +355,11 @@ CLASSES = {
     "mollusk": (["mollusks", "a mollusk", "mollusk", "molluscs", "a mollusc", "mollusc"],
                 "Mollusks have soft bodies."),
     "crustacean": (["crustaceans", "a crustacean", "crustacean"], "Crustaceans have a hard shell outside."),
+    "annelid": (["annelids", "an annelid", "annelid"], "Annelids are worms with bodies made of rings."),
+    "cnidarian": (["cnidarians", "a cnidarian", "cnidarian"], "Cnidarians have soft bodies and no bones."),
+    "echinoderm": (["echinoderms", "an echinoderm", "echinoderm"], "Echinoderms live in the sea and have no bones."),
 }
+VERTEBRATES = {"mammal", "bird", "fish", "reptile", "amphibian"}
 DIETS = {
     "carnivore": (["carnivores", "a carnivore", "carnivore", "meat eaters", "a meat eater"], "They eat meat!"),
     "herbivore": (["herbivores", "a herbivore", "an herbivore", "herbivore", "plant eaters", "a plant eater"],
@@ -457,7 +464,105 @@ ANIMALS = [
     ("clam", "clams", "mollusk", None, False, None),
     ("crab", "crabs", "crustacean", None, False, None), ("lobster", "lobsters", "crustacean", None, False, None),
     ("shrimp", "shrimp", "crustacean", None, False, None),
+    # More mammals
+    ("whale", "whales", "mammal", 0, False, None), ("dolphin", "dolphins", "mammal", 0, False, "carnivore"),
+    ("bat", "bats", "mammal", None, None, None),
+    ("aardvark", "aardvarks", "mammal", 4, False, None), ("alpaca", "alpacas", "mammal", 4, False, "herbivore"),
+    ("antelope", "antelopes", "mammal", 4, False, "herbivore"), ("bobcat", "bobcats", "mammal", 4, False, "carnivore"),
+    ("boar", "boars", "mammal", 4, False, "omnivore"), ("coyote", "coyotes", "mammal", 4, False, None),
+    ("cougar", "cougars", "mammal", 4, False, "carnivore"), ("dingo", "dingoes", "mammal", 4, False, None),
+    ("echidna", "echidnas", "mammal", 4, False, None), ("elk", "elk", "mammal", 4, False, "herbivore"),
+    ("gazelle", "gazelles", "mammal", 4, False, "herbivore"), ("gerbil", "gerbils", "mammal", 4, False, None),
+    ("gibbon", "gibbons", "mammal", None, False, None), ("wildebeest", "wildebeest", "mammal", 4, False, "herbivore"),
+    ("hare", "hares", "mammal", 4, False, "herbivore"), ("ibex", "ibex", "mammal", 4, False, "herbivore"),
+    ("impala", "impalas", "mammal", 4, False, "herbivore"), ("jackal", "jackals", "mammal", 4, False, None),
+    ("lynx", "lynxes", "mammal", 4, False, "carnivore"), ("mink", "minks", "mammal", 4, False, "carnivore"),
+    ("mongoose", "mongooses", "mammal", 4, False, None), ("narwhal", "narwhals", "mammal", 0, False, "carnivore"),
+    ("okapi", "okapis", "mammal", 4, False, "herbivore"), ("ocelot", "ocelots", "mammal", 4, False, "carnivore"),
+    ("orca", "orcas", "mammal", 0, False, "carnivore"), ("pangolin", "pangolins", "mammal", 4, False, None),
+    ("puma", "pumas", "mammal", 4, False, "carnivore"), ("red panda", "red pandas", "mammal", 4, False, None),
+    ("shrew", "shrews", "mammal", 4, False, None), ("tapir", "tapirs", "mammal", 4, False, "herbivore"),
+    ("vole", "voles", "mammal", 4, False, None), ("warthog", "warthogs", "mammal", 4, False, None),
+    ("weasel", "weasels", "mammal", 4, False, "carnivore"), ("wombat", "wombats", "mammal", 4, False, "herbivore"),
+    ("yak", "yaks", "mammal", 4, False, "herbivore"), ("gopher", "gophers", "mammal", 4, False, None),
+    # More birds
+    ("blackbird", "blackbirds", "bird", 2, True, None), ("bluebird", "bluebirds", "bird", 2, True, None),
+    ("budgie", "budgies", "bird", 2, True, None), ("condor", "condors", "bird", 2, True, None),
+    ("cuckoo", "cuckoos", "bird", 2, True, None), ("dove", "doves", "bird", 2, True, None),
+    ("finch", "finches", "bird", 2, True, None), ("goldfinch", "goldfinches", "bird", 2, True, None),
+    ("lark", "larks", "bird", 2, True, None), ("mockingbird", "mockingbirds", "bird", 2, True, None),
+    ("nightingale", "nightingales", "bird", 2, True, None), ("oriole", "orioles", "bird", 2, True, None),
+    ("partridge", "partridges", "bird", 2, None, None), ("pheasant", "pheasants", "bird", 2, None, None),
+    ("quail", "quail", "bird", 2, None, None), ("roadrunner", "roadrunners", "bird", 2, None, None),
+    ("sandpiper", "sandpipers", "bird", 2, True, None), ("starling", "starlings", "bird", 2, True, None),
+    ("swift", "swifts", "bird", 2, True, None), ("tern", "terns", "bird", 2, True, None),
+    ("thrush", "thrushes", "bird", 2, True, None), ("wren", "wrens", "bird", 2, True, None),
+    ("egret", "egrets", "bird", 2, True, None), ("ibis", "ibises", "bird", 2, True, None),
+    ("kookaburra", "kookaburras", "bird", 2, True, None), ("lovebird", "lovebirds", "bird", 2, True, None),
+    ("hornbill", "hornbills", "bird", 2, True, None), ("osprey", "ospreys", "bird", 2, True, "carnivore"),
+    ("kestrel", "kestrels", "bird", 2, True, "carnivore"), ("buzzard", "buzzards", "bird", 2, True, None),
+    ("bald eagle", "bald eagles", "bird", 2, True, "carnivore"), ("barn owl", "barn owls", "bird", 2, True, "carnivore"),
+    # More fish
+    ("anchovy", "anchovies", "fish", 0, None, None), ("bass", "bass", "fish", 0, None, None),
+    ("barracuda", "barracudas", "fish", 0, None, "carnivore"), ("flounder", "flounder", "fish", 0, None, None),
+    ("halibut", "halibut", "fish", 0, None, None), ("herring", "herring", "fish", 0, None, None),
+    ("mackerel", "mackerel", "fish", 0, None, None), ("minnow", "minnows", "fish", 0, None, None),
+    ("perch", "perch", "fish", 0, None, None), ("pike", "pike", "fish", 0, None, "carnivore"),
+    ("sardine", "sardines", "fish", 0, None, None), ("snapper", "snapper", "fish", 0, None, None),
+    ("sunfish", "sunfish", "fish", 0, None, None), ("tilapia", "tilapia", "fish", 0, None, None),
+    ("grouper", "groupers", "fish", 0, None, None), ("koi", "koi", "fish", 0, None, None),
+    ("lionfish", "lionfish", "fish", 0, None, "carnivore"), ("marlin", "marlin", "fish", 0, None, "carnivore"),
+    ("blowfish", "blowfish", "fish", 0, None, None),
+    # More reptiles and amphibians
+    ("anaconda", "anacondas", "reptile", 0, False, "carnivore"), ("boa", "boas", "reptile", 0, False, "carnivore"),
+    ("garter snake", "garter snakes", "reptile", 0, False, "carnivore"),
+    ("viper", "vipers", "reptile", 0, False, "carnivore"), ("sea snake", "sea snakes", "reptile", 0, False, "carnivore"),
+    ("monitor lizard", "monitor lizards", "reptile", 4, False, None), ("skink", "skinks", "reptile", 4, False, None),
+    ("bearded dragon", "bearded dragons", "reptile", 4, False, None),
+    ("gila monster", "gila monsters", "reptile", 4, False, "carnivore"),
+    ("box turtle", "box turtles", "reptile", 4, False, None),
+    ("snapping turtle", "snapping turtles", "reptile", 4, False, None),
+    ("sea turtle", "sea turtles", "reptile", None, False, None),
+    ("tree frog", "tree frogs", "amphibian", 4, None, None), ("bullfrog", "bullfrogs", "amphibian", 4, False, None),
+    ("poison dart frog", "poison dart frogs", "amphibian", 4, False, None),
+    ("caecilian", "caecilians", "amphibian", 0, False, None),
+    # More invertebrates
+    ("aphid", "aphids", "insect", 6, None, None), ("bumblebee", "bumblebees", "insect", 6, True, None),
+    ("cicada", "cicadas", "insect", 6, True, None), ("earwig", "earwigs", "insect", 6, None, None),
+    ("gnat", "gnats", "insect", 6, True, None), ("katydid", "katydids", "insect", 6, None, None),
+    ("locust", "locusts", "insect", 6, True, None), ("louse", "lice", "insect", 6, False, None),
+    ("mayfly", "mayflies", "insect", 6, True, None), ("weevil", "weevils", "insect", 6, None, None),
+    ("honeybee", "honeybees", "insect", 6, True, None), ("monarch butterfly", "monarch butterflies", "insect", 6, True, None),
+    ("horsefly", "horseflies", "insect", 6, True, None), ("housefly", "houseflies", "insect", 6, True, None),
+    ("black widow", "black widows", "arachnid", 8, False, None), ("wolf spider", "wolf spiders", "arachnid", 8, False, None),
+    ("jumping spider", "jumping spiders", "arachnid", 8, False, None),
+    ("oyster", "oysters", "mollusk", None, False, None), ("mussel", "mussels", "mollusk", None, False, None),
+    ("scallop", "scallops", "mollusk", None, False, None), ("cuttlefish", "cuttlefish", "mollusk", None, False, None),
+    ("nautilus", "nautiluses", "mollusk", None, False, None),
+    ("barnacle", "barnacles", "crustacean", None, False, None), ("crayfish", "crayfish", "crustacean", None, False, None),
+    ("krill", "krill", "crustacean", None, False, None), ("hermit crab", "hermit crabs", "crustacean", None, False, None),
+    ("prawn", "prawns", "crustacean", None, False, None),
+    ("earthworm", "earthworms", "annelid", 0, False, None), ("leech", "leeches", "annelid", 0, False, None),
+    ("jellyfish", "jellyfish", "cnidarian", 0, False, None), ("sea anemone", "sea anemones", "cnidarian", 0, False, None),
+    ("starfish", "starfish", "echinoderm", None, False, None), ("sea star", "sea stars", "echinoderm", None, False, None),
+    ("sea urchin", "sea urchins", "echinoderm", None, False, None),
+    ("sand dollar", "sand dollars", "echinoderm", None, False, None),
 ]
+
+# Exceptions to what a class usually has (see biology())
+WARM_BLOOD_UNSURE = {"tuna", "swordfish", "marlin", "shark", "sea turtle"}  # some keep parts of their body warm
+LIVE_BIRTH = {"guppy", "stingray", "scorpion", "rattlesnake", "anaconda", "boa", "garter snake"}
+LAY_EGGS_MAMMALS = {"platypus", "echidna"}
+EGGS_UNSURE = {"viper", "sea snake", "skink", "chameleon", "lizard", "snake", "salamander", "caecilian", "shark",
+               "seahorse", "aphid", "sea anemone", "starfish", "sea star", "sea urchin", "sand dollar", "jellyfish"}
+NO_FUR_MAMMALS = {"whale", "dolphin", "orca", "narwhal", "manatee", "walrus", "armadillo", "pangolin", "elephant",
+                  "rhino", "rhinoceros", "hippo", "hippopotamus", "pig", "boar", "warthog", "seal", "sea lion"}
+# No scales, scales on only part of the body (a rat's tail), or plates instead
+SCALES_UNSURE = {"catfish", "eel", "shark", "stingray", "armadillo", "swordfish", "seahorse", "sunfish", "pufferfish",
+                 "blowfish", "koi", "caecilian", "rat", "mouse", "beaver", "opossum"}
+GILLS_UNSURE = {"barnacle", "mayfly", "dragonfly"}  # no gills, or gills only when young
+LUNGS_UNSURE = {"barnacle", "hermit crab"}
+GILLS_MOLLUSKS = {"octopus", "squid", "clam", "oyster", "mussel", "scallop", "cuttlefish", "nautilus"}
 # Animals in the sea that breathe air, and ones that breathe underwater
 BREATHE_AIR = ["whale", "dolphin", "seal", "sea lion", "walrus", "otter", "manatee", "penguin", "sea turtle",
                "crocodile", "alligator", "polar bear"]
@@ -556,6 +661,351 @@ def animals(sets: dict) -> list:
             else f"{a_or_an(name).capitalize()} is a baby {kinds[0]} or {kinds[1]}!",
             "examples": [[f"{a_or_an(name)} is {_other(sets['baby_of'], true)}", "wrong"],
                          [f"{a_or_an(name)} is {true[0]}", "right"]]})
+    return facts
+
+
+def can_fact(fact_id: str, names: str, shown: str, verb: str, verb_text: str, value: bool, yes: str, no: str) -> dict:
+    """A "can"-type fact for "<animals> <verb>" ("birds lay eggs"), with its examples"""
+    return {"id": fact_id, "type": "can", "subject": names, "verb": verb, "value": value, "correct": yes if value else no,
+            "examples": [[f"{shown} {'dont ' if value else ''}{verb_text}", "wrong"],
+                         [f"{shown} {'' if value else 'dont '}{verb_text}", "right"]]}
+
+
+def biology(sets: dict) -> list:
+    """Warm or cold blood, backbone, eggs, feathers, fur, scales, gills and lungs of each animal"""
+    facts = []
+    warm, cold = ["warm blooded", "warmblooded"], ["cold blooded", "coldblooded"]
+    sets["blood"] = warm + cold
+    vertebrate = ["vertebrates", "a vertebrate", "vertebrate"]
+    invertebrate = ["invertebrates", "an invertebrate", "invertebrate"]
+    sets["backbone"] = vertebrate + invertebrate
+    for one, many, cls, *_ in ANIMALS:
+        names = subject(one, many)
+        shown = many[:1].upper() + many[1:]
+        key = slug(one)
+        backboned = cls in VERTEBRATES
+        if backboned and one not in WARM_BLOOD_UNSURE:
+            is_warm = cls in ("mammal", "bird")
+            facts.append({
+                "id": f"blood_{key}", "type": "is", "subject": names, "true": warm if is_warm else cold,
+                "false_from": ["blood"],
+                "correct": f"{shown} are warm-blooded: their bodies make their own heat!" if is_warm
+                else f"{shown} are cold-blooded: their bodies stay about as warm as the air or water around them!",
+                "examples": [[f"{many} are {(cold if is_warm else warm)[0]}", "wrong"],
+                             [f"{many} are {(warm if is_warm else cold)[0]}", "right"]]})
+        facts.append({
+            "id": f"backbone_{key}", "type": "is", "subject": names, "true": vertebrate if backboned else invertebrate,
+            "false_from": ["backbone"],
+            "correct": f"{shown} are vertebrates: they have a backbone!" if backboned
+            else f"{shown} are invertebrates: they don't have a backbone!",
+            "examples": [[f"{many} are {(invertebrate if backboned else vertebrate)[0]}", "wrong"],
+                         [f"{many} are {(vertebrate if backboned else invertebrate)[0]}", "right"]]})
+        facts.append(can_fact(f"spine_{key}", names, many, r"(?:have|has) (?:a )?(?:backbones?|spines?)",
+                              "have a backbone", backboned, f"{shown} have a backbone!",
+                              f"{shown} don't have a backbone. They're invertebrates!"))
+        if one not in EGGS_UNSURE:
+            lays = (one in LAY_EGGS_MAMMALS) if cls == "mammal" else one not in LIVE_BIRTH
+            extra = " They're one of the only mammals that do!" if one in LAY_EGGS_MAMMALS else ""
+            facts.append(can_fact(f"eggs_{key}", names, many, r"(?:lay|lays) eggs", "lay eggs", lays,
+                                  f"{shown} lay eggs!{extra}",
+                                  f"{shown} don't lay eggs. Their babies are born alive!"))
+        if backboned or cls in ("mollusk", "crustacean", "annelid", "cnidarian", "echinoderm", "arachnid", "insect"):
+            facts.append(can_fact(f"feathers_{key}", names, many, r"(?:have|has) feathers", "have feathers",
+                                  cls == "bird", f"{shown} have feathers!",
+                                  f"{shown} don't have feathers. Only birds have feathers!"))
+        if backboned and not (cls == "mammal" and one in NO_FUR_MAMMALS):
+            facts.append(can_fact(f"fur_{key}", names, many, r"(?:have|has) (?:fur|hair)", "have fur", cls == "mammal",
+                                  f"{shown} have fur!", f"{shown} don't have fur. Fur is something mammals have!"))
+        if (cls in ("reptile", "fish", "amphibian") or cls == "mammal" and one not in ("armadillo",)) \
+                and one not in SCALES_UNSURE:
+            has_scales = cls in ("reptile", "fish") or one == "pangolin"
+            facts.append(can_fact(f"scales_{key}", names, many, r"(?:have|has) scales", "have scales", has_scales,
+                                  f"{shown} have scales!" if one != "pangolin"
+                                  else "Pangolins have scales! They're the only mammals covered in them.",
+                                  f"{shown} don't have scales!"))
+        gills_verb = r"(?:breathe (?:with|through|using) gills|(?:have|has) gills)"
+        lungs_verb = r"(?:breathe (?:with|through|using) lungs|(?:have|has) lungs)"
+        air = cls in ("mammal", "bird", "reptile")
+        if (air or cls in ("fish", "insect", "arachnid", "crustacean") or one in GILLS_MOLLUSKS) \
+                and one not in GILLS_UNSURE:
+            has_gills = cls in ("fish", "crustacean") or one in GILLS_MOLLUSKS
+            how = " They breathe air with lungs!" if air else (
+                " They breathe through tiny holes in their bodies!" if cls == "insect" else " They breathe air!")
+            facts.append(can_fact(f"gills_{key}", names, many, gills_verb, "have gills", has_gills,
+                                  f"{shown} breathe with gills!", f"{shown} don't have gills.{how}"))
+        if (air or cls in ("fish", "insect", "crustacean")) and one not in LUNGS_UNSURE:
+            how = " They breathe with gills!" if cls in ("fish", "crustacean") else \
+                " They breathe through tiny holes in their bodies!"
+            facts.append(can_fact(f"lungs_{key}", names, many, lungs_verb, "have lungs", air,
+                                  f"{shown} breathe air with lungs!", f"{shown} don't have lungs.{how}"))
+    return facts
+
+
+# ----------------------------------------------------------------------------------------------
+# Other sciences: space, matter, forces, light and sound, plants, the body, Earth, dinosaurs
+# ----------------------------------------------------------------------------------------------
+
+def _is(fact_id, names, true, false, correct, articles="(?:the )?"):
+    """An "is" fact; the first name, true and false values make its examples"""
+    return {"id": fact_id, "type": "is", "subject": subject(*names, articles=articles), "true": true, "false": false,
+            "correct": correct,
+            "examples": [[f"{names[0]} is {false[0]}", "wrong"], [f"{names[0]} is {true[0]}", "right"]]}
+
+
+def _does(fact_id, names, verb, verb_text, value, correct, articles="(?:the )?", plural=False, past=None):
+    """
+    A "can" fact for "<subject> <verb>" ("the earth goes around the sun"); past is (the past
+    form, the base form after "didn't") for one about the past ("ate meat", "eat meat")
+    """
+    if past:
+        said, denied = past
+        return {"id": fact_id, "type": "can", "subject": subject(*names, articles=articles), "verb": verb,
+                "value": value, "correct": correct,
+                "examples": [[f"{names[0]} {f'didnt {denied}' if value else said}", "wrong"],
+                             [f"{names[0]} {said if value else f'didnt {denied}'}", "right"]]}
+    return {"id": fact_id, "type": "can", "subject": subject(*names, articles=articles), "verb": verb, "value": value,
+            "correct": correct,
+            "examples": [[f"{names[0]} {'dont' if plural else 'doesnt'} {verb_text}" if value
+                          else f"{names[0]} {verb_text_s(verb_text, plural)}", "wrong"],
+                         [f"{names[0]} {verb_text_s(verb_text, plural)}" if value
+                          else f"{names[0]} {'dont' if plural else 'doesnt'} {verb_text}", "right"]]}
+
+
+def verb_text_s(text: str, plural: bool) -> str:
+    """ "go around the sun" -> "goes around the sun" for one subject"""
+    if plural:
+        return text
+    first, _, rest = text.partition(" ")
+    first = {"go": "goes", "do": "does", "have": "has"}.get(first) or (
+        first + "es" if first.endswith(("s", "sh", "ch", "x")) else first + "s")
+    return f"{first} {rest}".strip()
+
+
+ORBIT = r"(?:go|goes|orbit|orbits|move|moves|travel|travels|spin|spins|circle|circles) around"
+GAS_GIANT = ["a gas giant", "gas giant", "a giant planet"]
+ICE_GIANT = ["an ice giant", "ice giant", "a gas giant", "gas giant", "a giant planet"]
+ROCKY = ["a rocky planet", "rocky", "rocky planet", "a terrestrial planet"]
+SOLID, LIQUID, GAS = ["a solid", "solid"], ["a liquid", "liquid"], ["a gas", "gas"]
+MATTER = [("ice", SOLID), ("water", LIQUID), ("steam", GAS), ("water vapor", GAS), ("air", GAS), ("oxygen", GAS),
+          ("helium", GAS), ("hydrogen", GAS), ("nitrogen", GAS), ("carbon dioxide", GAS), ("milk", LIQUID),
+          ("juice", LIQUID), ("oil", LIQUID), ("honey", LIQUID), ("lava", LIQUID), ("rock", SOLID), ("a rock", SOLID),
+          ("iron", SOLID), ("wood", SOLID), ("glass", SOLID), ("gold", SOLID), ("a brick", SOLID), ("sand", SOLID),
+          ("salt", SOLID), ("sugar", SOLID), ("a pencil", SOLID), ("a crayon", SOLID), ("a coin", SOLID),
+          ("orange juice", LIQUID), ("vinegar", LIQUID), ("soda", LIQUID), ("shampoo", LIQUID)]
+MAGNETIC = {"iron": True, "steel": True, "nickel": True, "cobalt": True, "paper clips": True, "nails": True,
+            "wood": False, "plastic": False, "paper": False, "glass": False, "rubber": False, "aluminum": False,
+            "aluminium": False, "copper": False, "gold": False, "silver": False, "water": False, "cloth": False}
+CONDUCTS = {"metal": True, "copper": True, "iron": True, "steel": True, "aluminum": True, "gold": True, "silver": True,
+            "rubber": False, "plastic": False, "wood": False, "glass": False, "paper": False, "cloth": False}
+DINOSAURS = [("t rex", ["tyrannosaurus rex", "tyrannosaurus", "a t rex", "the t rex"], "carnivore"),
+             ("stegosaurus", ["a stegosaurus", "the stegosaurus"], "herbivore"),
+             ("triceratops", ["a triceratops", "the triceratops"], "herbivore"),
+             ("brachiosaurus", ["a brachiosaurus", "the brachiosaurus"], "herbivore"),
+             ("velociraptor", ["a velociraptor", "the velociraptor", "velociraptors", "raptors"], "carnivore"),
+             ("ankylosaurus", ["an ankylosaurus", "the ankylosaurus"], "herbivore"),
+             ("diplodocus", ["a diplodocus", "the diplodocus"], "herbivore"),
+             ("spinosaurus", ["a spinosaurus", "the spinosaurus"], "carnivore"),
+             ("allosaurus", ["an allosaurus", "the allosaurus"], "carnivore"),
+             ("parasaurolophus", ["a parasaurolophus", "the parasaurolophus"], "herbivore"),
+             ("apatosaurus", ["an apatosaurus", "the apatosaurus", "brontosaurus", "a brontosaurus"], "herbivore"),
+             ("iguanodon", ["an iguanodon", "the iguanodon"], "herbivore")]
+EXTINCT_PLURAL = {"dinosaurs", "the dinosaurs", "dodos", "woolly mammoths", "mammoths", "saber tooth tigers",
+                  "sabertooth tigers"}
+EXTINCT = ["dinosaurs", "the dinosaurs", "dodos", "the dodo", "woolly mammoths", "mammoths", "the woolly mammoth",
+           "saber tooth tigers", "sabertooth tigers", "the saber tooth tiger"] + [d for d, *_ in DINOSAURS]
+
+
+def science(sets: dict) -> list:
+    facts = []
+    for name in PLANETS:
+        names = [name] + (["the earth"] if name == "earth" else [])
+        kind = GAS_GIANT if name in ("jupiter", "saturn") else ICE_GIANT if name in ("uranus", "neptune") else ROCKY
+        other = ROCKY if kind is not ROCKY else GAS_GIANT
+        shown = name.capitalize()
+        facts.append({"id": f"planet_kind_{name}", "type": "is", "subject": alt(*names), "true": kind,
+                      "false": [v for v in other if v not in kind],
+                      "correct": f"{shown} is a rocky planet, like Earth!" if kind is ROCKY else
+                      f"{shown} is a giant planet made mostly of gas!" if kind is GAS_GIANT else
+                      f"{shown} is an ice giant, a giant planet made of gas and ice!",
+                      "examples": [[f"{name} is {[v for v in other if v not in kind][0]}", "wrong"],
+                                   [f"{name} is {kind[0]}", "right"]]})
+        facts.append(_does(f"orbit_{name}", names, rf"{ORBIT} the sun", "go around the sun", True,
+                           f"{shown} goes around the sun, like all the planets!", articles=""))
+        if name in ("jupiter", "saturn", "uranus", "neptune"):
+            facts.append(_does(f"rings_{name}", names, r"(?:have|has) rings", "have rings", True,
+                               f"{shown} has rings! Saturn's are the easiest to see, but all four giant planets have them.",
+                               articles=""))
+    facts += [
+        _does("orbit_sun_earth", ["the sun", "sun"], rf"{ORBIT} the earth", "go around the earth", False,
+              "The sun doesn't go around the Earth. The Earth goes around the sun, once a year!", articles=""),
+        _does("orbit_moon", ["the moon", "moon"], rf"{ORBIT} (?:the )?earth", "go around the earth", True,
+              "The moon goes around the Earth, about once a month!", articles=""),
+        _does("orbit_earth_moon", ["the earth", "earth"], rf"{ORBIT} the moon", "go around the moon", False,
+              "The Earth doesn't go around the moon. The moon goes around the Earth!", articles=""),
+        _does("earth_spins", ["the earth", "earth"], r"(?:spin|spins|turn|turns|rotate|rotates)", "spin", True,
+              "The Earth spins around once every day. That's why we have day and night!", articles=""),
+        _does("light_sun", ["the sun", "sun"], r"(?:make|makes) (?:its own )?light|(?:glow|glows|shine|shines) by itself",
+              "make its own light", True, "The sun makes its own light. It's a star!", articles=""),
+        _does("light_stars", ["stars", "a star"], r"(?:make|makes) (?:their|its) own light", "make their own light",
+              True, "Stars make their own light!", articles="", plural=True),
+        _does("light_moon", ["the moon", "moon"], r"(?:make|makes) (?:its own )?light|(?:glow|glows|shine|shines) by itself",
+              "make its own light", False,
+              "The moon doesn't make its own light. It shines because sunlight bounces off it!", articles=""),
+        _does("sunrise_east", ["the sun", "sun"], r"(?:rise|rises|comes up|come up) in the east", "rise in the east",
+              True, "The sun rises in the east and sets in the west!", articles=""),
+        _does("sunrise_west", ["the sun", "sun"], r"(?:rise|rises|comes up|come up) in the west", "rise in the west",
+              False, "The sun rises in the east, not the west!", articles=""),
+        _does("sunset_west", ["the sun", "sun"], r"(?:set|sets|goes down|go down) in the west", "set in the west",
+              True, "The sun sets in the west!", articles=""),
+        _does("sunset_east", ["the sun", "sun"], r"(?:set|sets|goes down|go down) in the east", "set in the east",
+              False, "The sun sets in the west, not the east!", articles=""),
+        _does("breathe_space", ["people", "humans", "astronauts"], r"breathe in (?:outer )?space", "breathe in space",
+              False, "People can't breathe in space, because there's no air. Astronauts wear space suits with air inside!",
+              articles="", plural=True),
+        _does("sound_space", ["sound"], r"(?:travel|travels|go|goes|move|moves) (?:in|through) (?:outer )?space",
+              "travel in space", False, "Sound can't travel in space, because there's no air to carry it!",
+              articles=""),
+        _does("light_space", ["light"], r"(?:travel|travels|go|goes|move|moves) (?:in|through) (?:outer )?space",
+              "travel through space", True, "Light can travel through space. That's how sunlight gets to us!",
+              articles=""),
+        _does("light_faster", ["light"], r"(?:is|travel|travels|go|goes|move|moves) faster than sound", "travel faster than sound",
+              True, "Light is much faster than sound. That's why you see lightning before you hear thunder!",
+              articles=""),
+        _does("sound_faster", ["sound"], r"(?:is|travel|travels|go|goes|move|moves) faster than light", "travel faster than light",
+              False, "Sound is much slower than light. That's why you see lightning before you hear thunder!",
+              articles=""),
+        _is("moon_rock", ["the moon"], ["a moon", "rock", "made of rock", "rocky"], ["a planet", "a star"],
+            "The moon is a big ball of rock that goes around Earth!"),
+        _is("sun_gas", ["the sun"], ["a star", "a ball of gas", "made of gas", "hot gas"], ["a planet", "made of fire"],
+            "The sun is a star, a giant ball of hot gas!"),
+    ]
+    for thing, state in MATTER:
+        others = [v for v in SOLID + LIQUID + GAS if v not in state]
+        facts.append({"id": f"matter_{slug(thing)}", "type": "is", "subject": subject(thing, articles=""),
+                      "true": state, "false": others,
+                      "correct": f"{thing[:1].upper() + thing[1:]} is {state[0]}!",
+                      "examples": [[f"{thing} is {others[0]}", "wrong"], [f"{thing} is {state[0]}", "right"]]})
+    for material, value in MAGNETIC.items():
+        facts.append(_does(f"magnet_{slug(material)}", ["magnets", "a magnet"],
+                           rf"(?:attract|attracts|pick up|picks up|stick to|sticks to|pull|pulls) {re.escape(material)}",
+                           f"attract {material}", value,
+                           f"Magnets attract {material}!" if value else
+                           f"Magnets don't attract {material}. They attract metals like iron and steel!",
+                           articles="", plural=True))
+    for material, value in CONDUCTS.items():
+        facts.append(_does(f"conducts_{slug(material)}", [material], r"(?:conduct|conducts|carry|carries) electricity",
+                           "conduct electricity", value,
+                           f"{material.capitalize()} conducts electricity!" if value else
+                           f"{material.capitalize()} doesn't conduct electricity. That's why it's used to keep "
+                           f"people safe from it!", articles=""))
+    facts += [
+        _does("plants_sunlight", ["plants", "trees", "flowers"], r"(?:need|needs) (?:sunlight|light|the sun|sun)",
+              "need sunlight", True, "Plants need sunlight to make their food!", articles="", plural=True),
+        _does("plants_water", ["plants", "trees", "flowers"], r"(?:need|needs) water", "need water", True,
+              "Plants need water to grow!", articles="", plural=True),
+        _does("plants_food", ["plants", "trees"], r"(?:make|makes) (?:their|its) own food", "make their own food",
+              True, "Plants make their own food from sunlight, water and air!", articles="", plural=True),
+        _does("plants_oxygen", ["plants", "trees"], r"(?:make|makes|give off|gives off|release|releases) oxygen",
+              "make oxygen", True, "Plants make oxygen, the air we need to breathe!", articles="", plural=True),
+        _does("roots_water", ["roots"], r"(?:take|takes|soak|soaks|suck|sucks) up water", "take up water", True,
+              "Roots take up water from the soil!", articles="", plural=True),
+        _is("mushroom_fungus", ["mushrooms", "a mushroom"], ["fungi", "a fungus", "fungus", "funguses"],
+            ["plants", "a plant", "vegetables", "a vegetable", "animals"],
+            "Mushrooms aren't plants. They're fungi, and they can't make their own food from sunlight!",
+            articles="(?:all )?"),
+        _is("tree_plant", ["trees", "a tree"], ["plants", "a plant"], ["animals", "an animal"], "Trees are plants!",
+            articles="(?:all )?"),
+        _is("grass_plant", ["grass"], ["a plant", "plants"], ["an animal"], "Grass is a plant!", articles=""),
+        _is("cactus_plant", ["cactuses", "cacti", "a cactus"], ["plants", "a plant"], ["animals", "an animal"],
+            "Cactuses are plants that store water inside them!", articles=""),
+        _is("coral_animal", ["coral", "corals"], ["animals", "an animal", "a cnidarian"],
+            ["a plant", "plants", "a rock", "rocks"],
+            "Coral is made of tiny animals! They build hard skeletons that become reefs.", articles=""),
+        _is("sponge_animal", ["sea sponges", "a sea sponge"], ["animals", "an animal"], ["plants", "a plant"],
+            "Sea sponges are animals, even though they don't move around!", articles=""),
+        _is("blood_red", ["blood"], ["red"], ["blue", "green"],
+            "Blood is always red! Veins can look blue through your skin, but the blood inside is red.", articles=""),
+        _is("heart_muscle", ["the heart", "a heart"], ["a muscle", "muscle"], ["a bone", "a brain"],
+            "The heart is a muscle that pumps blood around the body!", articles=""),
+        _is("skin_organ", ["skin", "the skin"], ["an organ", "the biggest organ"], ["a bone", "a muscle"],
+            "Skin is an organ, the biggest one in the body!", articles=""),
+        _is("teeth_bones", ["teeth"], ["not bones"], ["bones", "a bone"],
+            "Teeth aren't bones! They're even harder than bones, and they're covered in enamel.", articles=""),
+        _does("heart_pumps", ["the heart", "a heart"], r"(?:pump|pumps|push|pushes) blood", "pump blood", True,
+              "The heart pumps blood all around the body!", articles=""),
+        _does("brain_controls", ["the brain", "a brain"], r"(?:control|controls) (?:the|your) body", "control the body",
+              True, "The brain controls the body. It's like the body's boss!", articles=""),
+        _does("stomach_digests", ["the stomach", "a stomach"], r"(?:digest|digests|break down|breaks down) food",
+              "digest food", True, "The stomach helps break down food so the body can use it!", articles=""),
+        _does("lungs_breathe", ["the lungs", "lungs"], r"(?:help|helps) (?:you|us|people) breathe", "help us breathe",
+              True, "The lungs help you breathe in air!", articles="", plural=True),
+        _is("earth_core_hot", ["the earths core", "the core of the earth", "the center of the earth"],
+            ["hot", "very hot", "super hot"], ["cold", "freezing"],
+            "The center of the Earth is super hot, about as hot as the surface of the sun!", articles=""),
+        _is("ocean_salty", ["the ocean", "oceans", "the sea", "sea water", "seawater", "ocean water"],
+            ["salty", "salt water", "saltwater"], ["fresh water", "freshwater", "not salty"],
+            "Ocean water is salty! Rivers and most lakes have fresh water.", articles=""),
+        _is("sahara_desert", ["the sahara", "sahara", "the sahara desert"], ["a desert", "desert"],
+            ["a jungle", "a forest", "an ocean", "a country"], "The Sahara is a huge desert in Africa!", articles=""),
+        _is("antarctica_cold", ["antarctica"], ["cold", "very cold", "freezing", "the coldest continent"],
+            ["hot", "warm", "the hottest continent"], "Antarctica is the coldest place on Earth!", articles=""),
+        _is("north_pole_cold", ["the north pole"], ["cold", "very cold", "freezing"], ["hot", "warm"],
+            "The North Pole is very cold, and covered in sea ice!", articles=""),
+        _does("rain_clouds", ["rain"], r"(?:come|comes|falls?) (?:from|out of) (?:the )?clouds", "come from clouds", True,
+              "Rain comes from clouds! Tiny drops of water join together until they're heavy enough to fall.",
+              articles=""),
+        _does("volcano_lava", ["volcanoes", "volcanos", "a volcano"], r"(?:erupt|erupts|shoot|shoots|spew|spews) lava",
+              "erupt lava", True, "Volcanoes erupt hot melted rock called lava!", articles="", plural=True),
+        _does("ice_floats", ["ice"], r"(?:float|floats)(?: on water| in water)?", "float", True,
+              "Ice floats on water! It's lighter than the same amount of liquid water.", articles=""),
+        _does("wood_floats", ["wood"], r"(?:float|floats)(?: on water| in water)?", "float", True,
+              "Most wood floats on water!", articles=""),
+        _does("oil_floats", ["oil"], r"(?:float|floats) on water", "float on water", True,
+              "Oil floats on water, because it's lighter!", articles=""),
+        _does("water_freezes", ["water"], r"(?:freeze|freezes|turn|turns) (?:into|to) ice(?: when its cold)?",
+              "freeze into ice", True, "Water freezes into ice at 0 degrees Celsius, which is 32 degrees Fahrenheit!",
+              articles=""),
+        _does("ice_melts", ["ice"], r"(?:melt|melts|turn|turns) (?:into|to) water", "melt into water", True,
+              "Ice melts into water when it gets warm!", articles=""),
+        _does("water_steam", ["water"], r"(?:turn|turns) (?:into|to) steam when (?:it boils|you boil it)",
+              "turn into steam when it boils", True, "Boiling water turns into steam!", articles=""),
+        _does("gravity_down", ["gravity"], r"(?:pull|pulls) (?:things|stuff|us|everything) down",
+              "pull things down", True, "Gravity pulls things down toward the Earth!", articles=""),
+        _does("dinosaurs_people", ["dinosaurs"],
+              r"(?:lived|live) (?:with|at the same time as|when there were) (?:people|humans)",
+              "lived with people", False,
+              "Dinosaurs died out about 66 million years before the first people lived!", articles="",
+              past=("lived with people", "live with people")),
+        _is("pterodactyl_reptile", ["pterodactyls", "a pterodactyl", "pterosaurs"],
+            ["flying reptiles", "a flying reptile", "pterosaurs", "reptiles", "a reptile"],
+            ["dinosaurs", "a dinosaur", "birds", "a bird"],
+            "Pterodactyls weren't dinosaurs or birds. They were flying reptiles called pterosaurs!", articles=""),
+    ]
+    sets["extinct"] = ["extinct", "alive", "still alive", "living"]
+    for name in EXTINCT:
+        plural_name = name in EXTINCT_PLURAL
+        facts.append({"id": f"extinct_{slug(name)}", "type": "is", "subject": subject(name, articles=""),
+                      "true": ["extinct"], "false": ["alive", "still alive", "not extinct", "living"],
+                      "correct": f"{'T. rex' if name == 't rex' else title(name)} {'are' if plural_name else 'is'} extinct. "
+                                 f"{'They' if plural_name else 'It'} died out long ago!",
+                      "examples": [[f"{name} {'are' if plural_name else 'is'} still alive", "wrong"],
+                                   [f"{name} {'are' if plural_name else 'is'} extinct", "right"]]})
+    for name, others, diet in DINOSAURS:
+        forms, eats = DIETS[diet]
+        facts.append({"id": f"dino_diet_{slug(name)}", "type": "is", "subject": subject(name, *others, articles=""),
+                      "true": forms, "false_from": ["diets"],
+                      "correct": f"{'T. rex' if name == 't rex' else name.capitalize()} was {forms[1]}. "
+                                 f"{eats.replace('They eat', 'It ate')}",
+                      "examples": [[f"{name} is {_other(sets['diets'], forms)}", "wrong"], [f"{name} is {forms[1]}", "right"]]})
+        ate = "meat" if diet == "carnivore" else "plants"
+        facts.append(_does(f"dino_ate_{slug(name)}", [name] + others, rf"(?:ate|eats|eat) {ate}", f"ate {ate}", True,
+                           f"{'T. rex' if name == 't rex' else name.capitalize()} ate {ate}!", articles="",
+                           past=(f"ate {ate}", f"eat {ate}")))
+        wrong = "plants" if ate == "meat" else "meat"
+        facts.append(_does(f"dino_not_ate_{slug(name)}", [name] + others, rf"(?:ate|eats|eat) {wrong}",
+                           f"ate {wrong}", False,
+                           f"{'T. rex' if name == 't rex' else name.capitalize()} ate {ate}, not {wrong}!",
+                           articles="", past=(f"ate {wrong}", f"eat {wrong}")))
     return facts
 
 
@@ -875,7 +1325,7 @@ def counts(sets: dict) -> list:
 # Numbers: even, odd, prime
 # ----------------------------------------------------------------------------------------------
 
-NUMBERS_UP_TO = 1000
+NUMBERS_UP_TO = 20  # the numbers children state facts about
 ODD = ["odd", "an odd number", "odd number"]
 EVEN = ["even", "an even number", "even number"]
 PRIME = ["prime", "a prime number", "a prime", "prime number"]
@@ -937,7 +1387,8 @@ def generate(data: dict):
     problems are (fact id, example, problem) for examples not answered as listed
     """
     sets: dict = {}
-    generated = places(sets) + animals(sets) + space(sets) + counts(sets) + numbers(data)
+    generated = (animals(sets) + biology(sets) + science(sets) + space(sets) + counts(sets) + places(sets)
+                 + numbers(data))
     ids = [f["id"] for f in data["facts"] + generated]
     duplicates = sorted({i for i in ids if ids.count(i) > 1})
     if duplicates:
