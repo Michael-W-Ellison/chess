@@ -727,6 +727,10 @@ def _resplit(doc) -> str:
     return text
 
 
+# Most stretched letter runs in a word whose spellings are all tried ("soooo cooool")
+_MAX_STRETCHED_RUNS = 4
+
+
 def _repaired(doc):
     """
     repair_parse, noting in doc.user_data["repaired"] which tokens the repairs changed (tag,
@@ -883,9 +887,10 @@ class UtteranceParser:
         def fix(match):
             word = match.group(0)
             options = {re.sub(r"(\w)\1{2,}", r"\1" * n, word) for n in (1, 2)}
-            # several stretched letters: try each run at one or two
+            # several stretched letters: try each run at one or two (2^runs spellings, so only
+            # for a few runs; "aaabbbaaabbb..." keeps the two spellings above)
             runs = list(re.finditer(r"(\w)\1{2,}", word))
-            if len(runs) > 1:
+            if 1 < len(runs) <= _MAX_STRETCHED_RUNS:
                 options = set()
                 for counts in range(2 ** len(runs)):
                     out, last = [], 0

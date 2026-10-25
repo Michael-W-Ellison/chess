@@ -494,7 +494,8 @@ class MemoryManager:
             try:
                 extractions = json.loads(response_clean)
             except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse LLM extraction response: {response_clean}")
+                # Not the response itself: it holds the child's words
+                logger.error(f"Failed to parse LLM extraction response ({len(response_clean)} characters)")
                 logger.error(f"JSON error: {e}")
                 # Fallback to rule-based extraction
                 return self._fallback_extraction(message)
@@ -679,16 +680,19 @@ class MemoryManager:
 
         formatted = []
         for memory in memories:
+            # A memory is the child's words: one line each, so it can't add lines to the prompt
+            memory_value = " ".join(str(memory.value or "").split())
+            memory_key = " ".join(str(memory.key or "").split())
             if memory.category == "favorite":
-                formatted.append(f"- Likes {memory.key.replace('favorite_', '')}: {memory.value}")
+                formatted.append(f"- Likes {memory_key.replace('favorite_', '')}: {memory_value}")
             elif memory.category == "person":
-                formatted.append(f"- Friend/person: {memory.value}")
+                formatted.append(f"- Friend/person: {memory_value}")
             elif memory.category == "goal":
-                formatted.append(f"- Goal: {memory.value}")
+                formatted.append(f"- Goal: {memory_value}")
             elif memory.category == "achievement":
-                formatted.append(f"- Achievement: {memory.value}")
+                formatted.append(f"- Achievement: {memory_value}")
             else:
-                formatted.append(f"- {memory.key}: {memory.value}")
+                formatted.append(f"- {memory_key}: {memory_value}")
 
         return "\n".join(formatted)
 

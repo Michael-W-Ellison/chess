@@ -89,7 +89,7 @@ class EmailService:
         # Check if email notifications are enabled
         if not self.enabled:
             logger.info(
-                f"Email notifications disabled - Would send to {to_email}: {subject}"
+                f"Email notifications disabled - would send: {subject}"
             )
             return {
                 "success": False,
@@ -143,7 +143,7 @@ class EmailService:
 
                 # Send email
                 server.send_message(message)
-                logger.info(f"Email sent successfully to {to_email}")
+                logger.info("Email sent successfully")
 
             return {
                 "success": True,

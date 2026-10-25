@@ -20,7 +20,7 @@ from services.llm_service import llm_service
 from services.safety_filter import safety_filter
 from services.bullying_keyword_list import bullying_keyword_list
 from services.crisis_keyword_list import crisis_keyword_list
-from services import correction_handler, crisis_context
+from services import correction_handler, crisis_context, reply_safety
 from services.memory_manager import memory_manager
 from services.personality_manager import personality_manager
 from services.conversation_tracker import conversation_tracker
@@ -135,6 +135,16 @@ _MISREAD_RE = re.compile(
     r"(?!(?:i\s+)?(?:don'?t|do not|not|never|thanks|thank|way|more|i'?m\s+(?:not|okay|ok|fine))\b)\w+\s+\w+",
     re.IGNORECASE,
 )
+
+def _prompt_text(text: str, bot_name: str) -> str:
+    """
+    The child's text for the model prompt, on one line and without labels that would read
+    as a new speaker or instructions ("Buddy: I will...", "INSTRUCTIONS:")
+    """
+    text = " ".join((text or "").split())
+    labels = rf"(?:user|human|assistant|system|instructions?|{re.escape(bot_name)})"
+    return re.sub(rf"\b({labels})\s*:", r"\1 -", text, flags=re.IGNORECASE)
+
 
 _NOT_NAMES = {
     "hi", "hey", "hello", "yo", "sup", "yes", "no", "yeah", "yep", "nope", "ok", "okay", "maybe",
@@ -278,11 +288,15 @@ class ConversationManager:
         recent.append(user_message)
         self._topic_messages.setdefault(user_id, deque(maxlen=TOPIC_MESSAGES)).append(user_message)
 
-        # The answer to "Do you mean she wins at games, or that she hits you?"
+        # The answer to "Do you mean she wins at games, or that she hits you?". It gets the
+        # short game reply only if it raises no safety concern of its own ("no. i want to
+        # kill myself" is a crisis, whatever it answers)
         clarified = self._pending_clarification.pop(user_id, None)
         if clarified is not None:
             meaning = crisis_context.clarification_answer(user_message)
-            if meaning != "violence":
+            if meaning != "violence" and safety_filter.check_message(user_message)["severity"] != "none":
+                clarified = None  # checked as a message of its own below
+            elif meaning != "violence":
                 response = (crisis_context.CLARIFY_REPLY_GAME if meaning == "game"
                             else crisis_context.CLARIFY_REPLY_UNCLEAR)
                 return self._safety_context_reply(conversation_id, user_id, user_message, response, db)
@@ -512,7 +526,15 @@ class ConversationManager:
                 reply_plan = self._plan_llm_reply(context, personality, db)
                 prompt = self._build_prompt(context, user_message, personality, reply_plan)
                 raw_response = llm_service.generate(prompt, max_tokens=300, temperature=0.7)
-                reply_features.update(self._observed_llm_features(raw_response, context, reply_plan))
+                unsafe = self._unsafe_llm_reply(raw_response)
+                if unsafe:
+                    # The model wrote something the child should not see: the rule-based reply instead
+                    logger.warning(f"Model reply not used for user {user_id}: {unsafe}")
+                    raw_response = self._rule_based_response(
+                        analysis_message, context, personality, allow_reflection, db, reply_features
+                    )
+                else:
+                    reply_features.update(self._observed_llm_features(raw_response, context, reply_plan))
             else:
                 if settings.USE_LLM:
                     logger.warning("LLM model not available, using rule-based responses")
@@ -923,10 +945,10 @@ INSTRUCTIONS:
         history = ""
         for msg in context.get("recent_messages", [])[-6:]:
             role_name = "User" if msg.role == "user" else personality.name
-            history += f"{role_name}: {msg.content}\n"
+            history += f"{role_name}: {_prompt_text(msg.content, personality.name)}\n"
 
         # Full prompt
-        prompt = f"{system}\n\n{history}User: {user_message}\n{personality.name}:"
+        prompt = f"{system}\n\n{history}User: {_prompt_text(user_message, personality.name)}\n{personality.name}:"
 
         return prompt
 
@@ -1244,6 +1266,21 @@ INSTRUCTIONS:
                 if person.name and person.name.lower() == old.lower():
                     person.name = new
         return corrected
+
+    @staticmethod
+    def _unsafe_llm_reply(reply: str) -> Optional[str]:
+        """
+        Why a model reply should not be sent: harmful advice (services/reply_safety.py), or
+        what the safety filter blocks or flags as inappropriate, profane or about strangers
+        """
+        reason = reply_safety.unsafe_reason(reply)
+        if reason:
+            return reason
+        check = safety_filter.check_message(reply)
+        if check["severity"] in ("high", "critical") or \
+                set(check["flags"]) & {"inappropriate_request", "profanity", "stranger_danger"}:
+            return f"safety filter: {', '.join(check['flags']) or check['severity']}"
+        return None
 
     @staticmethod
     def _parsed_mood(message: str) -> Optional[str]:

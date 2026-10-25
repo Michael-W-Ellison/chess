@@ -113,11 +113,13 @@ def classify(message: str, matched: Iterable[str], recent_messages: Iterable[str
     if matched <= WIN_PHRASES and not re.search(r"\bbeat(s|ing)? me up\b", text):
         if re.search(r"\bbeat(s|ing)? me (at|in)\b", text):
             return "game"
+        # A grown-up who beats the child is not read as a game, even after game talk ("my dad
+        # beats me when he gets mad that i play video games")
+        if _GROWN_UPS.search(text):
+            return "crisis"
         context_words = _words(" ".join([message, *recent_messages]))
         if context_words & _GAME_WORDS:
             return "game"
-        if _GROWN_UPS.search(text):
-            return "crisis"
         if _PLAYMATES.search(message):
             return "clarify"
         return "crisis"

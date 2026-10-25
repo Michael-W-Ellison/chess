@@ -6,6 +6,7 @@ Generates periodic safety and activity reports for parents
 import logging
 from typing import Dict
 from datetime import datetime, timedelta
+from html import escape as html_escape
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -393,7 +394,7 @@ class WeeklyReportService:
             )
 
             if email_result.get("sent"):
-                logger.info(f"{period.title()} report sent to {parent_email} for user {user_id}")
+                logger.info(f"{period.title()} report sent to the parent of user {user_id}")
                 return {
                     "success": True,
                     "sent": True,
@@ -576,8 +577,12 @@ class WeeklyReportService:
         Returns:
             HTML report string
         """
-        user_name = report_data["user_name"]
-        period = report_data["period"]
+        # Names, summaries, topics and the child's flagged words are text, not HTML
+        def e(value) -> str:
+            return html_escape(str(value))
+
+        user_name = e(report_data["user_name"])
+        period = e(report_data["period"])
         safety = report_data["safety"]
         conversations = report_data["conversations"]
         engagement = report_data["engagement"]
@@ -600,13 +605,13 @@ class WeeklyReportService:
         safety_flags_html = ""
         if safety['total_flags'] > 0:
             severity_rows = "".join([
-                f"<tr><td style='padding: 8px; border-bottom: 1px solid #e5e7eb;'>{s.title()}</td>"
+                f"<tr><td style='padding: 8px; border-bottom: 1px solid #e5e7eb;'>{e(s.title())}</td>"
                 f"<td style='padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;'>{count}</td></tr>"
                 for s, count in safety['by_severity'].items() if count > 0
             ])
 
             type_rows = "".join([
-                f"<tr><td style='padding: 8px; border-bottom: 1px solid #e5e7eb;'>{t.replace('_', ' ').title()}</td>"
+                f"<tr><td style='padding: 8px; border-bottom: 1px solid #e5e7eb;'>{e(t.replace('_', ' ').title())}</td>"
                 f"<td style='padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;'>{count}</td></tr>"
                 for t, count in safety['by_type'].items()
             ])
@@ -631,10 +636,10 @@ class WeeklyReportService:
                     timestamp_formatted = flag['timestamp'][:16] if flag['timestamp'] else 'Unknown'
                     snippet_html = ''
                     if prefs.include_content_snippets and flag['content_snippet']:
-                        snippet_html = f"<div style='margin-top: 8px; color: #374151; font-size: 14px;'>\"{flag['content_snippet']}\"</div>"
+                        snippet_html = f"<div style='margin-top: 8px; color: #374151; font-size: 14px;'>\"{e(flag['content_snippet'])}\"</div>"
 
                     flags_list.append(f"""<div style='background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 12px; margin-bottom: 10px;'>
-                        <div style='font-weight: 600; color: #991b1b;'>{flag['severity'].upper()}: {flag_type_formatted}</div>
+                        <div style='font-weight: 600; color: #991b1b;'>{e(flag['severity'].upper())}: {e(flag_type_formatted)}</div>
                         <div style='font-size: 12px; color: #6b7280; margin-top: 4px;'>{timestamp_formatted}</div>
                         {snippet_html}
                     </div>""")
@@ -663,9 +668,9 @@ class WeeklyReportService:
                         <div style='font-weight: 600; color: #111827;'>Session {i}</div>
                         <div style='font-size: 12px; color: #6b7280;'>{summary['start_time'][:10] if summary['start_time'] else 'Unknown'} • {summary['message_count']} messages</div>
                     </div>
-                    <div style='color: #374151; margin-bottom: 8px;'>{summary['summary']}</div>
-                    {f"<div style='font-size: 12px; color: #6b7280;'>Topics: {', '.join(summary['topics'])}</div>" if summary['topics'] else ''}
-                    {f"<div style='font-size: 12px; color: #6b7280; margin-top: 4px;'>Mood: {summary['mood'].title()}</div>" if summary.get('mood') else ''}
+                    <div style='color: #374151; margin-bottom: 8px;'>{e(summary['summary'])}</div>
+                    {f"<div style='font-size: 12px; color: #6b7280;'>Topics: {e(', '.join(summary['topics']))}</div>" if summary['topics'] else ''}
+                    {f"<div style='font-size: 12px; color: #6b7280; margin-top: 4px;'>Mood: {e(summary['mood'].title())}</div>" if summary.get('mood') else ''}
                 </div>"""
                 for i, summary in enumerate(conversations['summaries'], 1)
             ])
@@ -720,8 +725,8 @@ class WeeklyReportService:
             </div>
 
             <!-- Mood & Topics -->
-            {f"<div style='margin-bottom: 20px;'><strong>Primary Mood:</strong> {conversations['primary_mood'].title()}</div>" if conversations['primary_mood'] else ''}
-            {f"<div style='margin-bottom: 30px;'><strong>Topics Discussed:</strong> {', '.join(conversations['topics'])}</div>" if conversations['topics'] else ''}
+            {f"<div style='margin-bottom: 20px;'><strong>Primary Mood:</strong> {e(conversations['primary_mood'].title())}</div>" if conversations['primary_mood'] else ''}
+            {f"<div style='margin-bottom: 30px;'><strong>Topics Discussed:</strong> {e(', '.join(conversations['topics']))}</div>" if conversations['topics'] else ''}
 
             <!-- Safety Flags -->
             <h2 style='color: #111827; margin-top: 30px;'>Safety Summary</h2>

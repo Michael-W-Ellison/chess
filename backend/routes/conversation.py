@@ -5,7 +5,7 @@ Endpoints for chat conversation management
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import logging
 
 from database.database import get_db
@@ -26,10 +26,15 @@ class StartConversationResponse(BaseModel):
     personality: dict
 
 
+# Longest message accepted (the chat input allows 500 characters): longer text would take
+# the parser, the database and the model a long time
+MAX_MESSAGE_LENGTH = 1000
+
+
 class SendMessageRequest(BaseModel):
     """Request to send a message"""
 
-    content: str
+    content: str = Field(..., max_length=MAX_MESSAGE_LENGTH)
     conversation_id: int
     user_id: int = 1  # Default user ID (single-user desktop app)
 
@@ -92,6 +97,13 @@ async def send_message(request: SendMessageRequest, db: Session = Depends(get_db
         Bot's response message
     """
     try:
+        # The message goes into a conversation of the same child
+        from models.conversation import Conversation
+
+        conversation = db.query(Conversation).filter(Conversation.id == request.conversation_id).first()
+        if conversation is None or conversation.user_id != request.user_id:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
         result = conversation_manager.process_message(
             user_message=request.content,
             conversation_id=request.conversation_id,
