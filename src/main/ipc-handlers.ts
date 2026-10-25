@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, IpcMainInvokeEvent } from 'electro
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { backendManager } from './backend-manager';
+import { isAppUrl } from './security';
 import { store, defaults as storeDefaults, getAllStoreData, getStorePath, StoreSchema } from './store';
 
 const IPC_CHANNELS = [
@@ -15,6 +16,7 @@ const IPC_CHANNELS = [
   'get-parent-dashboard',
   'update-settings',
   'export-memory-book',
+  'get-api-token',
   'store-get',
   'store-set',
   'store-delete',
@@ -54,34 +56,48 @@ function backendErrorMessage(error: unknown): string {
 export function setupIpcHandlers(): void {
   console.log('Setting up IPC handlers...');
 
+  // Only the app's own page may call the handlers, not a page the window was sent to
+  const handle = (channel: string, handler: (event: IpcMainInvokeEvent, ...args: any[]) => Promise<any>) => {
+    ipcMain.handle(channel, (event: IpcMainInvokeEvent, ...args: any[]) => {
+      if (!isAppUrl(event.senderFrame?.url)) {
+        console.warn(`Refused IPC call on ${channel} from ${event.senderFrame?.url}`);
+        return { success: false, error: 'Not allowed' };
+      }
+      return handler(event, ...args);
+    });
+  };
+
   // Backend Status
-  ipcMain.handle('backend-status', handleBackendStatus);
-  ipcMain.handle('backend-health', handleBackendHealth);
+  handle('backend-status', handleBackendStatus);
+  handle('backend-health', handleBackendHealth);
 
   // Conversation Management
-  ipcMain.handle('start-conversation', handleStartConversation);
-  ipcMain.handle('send-message', handleSendMessage);
-  ipcMain.handle('end-conversation', handleEndConversation);
+  handle('start-conversation', handleStartConversation);
+  handle('send-message', handleSendMessage);
+  handle('end-conversation', handleEndConversation);
 
   // Data Retrieval
-  ipcMain.handle('get-personality', handleGetPersonality);
-  ipcMain.handle('get-profile', handleGetProfile);
-  ipcMain.handle('get-parent-dashboard', handleGetParentDashboard);
+  handle('get-personality', handleGetPersonality);
+  handle('get-profile', handleGetProfile);
+  handle('get-parent-dashboard', handleGetParentDashboard);
 
   // Settings
-  ipcMain.handle('update-settings', handleUpdateSettings);
+  handle('update-settings', handleUpdateSettings);
 
   // Export
-  ipcMain.handle('export-memory-book', handleExportMemoryBook);
+  handle('export-memory-book', handleExportMemoryBook);
+
+  // The token the backend requires on /api requests (apiToken.ts in the renderer)
+  handle('get-api-token', async () => ({ success: true, data: backendManager.apiToken }));
 
   // Electron Store
-  ipcMain.handle('store-get', handleStoreGet);
-  ipcMain.handle('store-set', handleStoreSet);
-  ipcMain.handle('store-delete', handleStoreDelete);
-  ipcMain.handle('store-clear', handleStoreClear);
-  ipcMain.handle('store-has', handleStoreHas);
-  ipcMain.handle('store-get-all', handleStoreGetAll);
-  ipcMain.handle('store-get-path', handleStoreGetPath);
+  handle('store-get', handleStoreGet);
+  handle('store-set', handleStoreSet);
+  handle('store-delete', handleStoreDelete);
+  handle('store-clear', handleStoreClear);
+  handle('store-has', handleStoreHas);
+  handle('store-get-all', handleStoreGetAll);
+  handle('store-get-path', handleStoreGetPath);
 
   console.log('IPC handlers ready');
 }

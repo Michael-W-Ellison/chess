@@ -8,7 +8,12 @@ import { LoginProvider } from './contexts/LoginContext';
 import { StreakProvider } from './contexts/StreakContext';
 import { MemoryProvider } from './contexts/MemoryContext';
 import { ChatProvider } from './contexts/ChatContext';
+import { loadApiToken } from './services/apiToken';
 import './styles/index.css';
+
+// Ask the main process for the backend's API token now, so even a request sent while the
+// window closes has it
+loadApiToken();
 
 // Load IPC integration tests in development mode
 if (import.meta.env.DEV) {

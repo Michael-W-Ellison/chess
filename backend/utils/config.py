@@ -14,7 +14,16 @@ class Settings(BaseSettings):
     # Server Configuration
     HOST: str = "127.0.0.1"
     PORT: int = 8000
-    DEBUG: bool = True
+    # True: API docs at /docs and error details in responses. Off unless set, since the
+    # details can include paths and database errors
+    DEBUG: bool = False
+    # Host names the server answers to; a request for any other name (a web page that pointed
+    # its own domain at 127.0.0.1) is refused
+    ALLOWED_HOSTS: list = ["127.0.0.1", "localhost"]
+    # Set by the Electron app for each launch (src/main/backend-manager.ts): every /api request
+    # must then send it in the X-API-Token header, so web pages and other programs can't use
+    # the API. Unset (tests, a backend started by hand): no token needed
+    API_TOKEN: Optional[str] = None
 
     # Database Configuration
     DATABASE_URL: str = "sqlite:///./data/chatbot.db"

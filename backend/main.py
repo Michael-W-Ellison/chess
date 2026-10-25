@@ -4,9 +4,12 @@ Tamagotchi Chatbot Backend - Main Application
 FastAPI application for local chatbot with personality and memory.
 """
 
+import hmac
+
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 
@@ -130,6 +133,19 @@ app = FastAPI(
     redoc_url="/redoc" if settings.DEBUG else None,
     lifespan=lifespan,
 )
+
+# The API token from the Electron app (settings.API_TOKEN), checked on every /api request.
+# Added before CORS, so CORS stays the outer middleware and answers preflight requests.
+@app.middleware("http")
+async def require_api_token(request: Request, call_next):
+    if (settings.API_TOKEN and request.url.path.startswith("/api") and request.method != "OPTIONS"
+            and not hmac.compare_digest(request.headers.get("X-API-Token", ""), settings.API_TOKEN)):
+        return JSONResponse(status_code=401, content={"success": False, "error": "Missing or wrong API token"})
+    return await call_next(request)
+
+
+# Only requests for this machine's own host names (not a web page's domain pointed at 127.0.0.1)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.ALLOWED_HOSTS)
 
 # CORS Middleware - allow Electron frontend to communicate
 app.add_middleware(

@@ -76,7 +76,7 @@ async def start_conversation(user_id: int = 1, db: Session = Depends(get_db)):
 
     except Exception as e:
         logger.error(f"Error starting conversation: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/message", response_model=SendMessageResponse)
@@ -130,7 +130,7 @@ async def send_message(request: SendMessageRequest, db: Session = Depends(get_db
         raise
     except Exception as e:
         logger.error(f"Error processing message: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/conversation/end")
@@ -176,7 +176,7 @@ def _end_conversation(conversation_id: int, db: Session) -> dict:
 
     except Exception as e:
         logger.error(f"Error ending conversation: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # Conversation tracking endpoints
@@ -204,7 +204,7 @@ async def get_conversation_stats(user_id: int = 1, db: Session = Depends(get_db)
 
     except Exception as e:
         logger.error(f"Error getting conversation stats: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/conversation/recent")
@@ -240,7 +240,7 @@ async def get_recent_conversations(
 
     except Exception as e:
         logger.error(f"Error getting recent conversations: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/conversation/streak")
@@ -267,7 +267,7 @@ async def get_conversation_streak(user_id: int = 1, db: Session = Depends(get_db
 
     except Exception as e:
         logger.error(f"Error getting streak info: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/conversation/{conversation_id}")
@@ -298,4 +298,4 @@ async def get_conversation(conversation_id: int, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Error retrieving conversation: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")

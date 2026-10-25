@@ -4,6 +4,7 @@
  */
 
 import { spawn, ChildProcess } from 'child_process';
+import { randomBytes } from 'crypto';
 import * as path from 'path';
 import * as http from 'http';
 import { app } from 'electron';
@@ -27,6 +28,9 @@ const defaultConfig: BackendConfig = {
 export class BackendManager {
   private process: ChildProcess | null = null;
   private config: BackendConfig;
+  // Required by the backend on every /api request (API_TOKEN), new for each launch, so web
+  // pages and other programs can't use the API
+  readonly apiToken: string = randomBytes(32).toString('hex');
   private isRunning: boolean = false;
   private startupPromise: Promise<void> | null = null;
   private healthCheckTimer: NodeJS.Timeout | null = null;
@@ -107,6 +111,7 @@ export class BackendManager {
       HOST: this.config.host,
       PORT: this.config.port.toString(),
       PYTHONUNBUFFERED: '1', // Disable Python output buffering
+      API_TOKEN: this.apiToken,
     };
 
     // Spawn Python process
@@ -299,6 +304,7 @@ export class BackendManager {
       method,
       headers: {
         'Content-Type': 'application/json',
+        'X-API-Token': this.apiToken,
         ...headers,
       },
     };

@@ -90,7 +90,7 @@ async def get_profile(user_id: int = 1, db: Session = Depends(get_db)):
 
     except Exception as e:
         logger.error(f"Error getting profile: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/profile/memories")
@@ -121,7 +121,7 @@ async def get_memories(
 
     except Exception as e:
         logger.error(f"Error getting memories: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.put("/profile/update")
@@ -168,7 +168,7 @@ async def update_profile(
 
     except Exception as e:
         logger.error(f"Error updating profile: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # Favorites Category CRUD Endpoints
@@ -210,7 +210,7 @@ async def get_favorites(user_id: int = 1, db: Session = Depends(get_db)):
 
     except Exception as e:
         logger.error(f"Error getting favorites: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/profile/favorites/{favorite_id}")
@@ -240,7 +240,7 @@ async def get_favorite(
         raise
     except Exception as e:
         logger.error(f"Error getting favorite: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/profile/favorites")
@@ -272,7 +272,7 @@ async def create_favorite(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating favorite: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.put("/profile/favorites/{favorite_id}")
@@ -313,7 +313,7 @@ async def update_favorite(
         raise
     except Exception as e:
         logger.error(f"Error updating favorite: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.delete("/profile/favorites/{favorite_id}")
@@ -343,7 +343,7 @@ async def delete_favorite(
         raise
     except Exception as e:
         logger.error(f"Error deleting favorite: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # Dislikes Category CRUD Endpoints
@@ -385,7 +385,7 @@ async def get_dislikes(user_id: int = 1, db: Session = Depends(get_db)):
 
     except Exception as e:
         logger.error(f"Error getting dislikes: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/profile/dislikes/{dislike_id}")
@@ -415,7 +415,7 @@ async def get_dislike(
         raise
     except Exception as e:
         logger.error(f"Error getting dislike: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/profile/dislikes")
@@ -447,7 +447,7 @@ async def create_dislike(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating dislike: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.put("/profile/dislikes/{dislike_id}")
@@ -488,7 +488,7 @@ async def update_dislike(
         raise
     except Exception as e:
         logger.error(f"Error updating dislike: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.delete("/profile/dislikes/{dislike_id}")
@@ -518,7 +518,7 @@ async def delete_dislike(
         raise
     except Exception as e:
         logger.error(f"Error deleting dislike: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # Important People Category CRUD Endpoints
@@ -560,7 +560,7 @@ async def get_people(user_id: int = 1, db: Session = Depends(get_db)):
 
     except Exception as e:
         logger.error(f"Error getting people: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/profile/people/{person_id}")
@@ -590,7 +590,7 @@ async def get_person(
         raise
     except Exception as e:
         logger.error(f"Error getting person: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/profile/people")
@@ -622,7 +622,7 @@ async def create_person(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating person: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.put("/profile/people/{person_id}")
@@ -663,7 +663,7 @@ async def update_person(
         raise
     except Exception as e:
         logger.error(f"Error updating person: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.delete("/profile/people/{person_id}")
@@ -693,7 +693,7 @@ async def delete_person(
         raise
     except Exception as e:
         logger.error(f"Error deleting person: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # Goals Category CRUD Endpoints
@@ -735,7 +735,7 @@ async def get_goals(user_id: int = 1, db: Session = Depends(get_db)):
 
     except Exception as e:
         logger.error(f"Error getting goals: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/profile/goals/{goal_id}")
@@ -765,7 +765,7 @@ async def get_goal(
         raise
     except Exception as e:
         logger.error(f"Error getting goal: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/profile/goals")
@@ -797,7 +797,7 @@ async def create_goal(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating goal: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.put("/profile/goals/{goal_id}")
@@ -838,7 +838,7 @@ async def update_goal(
         raise
     except Exception as e:
         logger.error(f"Error updating goal: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.delete("/profile/goals/{goal_id}")
@@ -868,7 +868,7 @@ async def delete_goal(
         raise
     except Exception as e:
         logger.error(f"Error deleting goal: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # Achievements Category CRUD Endpoints
@@ -910,7 +910,7 @@ async def get_achievements(user_id: int = 1, db: Session = Depends(get_db)):
 
     except Exception as e:
         logger.error(f"Error getting achievements: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/profile/achievements/{achievement_id}")
@@ -940,7 +940,7 @@ async def get_achievement(
         raise
     except Exception as e:
         logger.error(f"Error getting achievement: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/profile/achievements")
@@ -972,7 +972,7 @@ async def create_achievement(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating achievement: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.put("/profile/achievements/{achievement_id}")
@@ -1013,7 +1013,7 @@ async def update_achievement(
         raise
     except Exception as e:
         logger.error(f"Error updating achievement: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.delete("/profile/achievements/{achievement_id}")
@@ -1043,7 +1043,7 @@ async def delete_achievement(
         raise
     except Exception as e:
         logger.error(f"Error deleting achievement: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # Memory Search Endpoint
@@ -1095,7 +1095,7 @@ async def search_memories(
 
     except Exception as e:
         logger.error(f"Error searching memories: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # Memory Relevance Ranking Endpoints
@@ -1165,7 +1165,7 @@ async def get_top_memories(
         raise
     except Exception as e:
         logger.error(f"Error getting top memories: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/profile/memory-importance")
@@ -1196,7 +1196,7 @@ async def get_memory_importance(
 
     except Exception as e:
         logger.error(f"Error getting memory importance breakdown: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # Context Builder Endpoints
@@ -1252,7 +1252,7 @@ async def build_context(
 
     except Exception as e:
         logger.error(f"Error building context: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/profile/format-context")
@@ -1315,4 +1315,4 @@ async def format_context(
 
     except Exception as e:
         logger.error(f"Error formatting context: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")

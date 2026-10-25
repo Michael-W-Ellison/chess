@@ -11,6 +11,8 @@ import tempfile
 
 _test_db_dir = tempfile.mkdtemp(prefix="chatbot-tests-")
 os.environ["DATABASE_URL"] = f"sqlite:///{os.path.join(_test_db_dir, 'test.db')}"
+# The test client's requests are for host "testserver"
+os.environ["ALLOWED_HOSTS"] = '["127.0.0.1", "localhost", "testserver"]'
 
 
 import inspect
