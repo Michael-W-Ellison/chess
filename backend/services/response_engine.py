@@ -27,6 +27,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from services import appraisal as appraisal_module
 from services.appraisal import Appraisal, Appraiser
 from services.emoji_quirk_service import emoji_quirk_service
+from services.fact_base import FACT_OPENERS_RE, FactBase, fact_text
 from services.reference_tracker import ReferenceTracker, gerund
 from services.utterance_parser import _NAMED_KINDS, utterance_parser
 
@@ -353,9 +354,7 @@ class ResponseEngine:
                 self.answers = [(re.compile(a["pattern"], re.IGNORECASE), a["answer"]) for a in json.load(f)["answers"]]
         else:
             self.answers = []
-        facts_path = self.rules_path.parent / FACTS_PATH.name
-        self.facts = json.loads(facts_path.read_text(encoding="utf-8")) if facts_path.exists() else {"facts": []}
-        self._fact_patterns = [(fact, self._fact_pattern(fact)) for fact in self.facts.get("facts", [])]
+        self.fact_base = FactBase.load(self.rules_path.parent / FACTS_PATH.name)
         # Keywords for the parse-free fallback, highest rank first: (entry, pattern)
         self._keywords = sorted(
             ((k, re.compile(r"\b(" + "|".join(re.escape(w) for w in sorted(k["words"], key=len, reverse=True)) + r")\b"))
@@ -2054,17 +2053,6 @@ class ResponseEngine:
     # Facts the child states (knowledge/facts.json)
     # ------------------------------------------------------------------
 
-    _FACT_OPENERS_RE = re.compile(
-        r"^(?:(?:no+|nope|nah|actually|well|um+|uh+|hey|buddy|so|but|and|guess what|did you know|you know what"
-        r"|fun fact|i think|i know|i heard|i learned|i read|i bet|my (?:teacher|mom|dad|friend|brother|sister) said"
-        r"|everybody knows|everyone knows)\b(?: that)?[\s,]*)+"
-    )
-    # Not a statement about the real world: "my spider has 6 legs", "in my game penguins can fly"
-    _FACT_NOT_REAL_RE = re.compile(
-        r"\b(?:my|your|his|her|their|our|pretend|imagine|imagined|if|wish|story|game|dream|dreamed|cartoon|movie"
-        r"|book|minecraft|roblox|show|toy|stuffed|drawing|joke|kidding|jk|lol|haha|maybe|might|some|sometimes"
-        r"|baby|babies|this|that|these|those|one of)\b"
-    )
     _DISAGREE_RE = re.compile(
         r"(?:no+|nope|nuh uh|uh uh|you(?:re| are) wrong|(?:thats|that is|its) (?:not true|wrong|not right)|not true"
         r"|(?:no|yes) (?:they|it|he|she) (?:do|does|dont|doesnt|can|cant|is|isnt|are|arent|have|has)"
@@ -2072,26 +2060,9 @@ class ResponseEngine:
         r"|wrong|liar|you lie)"
     )
 
-    def _fact_pattern(self, fact: Dict) -> "re.Pattern":
-        """The statement forms that say something about a fact (see knowledge/facts.json)"""
-        numbers = "|".join(sorted(self.facts.get("numbers", {}), key=len, reverse=True))
-        n = rf"(?:only |just |exactly |like |about )?(?P<n>\d+|{numbers})"
-        adverb = r"(?:only |just |really |actually |all |also |even )?"
-        if fact["type"] == "count":
-            return re.compile(rf"{fact['subject']} {adverb}(?P<neg>(?:do not|dont|doesnt|does not) )?"
-                              rf"(?:have|has|got|have got|has got|get) {n} {fact['noun']}")
-        if fact["type"] == "there_are":
-            return re.compile(rf"there (?:are|is|r|re)(?P<neg>nt| not)? {n} {fact['noun']}")
-        if fact["type"] == "is":
-            return re.compile(rf"{fact['subject']} (?:is|are|r)(?P<neg>nt| not| never)? {adverb}(?P<x>[a-z ]+)")
-        if fact["type"] == "can":
-            return re.compile(rf"{fact['subject']} {adverb}(?P<mod>can not |cannot |cant |can |could |couldnt |dont "
-                              rf"|do not |doesnt |does not )?(?:really )?{fact['verb']}(?: [a-z]+){{0,3}}")
-        raise ValueError(f"Unknown fact type {fact['type']!r} for {fact['id']}")
-
-    def _fact_text(self, message: str) -> str:
-        text = re.sub(r"[^\w ]+", " ", message.lower().replace("'", "").replace("\u2019", ""))
-        return " ".join(text.split())
+    @staticmethod
+    def _fact_text(message: str) -> str:
+        return fact_text(message)
 
     def check_fact(self, message: str) -> Optional[Tuple[Dict, bool]]:
         """
@@ -2099,37 +2070,7 @@ class ResponseEngine:
         right is False for "spiders have 6 legs", True for "spiders have 8 legs". None for
         anything else, including questions and pretend or personal statements.
         """
-        if message.strip().endswith("?"):
-            return None
-        text = self._FACT_OPENERS_RE.sub("", self._fact_text(message)).strip()
-        if (not text or len(text.split()) > 14 or self._FACT_NOT_REAL_RE.search(text)
-                or re.match(r"(?:do|does|did|is|are|can|could|how|what|why|which|who|where|when|will|would|should)\b",
-                            text)):
-            return None
-        numbers = self.facts.get("numbers", {})
-        for fact, pattern in self._fact_patterns:
-            match = pattern.fullmatch(text)
-            if not match:
-                continue
-            groups = match.groupdict()
-            negated = bool((groups.get("neg") or "").strip())
-            if fact["type"] in ("count", "there_are"):
-                said = int(groups["n"]) if groups["n"].isdigit() else numbers[groups["n"]]
-                accepted = fact["value"] if isinstance(fact["value"], list) else [fact["value"]]
-                return fact, (said in accepted) != negated
-            if fact["type"] == "is":
-                said = groups["x"].strip()
-                bare = re.sub(r"^(?:really|very|so|super|totally|kind of|kinda|actually|just) ", "", said)
-                if said in fact["true"] or bare in fact["true"]:
-                    return fact, not negated
-                if said in fact["false"] or bare in fact["false"]:
-                    return fact, negated
-                continue
-            if fact["type"] == "can":
-                mod = (groups.get("mod") or "").strip()
-                says_can = mod not in ("can not", "cannot", "cant", "couldnt", "dont", "do not", "doesnt", "does not")
-                return fact, says_can == fact["value"]
-        return None
+        return self.fact_base.check_message(message)
 
     def _fact_reply(self, message: str, user_id: int) -> Optional[Tuple[str, str]]:
         """
@@ -2137,7 +2078,7 @@ class ResponseEngine:
         one; ("fact_insist", reply) when the child says the bot is wrong about the fact it just
         stated. None otherwise.
         """
-        replies = self.facts.get("replies", {})
+        replies = self.fact_base.replies
         had_fact = user_id in self._last_fact
         last = self._last_fact.pop(user_id, None)
         checked = self.check_fact(message)
@@ -2155,7 +2096,7 @@ class ResponseEngine:
             reply = self._pick(options, user_id, "fact:right" if right else f"fact:wrong:{fact['id']}")
             return f"fact_{fact['id']}", reply.format(correct=fact["correct"])
         text = self._fact_text(message)
-        if had_fact and self._DISAGREE_RE.fullmatch(self._FACT_OPENERS_RE.sub("", text).strip() or text):
+        if had_fact and self._DISAGREE_RE.fullmatch(FACT_OPENERS_RE.sub("", text).strip() or text):
             if last is None:
                 return "fact_insist", self._pick(replies.get("insist_answer"), user_id, "fact:insist_answer")
             self._last_fact[user_id] = last
@@ -2171,14 +2112,14 @@ class ResponseEngine:
         """
         text = re.sub(r"^(?:(?:no+|nope|yes|yeah|yep|but|actually|well|um+|oh+|ok|okay|oops)\b[\s,]*)+", "",
                       self._fact_text(message))
-        numbers = self.facts.get("numbers", {})
+        numbers = self.fact_base.numbers
         if fact["type"] in ("count", "there_are"):
             number_words = "|".join(sorted(numbers, key=len, reverse=True))
             match = re.fullmatch(rf"(?:(?:there|they|it|he|she|that|its|theres|theyre) (?:are|is|have|has|got|re|s) )?"
                                  rf"(?:only |just |like |exactly )?(?P<n>\d+|{number_words})(?: [a-z]+)?", text)
             if not match:
                 return None
-            said = int(match.group("n")) if match.group("n").isdigit() else numbers[match.group("n")]
+            said = self.fact_base.number(match.group("n"))
             accepted = fact["value"] if isinstance(fact["value"], list) else [fact["value"]]
             return said in accepted
         if fact["type"] == "can":
@@ -2187,6 +2128,11 @@ class ResponseEngine:
             if not match:
                 return None
             return (match.group("mod") in ("can", "do", "does", "could")) == fact["value"]
+        if fact["type"] == "is":
+            # "no its sydney" after "The capital of Australia is Canberra"
+            value = re.sub(r"^(?:it is|its|it was|they are|theyre|they were|he is|hes|she is|shes|thats|that is) ", "",
+                           text)
+            return self.fact_base.judge_value(fact, value) if value != text or len(text.split()) <= 3 else None
         return None
 
     def _recall_reply(self, message: str, user_id: int, user_name: Optional[str]) -> Optional[Tuple[str, str]]:
