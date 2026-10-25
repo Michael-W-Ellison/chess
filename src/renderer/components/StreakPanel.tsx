@@ -53,13 +53,13 @@ export const StreakPanel: React.FC = () => {
             <div className="flex gap-2">
               <button
                 onClick={() => handleTestStreak('login')}
-                className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
+                className="px-3 py-1 bg-blue-500 text-white text-sm rounded-sm hover:bg-blue-600 transition-colors"
               >
                 Test Login Streak
               </button>
               <button
                 onClick={() => handleTestStreak('chat')}
-                className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-colors"
+                className="px-3 py-1 bg-green-500 text-white text-sm rounded-sm hover:bg-green-600 transition-colors"
               >
                 Test Chat Streak
               </button>

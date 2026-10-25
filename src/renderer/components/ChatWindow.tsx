@@ -46,13 +46,13 @@ export const ChatWindow: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 pb-16">
+    <div className="flex flex-col h-screen bg-linear-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 pb-16">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+      <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-xs">
         <div className="flex items-center gap-3">
           {/* Bot avatar/status */}
           <div className="relative">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold shadow-md">
+            <div className="w-10 h-10 bg-linear-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold shadow-md">
               {personality?.name ? personality.name.charAt(0) : '🤖'}
             </div>
             {/* Online status indicator */}
@@ -93,7 +93,7 @@ export const ChatWindow: React.FC = () => {
                 setShowGameMenu(!showGameMenu);
               }
             }}
-            className="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg font-medium transition-colors shadow-sm"
+            className="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg font-medium transition-colors shadow-xs"
           >
             {gameMode ? '💬 Back to Chat' : '🎮 Games'}
           </button>

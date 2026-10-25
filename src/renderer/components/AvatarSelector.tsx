@@ -80,7 +80,7 @@ export const AvatarSelector: React.FC<AvatarSelectorProps> = ({
         </div>
 
         {/* Current Selection Preview */}
-        <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
+        <div className="flex items-center gap-4 p-4 bg-linear-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
           <div
             className="w-16 h-16 rounded-full flex items-center justify-center text-4xl transition-all"
             style={{ backgroundColor: selectedAvatar.color }}
@@ -151,7 +151,7 @@ export const AvatarSelector: React.FC<AvatarSelectorProps> = ({
 
                 {/* Hover tooltip */}
                 {isHovered && !isSelected && (
-                  <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap z-10">
+                  <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-xs rounded-sm whitespace-nowrap z-10">
                     {avatar.name}
                   </div>
                 )}

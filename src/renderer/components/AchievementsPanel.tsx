@@ -60,19 +60,19 @@ export const AchievementsPanel: React.FC = () => {
 
         {/* Progress summary */}
         <div className="mt-4 grid grid-cols-3 gap-4">
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+          <div className="bg-linear-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
             <div className="text-xs text-gray-600 dark:text-gray-400">Unlocked</div>
             <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
               {unlockedAchievements.length} / {ACHIEVEMENTS.filter((a) => !a.hidden).length}
             </div>
           </div>
-          <div className="bg-gradient-to-r from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 rounded-lg p-3 border border-green-200 dark:border-green-800">
+          <div className="bg-linear-to-r from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 rounded-lg p-3 border border-green-200 dark:border-green-800">
             <div className="text-xs text-gray-600 dark:text-gray-400">Total Points</div>
             <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
               {totalPoints}
             </div>
           </div>
-          <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-lg p-3 border border-orange-200 dark:border-orange-800">
+          <div className="bg-linear-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-lg p-3 border border-orange-200 dark:border-orange-800">
             <div className="text-xs text-gray-600 dark:text-gray-400">Progress</div>
             <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
               {progressPercent}%
@@ -83,7 +83,7 @@ export const AchievementsPanel: React.FC = () => {
         {/* Overall progress bar */}
         <div className="mt-3 bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500"
+            className="h-full bg-linear-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500"
             style={{ width: `${progressPercent}%` }}
           />
         </div>

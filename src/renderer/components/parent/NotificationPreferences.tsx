@@ -509,7 +509,7 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
               </div>
             </div>
 
-            <div className="bg-red-50 border border-red-200 rounded p-3 space-y-2">
+            <div className="bg-red-50 border border-red-200 rounded-sm p-3 space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-red-800">Event Type:</span>
                 <span className="text-sm text-red-700">Crisis Keywords Detected</span>
@@ -524,14 +524,14 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
               </div>
             </div>
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-sm p-3">
               <div className="text-xs font-semibold text-yellow-800 mb-1">Recommended Action:</div>
               <div className="text-xs text-yellow-700">
                 Talk to your child in a safe, non-judgmental environment. If this is a crisis situation, contact professional help immediately.
               </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <div className="bg-blue-50 border border-blue-200 rounded-sm p-3">
               <div className="text-xs font-semibold text-blue-800 mb-1">Crisis Resources:</div>
               <div className="text-xs text-blue-700 space-y-1">
                 <div>• National Suicide Prevention Lifeline: 988</div>
@@ -547,7 +547,7 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
       </div>
 
       {/* Current Configuration Summary */}
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100 p-6">
+      <div className="bg-linear-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100 p-6">
         <h3 className="font-semibold text-gray-800 mb-4">Current Configuration Summary</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div className="bg-white rounded-lg p-3">

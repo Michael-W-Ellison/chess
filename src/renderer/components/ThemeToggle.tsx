@@ -31,7 +31,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
         className={`
           relative inline-flex items-center h-8 w-16 rounded-full
           transition-colors duration-300 ease-in-out
-          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+          focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
           dark:focus:ring-offset-gray-800
           ${isDark ? 'bg-blue-600' : 'bg-gray-300'}
         `}

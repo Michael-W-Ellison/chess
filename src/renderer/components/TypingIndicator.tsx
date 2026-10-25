@@ -10,7 +10,7 @@ export const TypingIndicator: React.FC = () => {
     <div className="flex w-full mb-4 justify-start typing-indicator-container">
       <div className="flex flex-col max-w-[75%] items-start">
         {/* Typing bubble with enhanced animations */}
-        <div className="relative px-4 py-3 rounded-2xl shadow-sm bg-gray-200 dark:bg-gray-700 rounded-bl-sm typing-bubble">
+        <div className="relative px-4 py-3 rounded-2xl shadow-xs bg-gray-200 dark:bg-gray-700 rounded-bl-sm typing-bubble">
           <div className="flex items-center gap-1">
             <div className="w-2 h-2 bg-gray-600 dark:bg-gray-300 rounded-full typing-dot"></div>
             <div className="w-2 h-2 bg-gray-600 dark:bg-gray-300 rounded-full typing-dot"></div>

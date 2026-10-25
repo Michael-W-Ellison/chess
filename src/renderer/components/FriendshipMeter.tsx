@@ -179,7 +179,7 @@ export const FriendshipMeter: React.FC<FriendshipMeterProps> = ({
   };
 
   return (
-    <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
+    <div className="bg-linear-to-br from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -222,7 +222,7 @@ export const FriendshipMeter: React.FC<FriendshipMeterProps> = ({
         </div>
         <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500 ease-out rounded-full"
+            className="h-full bg-linear-to-r from-purple-500 to-blue-500 transition-all duration-500 ease-out rounded-full"
             style={{ width: `${progress.percentage}%` }}
           />
         </div>

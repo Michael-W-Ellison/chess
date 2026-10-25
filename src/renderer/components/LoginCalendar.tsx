@@ -76,7 +76,7 @@ export const LoginCalendar: React.FC<LoginCalendarProps> = ({ months = 3, compac
         {calendarGrid.map((day) => (
           <div
             key={day.date}
-            className={`w-3 h-3 rounded-sm ${getColorIntensity(day.sessionCount)} transition-colors`}
+            className={`w-3 h-3 rounded-xs ${getColorIntensity(day.sessionCount)} transition-colors`}
             title={`${formatDate(day.date)}: ${day.sessionCount} ${day.sessionCount === 1 ? 'login' : 'logins'}`}
           />
         ))}
@@ -110,10 +110,10 @@ export const LoginCalendar: React.FC<LoginCalendarProps> = ({ months = 3, compac
       <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
         <span>Less</span>
         <div className="flex gap-1">
-          <div className="w-3 h-3 rounded-sm bg-gray-100 dark:bg-gray-800" />
-          <div className="w-3 h-3 rounded-sm bg-green-200 dark:bg-green-900" />
-          <div className="w-3 h-3 rounded-sm bg-green-400 dark:bg-green-700" />
-          <div className="w-3 h-3 rounded-sm bg-green-600 dark:bg-green-500" />
+          <div className="w-3 h-3 rounded-xs bg-gray-100 dark:bg-gray-800" />
+          <div className="w-3 h-3 rounded-xs bg-green-200 dark:bg-green-900" />
+          <div className="w-3 h-3 rounded-xs bg-green-400 dark:bg-green-700" />
+          <div className="w-3 h-3 rounded-xs bg-green-600 dark:bg-green-500" />
         </div>
         <span>More</span>
       </div>

@@ -89,7 +89,7 @@ export const StreakMilestoneNotification: React.FC<StreakMilestoneNotificationPr
       }`}
     >
       <div
-        className={`bg-gradient-to-br ${getTypeColor(type)} text-white rounded-xl shadow-2xl overflow-hidden max-w-sm`}
+        className={`bg-linear-to-br ${getTypeColor(type)} text-white rounded-xl shadow-2xl overflow-hidden max-w-sm`}
       >
         {/* Animated sparkles background */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -129,7 +129,7 @@ export const StreakMilestoneNotification: React.FC<StreakMilestoneNotificationPr
             </button>
           </div>
 
-          <div className="flex items-center gap-4 bg-white/20 backdrop-blur-sm rounded-lg p-4">
+          <div className="flex items-center gap-4 bg-white/20 backdrop-blur-xs rounded-lg p-4">
             <span className="text-6xl animate-bounce">{getMilestoneEmoji(milestone)}</span>
             <div>
               <div className="text-4xl font-bold mb-1">{milestone}</div>

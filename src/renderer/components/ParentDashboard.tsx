@@ -92,7 +92,7 @@ export const ParentDashboard: React.FC = () => {
   if (authState === 'unconfigured' || authState === 'unreachable') {
     return (
       <div className="h-full flex items-center justify-center bg-gray-50 p-6">
-        <div className="w-full max-w-md bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+        <div className="w-full max-w-md bg-white border border-gray-200 rounded-lg shadow-xs p-6">
           <h1 className="text-2xl font-bold text-gray-800">Parent Dashboard</h1>
           {authState === 'unconfigured' ? (
             <p className="text-sm text-gray-700 mt-3">
