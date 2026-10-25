@@ -96,11 +96,10 @@ async def login(request: LoginRequest):
         identifier = "parent_login"
 
         if not auth_rate_limiter.is_allowed(identifier):
-            lockout_info = auth_rate_limiter.get_lockout_info(identifier)
-            logger.warning(f"Rate limit exceeded for login attempt")
+            logger.warning("Rate limit exceeded for login attempt")
             raise HTTPException(
                 status_code=429,
-                detail=f"Too many login attempts. Please try again in {lockout_info['remaining_time']}."
+                detail=f"Too many login attempts. Please try again in {auth_rate_limiter.wait_time(identifier)}."
             )
 
         # Check if password protection is enabled
@@ -138,10 +137,10 @@ async def login(request: LoginRequest):
                     detail=f"Invalid password. {remaining} attempt{'s' if remaining != 1 else ''} remaining."
                 )
             else:
-                lockout_info = auth_rate_limiter.get_lockout_info(identifier)
                 raise HTTPException(
                     status_code=429,
-                    detail=f"Too many failed attempts. Account locked for {lockout_info['remaining_time']}."
+                    detail=f"Too many failed attempts. Please wait {auth_rate_limiter.wait_time(identifier)} "
+                           f"before trying again."
                 )
 
         # Clear attempts on successful login

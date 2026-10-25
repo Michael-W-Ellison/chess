@@ -37,6 +37,7 @@ from services.utterance_parser import utterance_parser
 from services.engagement_tracker import engagement_tracker
 from services.gibberish_detector import gibberish_detector
 from utils.config import settings
+from utils.bounded import BoundedDict
 
 # Most replies should not carry a joke, however high the bot's humor
 MAX_JOKE_PROBABILITY = 0.5
@@ -173,21 +174,21 @@ class ConversationManager:
         self.message_count = 0
         self.conversation_start_time: Optional[datetime] = None
         # Whether the last reply to each user had a fun fact or pun (no two in a row)
-        self._joked_last_reply: Dict[int, bool] = {}
+        self._joked_last_reply: Dict[int, bool] = BoundedDict()
         # Users whose last reply asked "What's your name?", so a short answer is their name
         self._awaiting_name: set = set()
         # Replies left with no fun facts or puns, after the child said something sad
-        self._sensitive_replies: Dict[int, int] = {}
+        self._sensitive_replies: Dict[int, int] = BoundedDict()
         # The child's last few messages, for reading crisis phrases in context ("beats me"
         # after talking about Mario Kart)
-        self._recent_messages: Dict[int, deque] = {}
+        self._recent_messages: Dict[int, deque] = BoundedDict()
         # A longer window for the topic of generic advice ("what should I say?" a few messages after the teasing)
-        self._topic_messages: Dict[int, deque] = {}
+        self._topic_messages: Dict[int, deque] = BoundedDict()
         # Messages like "my sister always beats me" whose meaning the bot asked about
-        self._pending_clarification: Dict[int, str] = {}
+        self._pending_clarification: Dict[int, str] = BoundedDict()
         # The bot's last reply to each user, for telling a correction ("no its Sammy") from an
         # answer to a yes/no question ("Do you like tacos too?" "no, burgers")
-        self._last_reply: Dict[int, str] = {}
+        self._last_reply: Dict[int, str] = BoundedDict()
         # Users whose last message got a caring reply only for its words ("hospital"), with no
         # sad, scared or angry event in its parse: the reading may have been wrong
         self._upset_by_words: set = set()

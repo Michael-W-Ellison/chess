@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     # must then send it in the X-API-Token header, so web pages and other programs can't use
     # the API. Unset (tests, a backend started by hand): no token needed
     API_TOKEN: Optional[str] = None
+    # The child profile the app uses, set by the Electron app: the child API then serves
+    # only this user (another user_id is refused); the parent API is not limited. Unset:
+    # any user
+    CHILD_USER_ID: Optional[int] = None
+
+    def child_user_allowed(self, user_id) -> bool:
+        """Whether the child API may serve this user (see CHILD_USER_ID)"""
+        return self.CHILD_USER_ID is None or str(user_id) == str(self.CHILD_USER_ID)
 
     # Database Configuration
     DATABASE_URL: str = "sqlite:///./data/chatbot.db"

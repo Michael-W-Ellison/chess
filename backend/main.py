@@ -141,6 +141,10 @@ async def require_api_token(request: Request, call_next):
     if (settings.API_TOKEN and request.url.path.startswith("/api") and request.method != "OPTIONS"
             and not hmac.compare_digest(request.headers.get("X-API-Token", ""), settings.API_TOKEN)):
         return JSONResponse(status_code=401, content={"success": False, "error": "Missing or wrong API token"})
+    # Only the app's child profile (settings.CHILD_USER_ID) on the child API
+    if (request.url.path.startswith("/api") and not request.url.path.startswith("/api/parent")
+            and "user_id" in request.query_params and not settings.child_user_allowed(request.query_params["user_id"])):
+        return JSONResponse(status_code=403, content={"success": False, "error": "Unknown user"})
     return await call_next(request)
 
 

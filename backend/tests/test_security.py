@@ -233,3 +233,51 @@ def test_weekly_report_html_escapes_the_childs_words():
         "engagement": {"active_days": 1},
     }, SimpleNamespace(include_content_snippets=True))
     assert "<a href" not in report and "&lt;a href=" in report
+
+
+# ----------------------------------------------------------------------------------------------
+# Parent login throttle, the app's child profile, per-user state, crisis logs
+# ----------------------------------------------------------------------------------------------
+
+def test_failed_logins_slow_down_instead_of_locking_out():
+    from datetime import timedelta
+    from utils.rate_limiter import RateLimiter
+    limiter = RateLimiter(max_attempts=5, lockout_minutes=15, throttle_seconds=30)
+    for _ in range(5):
+        limiter.record_attempt("parent_login")
+    assert not limiter.is_allowed("parent_login")
+    assert limiter.wait_time("parent_login").endswith("seconds")
+    # 30 seconds after the last failure, the parent can try again (no 15-minute lockout)
+    limiter.attempts["parent_login"] = [t - timedelta(seconds=31) for t in limiter.attempts["parent_login"]]
+    assert limiter.is_allowed("parent_login")
+
+
+def test_child_api_serves_only_the_apps_child_profile(client):
+    start = client.post("/api/conversation/start?user_id=7501").json()
+    with patch("main.settings.CHILD_USER_ID", 7502), patch("routes.conversation.settings.CHILD_USER_ID", 7502):
+        assert client.get("/api/profile/memories?user_id=7501").status_code == 403
+        assert client.get(f"/api/conversation/{start['conversation_id']}").status_code == 404
+        assert client.post(f"/api/conversation/end/{start['conversation_id']}").status_code == 404
+        assert client.post("/api/message", json={
+            "content": "hi", "conversation_id": start["conversation_id"], "user_id": 7501}).status_code == 404
+        assert client.get("/api/profile/memories?user_id=7502").status_code == 200
+    assert client.get(f"/api/conversation/{start['conversation_id']}").status_code == 200
+
+
+def test_per_user_state_is_bounded():
+    from utils.bounded import BoundedDict
+    state = BoundedDict(maxsize=3)
+    for user_id in range(10):
+        state[user_id] = "message"
+    assert list(state) == [7, 8, 9]
+
+
+def test_crisis_log_has_no_message_text(caplog):
+    import logging
+    from services.parent_notification_service import parent_notification_service
+    db = MagicMock()
+    db.query.return_value.filter.return_value.first.return_value = None  # no parent email
+    with caplog.at_level(logging.CRITICAL):
+        parent_notification_service._send_notification(1, "Lily said something worrying", "crisis_suicide",
+                                                        "critical", db)
+    assert "PARENT NOTIFICATION" in caplog.text and "Lily said" not in caplog.text

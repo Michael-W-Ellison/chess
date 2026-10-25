@@ -48,6 +48,7 @@ import copy
 import re
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple
+from utils.bounded import BoundedDict
 
 MAX_AGE = 3  # turns a person, thing or event stays available as an antecedent
 
@@ -250,7 +251,7 @@ class ReferenceTracker:
         self.relations = set(relations)
         self.common_capitalized = set(common_capitalized)
         self.foods = set(foods)  # "we had pizza": something eaten, so "it" is "the pizza"
-        self._states: Dict[int, DiscourseState] = {}
+        self._states: Dict[int, DiscourseState] = BoundedDict()
 
     def reset(self, user_id: int) -> None:
         """Forget all references for a user (e.g. when a new conversation starts)"""

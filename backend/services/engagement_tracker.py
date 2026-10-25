@@ -35,6 +35,7 @@ from sqlalchemy.orm import Session
 
 from models.engagement import EngagementStat, ReplyDelay
 from utils.config import settings
+from utils.bounded import BoundedDict
 
 logger = logging.getLogger("chatbot.engagement_tracker")
 
@@ -201,9 +202,9 @@ class EngagementTracker:
 
     def __init__(self, rng: Optional[random.Random] = None):
         self.rng = rng or random.Random()
-        self._pending: Dict[int, PendingReply] = {}
-        self._cache: Dict[int, Dict[Tuple[str, str], List[float]]] = {}
-        self._delays: Dict[int, List[float]] = {}  # recent reply delays, oldest first
+        self._pending: Dict[int, PendingReply] = BoundedDict()
+        self._cache: Dict[int, Dict[Tuple[str, str], List[float]]] = BoundedDict()
+        self._delays: Dict[int, List[float]] = BoundedDict()  # recent reply delays, oldest first
 
     # ------------------------------------------------------------------
     # Turn handling

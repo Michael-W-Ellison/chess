@@ -321,7 +321,9 @@ This notification was generated automatically by the safety monitoring system. Y
                 f"User ID: {user_id}\n"
                 f"Category: {category}\n"
                 f"Severity: {severity}\n"
-                f"Message:\n{message}"
+                # Not the message: it has the child's name and words, and the log is a plain file.
+                # The safety flag with the details is in the parent dashboard.
+                "Details: see the safety flags in the parent dashboard"
             )
             return {
                 "sent": False,
@@ -338,7 +340,9 @@ This notification was generated automatically by the safety monitoring system. Y
                 f"User ID: {user_id}\n"
                 f"Category: {category}\n"
                 f"Severity: {severity}\n"
-                f"Message:\n{message}"
+                # Not the message: it has the child's name and words, and the log is a plain file.
+                # The safety flag with the details is in the parent dashboard.
+                "Details: see the safety flags in the parent dashboard"
             )
             return {
                 "sent": False,
@@ -377,7 +381,9 @@ This notification was generated automatically by the safety monitoring system. Y
                     f"User ID: {user_id}\n"
                     f"Category: {category}\n"
                     f"Severity: {severity}\n"
-                    f"Message:\n{message}"
+                    # Not the message: it has the child's name and words, and the log is a plain file.
+                    # The safety flag with the details is in the parent dashboard.
+                    "Details: see the safety flags in the parent dashboard"
                 )
                 return {
                     "sent": False,
@@ -394,7 +400,9 @@ This notification was generated automatically by the safety monitoring system. Y
                 f"User ID: {user_id}\n"
                 f"Category: {category}\n"
                 f"Severity: {severity}\n"
-                f"Message:\n{message}"
+                # Not the message: it has the child's name and words, and the log is a plain file.
+                # The safety flag with the details is in the parent dashboard.
+                "Details: see the safety flags in the parent dashboard"
             )
             return {
                 "sent": False,

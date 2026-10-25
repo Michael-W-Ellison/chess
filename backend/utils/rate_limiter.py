@@ -39,7 +39,8 @@ class RateLimiter:
         self,
         max_attempts: int = 5,
         lockout_minutes: int = 15,
-        cleanup_interval: int = 100
+        cleanup_interval: int = 100,
+        throttle_seconds: Optional[int] = None,
     ):
         """
         Initialize RateLimiter
@@ -48,8 +49,12 @@ class RateLimiter:
             max_attempts: Maximum failed attempts before lockout
             lockout_minutes: Duration of lockout in minutes
             cleanup_interval: How often to cleanup old attempts (after N checks)
+            throttle_seconds: If set, max_attempts failures in lockout_minutes do not lock
+                out; they allow one attempt every throttle_seconds after the last one. Someone
+                failing on purpose then delays the real user by seconds, not minutes.
         """
         self.max_attempts = max_attempts
+        self.throttle = timedelta(seconds=throttle_seconds) if throttle_seconds else None
         self.lockout_duration = timedelta(minutes=lockout_minutes)
         self.cleanup_interval = cleanup_interval
 
@@ -84,8 +89,9 @@ class RateLimiter:
         attempts = [attempt for attempt in attempts if attempt > cutoff_time]
         self.attempts[identifier] = attempts
 
-        # Check if under limit
-        is_allowed = len(attempts) < self.max_attempts
+        # Check if under limit (or, when throttled, whether the wait since the last attempt is over)
+        is_allowed = len(attempts) < self.max_attempts or (
+            self.throttle is not None and datetime.now() - max(attempts) >= self.throttle)
 
         if not is_allowed:
             remaining_time = self._get_remaining_lockout_time(identifier)
@@ -149,6 +155,16 @@ class RateLimiter:
         valid_attempts = [a for a in attempts if a > cutoff_time]
 
         return max(0, self.max_attempts - len(valid_attempts))
+
+    def wait_time(self, identifier: str) -> str:
+        """How long until the next attempt is allowed, as text ("25 seconds"; "0 seconds" if now)"""
+        if self.throttle is None:
+            return self._get_remaining_lockout_time(identifier)
+        attempts = self.attempts.get(identifier, [])
+        if len(attempts) < self.max_attempts:
+            return "0 seconds"
+        remaining = max(0, int((max(attempts) + self.throttle - datetime.now()).total_seconds()) + 1)
+        return f"{remaining} second{'s' if remaining != 1 else ''}"
 
     def _get_remaining_lockout_time(self, identifier: str) -> str:
         """
@@ -245,7 +261,9 @@ class RateLimiter:
             logger.debug(f"Cleaned up {cleaned} expired rate limit entries")
 
 
-# Global rate limiter instance
-# 5 attempts, 15 minute lockout
-auth_rate_limiter = RateLimiter(max_attempts=5, lockout_minutes=15)
+# Global rate limiter instance for the parent password: after 5 failures within 15 minutes,
+# one attempt every 30 seconds. There is one password and every request comes from this
+# computer, so a lockout would let a child keep the parent out by typing wrong passwords; 30
+# seconds is too slow to guess a password that meets the requirements.
+auth_rate_limiter = RateLimiter(max_attempts=5, lockout_minutes=15, throttle_seconds=30)
 

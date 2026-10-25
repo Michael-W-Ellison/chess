@@ -17,6 +17,7 @@ from services.correction_handler import Correction
 from services.prompts import MemoryExtractionPrompt
 from services.response_engine import response_engine
 from utils.config import settings
+from utils.bounded import BoundedDict
 
 logger = logging.getLogger("chatbot.memory_manager")
 
@@ -38,9 +39,9 @@ class MemoryManager:
         # What the child's last message stored, for corrections ("no its Sammy", "I didn't say
         # that"): each write's category, key, value, the value it replaced (None if new) and
         # the opposite preferences it deleted
-        self._last_written: Dict[int, List[Dict]] = {}
+        self._last_written: Dict[int, List[Dict]] = BoundedDict()
         # Memories removed by "I didn't say that", for the child's answer to "What did you mean?"
-        self._retracted: Dict[int, List[Dict]] = {}
+        self._retracted: Dict[int, List[Dict]] = BoundedDict()
 
     def extract_and_store_memories(
         self, user_message: str, user_id: int, db: Session, use_llm: bool = None

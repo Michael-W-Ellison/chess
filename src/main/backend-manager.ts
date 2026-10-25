@@ -112,6 +112,7 @@ export class BackendManager {
       PORT: this.config.port.toString(),
       PYTHONUNBUFFERED: '1', // Disable Python output buffering
       API_TOKEN: this.apiToken,
+      CHILD_USER_ID: '1', // The app's one child profile: the child API serves no other user
     };
 
     // Spawn Python process
