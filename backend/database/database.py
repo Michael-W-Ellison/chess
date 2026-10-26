@@ -82,6 +82,7 @@ def init_db() -> None:
         personality_drift,
         parent_preferences,
         engagement,
+        app_setting,
     )
 
     # Create all tables
@@ -173,6 +174,7 @@ def reset_database() -> None:
         personality_drift,
         parent_preferences,
         engagement,
+        app_setting,
     )
 
     # Drop all tables

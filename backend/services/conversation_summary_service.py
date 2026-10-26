@@ -9,6 +9,7 @@ import logging
 
 from models.conversation import Conversation, Message
 from services.llm_service import llm_service
+from services.llm_setting import llm_setting
 
 logger = logging.getLogger("chatbot.conversation_summary")
 
@@ -147,9 +148,9 @@ class ConversationSummaryService:
         Returns:
             Dictionary with summary, topics, mood, etc.
         """
-        # Check if model is loaded
-        if not self.llm.is_loaded:
-            logger.warning("LLM not loaded, using fallback summary generation")
+        # Check if the model is turned on and loaded
+        if not (llm_setting.enabled() and self.llm.is_loaded):
+            logger.info("LLM off or not loaded, using fallback summary generation")
             return self._fallback_summary(conversation_text)
 
         # Build summarization prompt

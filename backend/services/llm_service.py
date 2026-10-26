@@ -90,6 +90,8 @@ class LLMService:
         try:
             from llama_cpp import Llama
 
+            # Looked up again: a model file may have been added since launch
+            self.model_path = settings.get_model_path()
             logger.info(f"Loading LLM model from: {self.model_path}")
             self.load_start_time = time.time()
             self.is_loading = True

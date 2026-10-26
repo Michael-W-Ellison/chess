@@ -202,8 +202,11 @@ See `.env.example` for all configuration options:
 
 ## Running Without an LLM
 
-When no model is loaded, or `USE_LLM=false` is set, the backend uses a rule-based
-response engine instead of the LLM:
+By default the backend uses a rule-based response engine and loads no model. The LLM is
+used only when a parent turns it on in the parent dashboard (Language Model tab, after a
+warning that its replies might exceed the app's safety mechanisms) or `USE_LLM=true` is
+set in `.env` (development; no warning is shown), and a model file is present. The
+rule-based engine:
 
 - `services/utterance_parser.py` parses each message into a dependency tree with spaCy
   (`en_core_web_sm`, installed from `requirements.txt`).

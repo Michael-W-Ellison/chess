@@ -16,7 +16,7 @@ from services import correction_handler
 from services.correction_handler import Correction
 from services.prompts import MemoryExtractionPrompt
 from services.response_engine import response_engine
-from utils.config import settings
+from services.llm_setting import llm_setting
 from utils.bounded import BoundedDict
 
 logger = logging.getLogger("chatbot.memory_manager")
@@ -66,7 +66,7 @@ class MemoryManager:
 
         # Use instance setting if not specified
         if use_llm is None:
-            use_llm = self.use_llm_extraction and settings.USE_LLM
+            use_llm = self.use_llm_extraction and llm_setting.enabled()
 
         # Choose extraction method
         if use_llm:
@@ -461,8 +461,8 @@ class MemoryManager:
         """
         from services.llm_service import llm_service
 
-        # Check if LLM is available
-        if not llm_service.is_loaded:
+        # Check if LLM is turned on and available
+        if not (llm_setting.enabled() and llm_service.is_loaded):
             logger.warning("LLM not loaded, falling back to rule-based extraction")
             return self._fallback_extraction(message)
 

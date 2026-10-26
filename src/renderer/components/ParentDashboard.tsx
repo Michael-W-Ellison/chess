@@ -11,6 +11,7 @@ import { SafetyOverview } from './parent/SafetyOverview';
 import { SafetyFlagsList } from './parent/SafetyFlagsList';
 import { SafetyStatistics } from './parent/SafetyStatistics';
 import { NotificationPreferences } from './parent/NotificationPreferences';
+import { LanguageModelSetting } from './parent/LanguageModelSetting';
 import { ConversationStatistics } from './parent/ConversationStatistics';
 import { ParentLogin } from './parent/ParentLogin';
 import {
@@ -20,7 +21,7 @@ import {
   verifyParentToken,
 } from '../services/parentAuth';
 
-type DashboardTab = 'overview' | 'flags' | 'statistics' | 'conversations' | 'preferences';
+type DashboardTab = 'overview' | 'flags' | 'statistics' | 'conversations' | 'preferences' | 'model';
 
 // checking: asking the backend; login: password needed; ready: dashboard shown;
 // unconfigured: password required but none set up; unreachable: backend not responding
@@ -130,6 +131,7 @@ const DashboardContent: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => 
     { id: 'statistics' as DashboardTab, label: 'Statistics', icon: '📈' },
     { id: 'conversations' as DashboardTab, label: 'Conversations', icon: '💬' },
     { id: 'preferences' as DashboardTab, label: 'Preferences', icon: '⚙️' },
+    { id: 'model' as DashboardTab, label: 'Language Model', icon: '🤖' },
   ];
 
   return (
@@ -187,6 +189,7 @@ const DashboardContent: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => 
         {activeTab === 'statistics' && <SafetyStatistics userId={userId} />}
         {activeTab === 'conversations' && <ConversationStatistics userId={userId} />}
         {activeTab === 'preferences' && <NotificationPreferences userId={userId} />}
+        {activeTab === 'model' && <LanguageModelSetting />}
       </div>
     </div>
   );

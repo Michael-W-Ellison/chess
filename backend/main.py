@@ -17,6 +17,7 @@ from utils.config import settings
 from utils.logging_config import setup_logging
 from database.database import init_db, close_db
 from services.llm_service import llm_service
+from services.llm_setting import llm_setting
 from services.report_scheduler import report_scheduler
 from utils.cache import cache_cleanup_scheduler
 from utils.memory_profiler import memory_profiler, get_memory_info, force_gc, log_memory
@@ -46,38 +47,43 @@ async def lifespan(app: FastAPI):
     init_db()
     logger.info("Database initialized")
 
-    # Load LLM model with optimizations from settings
-    logger.info(f"Loading LLM model from {settings.get_model_path()}")
+    # The language model is off unless a parent turned it on (or USE_LLM=true): replies then
+    # come from the rule-based engine and no model is loaded
+    if llm_setting.enabled():
+        logger.warning("Language model on: replies may be written by the model")
+        logger.info(f"Loading LLM model from {settings.get_model_path()}")
 
-    # Log cache configuration
-    if settings.ENABLE_RESPONSE_CACHE:
-        logger.info(f"Response caching enabled: TTL={settings.CACHE_TTL_SECONDS}s, Max={settings.CACHE_MAX_SIZE}")
-    else:
-        logger.info("Response caching disabled")
-
-    # Configure loading based on settings
-    use_mmap = settings.MODEL_USE_MMAP
-    blocking = not settings.MODEL_BACKGROUND_LOAD
-    lazy_load = settings.MODEL_LAZY_LOAD
-
-    if lazy_load:
-        logger.info("Lazy loading enabled - model will load on first chat request")
-    else:
-        logger.info(f"Loading model: mmap={use_mmap}, background={settings.MODEL_BACKGROUND_LOAD}")
-
-        # Start model loading
-        model_loading_started = llm_service.load_model(blocking=blocking, use_mmap=use_mmap)
-
-        if model_loading_started:
-            if settings.MODEL_BACKGROUND_LOAD:
-                logger.info("✓ LLM model loading started in background")
-                logger.info("  App is ready - model will finish loading shortly")
-                logger.info("  First chat request will wait for model if needed")
-            else:
-                logger.info("✓ LLM model loaded successfully")
+        # Log cache configuration
+        if settings.ENABLE_RESPONSE_CACHE:
+            logger.info(f"Response caching enabled: TTL={settings.CACHE_TTL_SECONDS}s, Max={settings.CACHE_MAX_SIZE}")
         else:
-            logger.warning("⚠ LLM model loading failed to start - chatbot functionality will be limited")
-            logger.warning("  Download a model with: ./scripts/download_model.sh")
+            logger.info("Response caching disabled")
+
+        # Configure loading based on settings
+        use_mmap = settings.MODEL_USE_MMAP
+        blocking = not settings.MODEL_BACKGROUND_LOAD
+        lazy_load = settings.MODEL_LAZY_LOAD
+
+        if lazy_load:
+            logger.info("Lazy loading enabled - model will load on first chat request")
+        else:
+            logger.info(f"Loading model: mmap={use_mmap}, background={settings.MODEL_BACKGROUND_LOAD}")
+
+            # Start model loading
+            model_loading_started = llm_service.load_model(blocking=blocking, use_mmap=use_mmap)
+
+            if model_loading_started:
+                if settings.MODEL_BACKGROUND_LOAD:
+                    logger.info("✓ LLM model loading started in background")
+                    logger.info("  App is ready - model will finish loading shortly")
+                    logger.info("  First chat request will wait for model if needed")
+                else:
+                    logger.info("✓ LLM model loaded successfully")
+            else:
+                logger.warning("⚠ LLM model loading failed to start - chatbot functionality will be limited")
+                logger.warning("  Download a model with: ./scripts/download_model.sh")
+    else:
+        logger.info("Language model off: replies come from the rule-based engine")
 
     # Start report scheduler
     if settings.ENABLE_WEEKLY_REPORTS and settings.ENABLE_PARENT_NOTIFICATIONS:

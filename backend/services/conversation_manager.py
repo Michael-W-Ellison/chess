@@ -17,6 +17,7 @@ from models.conversation import Conversation, Message
 from models.memory import UserProfile
 
 from services.llm_service import llm_service
+from services.llm_setting import llm_setting
 from services.safety_filter import safety_filter
 from services.bullying_keyword_list import bullying_keyword_list
 from services.crisis_keyword_list import crisis_keyword_list
@@ -514,7 +515,7 @@ class ConversationManager:
         context["advice"] = self._template_advice(user_message, context, personality, db)
 
         # 7. Generate response
-        # Use the LLM when enabled and loadable (lazy loading); otherwise the rule-based engine.
+        # Use the LLM when turned on (off by default) and loadable; otherwise the rule-based engine.
         # The child's words are only echoed back when the safety filter found nothing.
         allow_reflection = safety_result["severity"] == "none"
         reply_features: Dict[str, str] = {}
@@ -523,7 +524,7 @@ class ConversationManager:
                 # Say what the bot now remembers ("Oops, got it! Your dog is named Rex.")
                 raw_response = corrected["reply"]
                 reply_features["rule"] = "correction"
-            elif settings.USE_LLM and llm_service.ensure_loaded(timeout=60.0):
+            elif llm_setting.enabled() and llm_service.ensure_loaded(timeout=60.0):
                 reply_plan = self._plan_llm_reply(context, personality, db)
                 prompt = self._build_prompt(context, user_message, personality, reply_plan)
                 raw_response = llm_service.generate(prompt, max_tokens=300, temperature=0.7)
@@ -537,7 +538,7 @@ class ConversationManager:
                 else:
                     reply_features.update(self._observed_llm_features(raw_response, context, reply_plan))
             else:
-                if settings.USE_LLM:
+                if llm_setting.enabled():
                     logger.warning("LLM model not available, using rule-based responses")
                 raw_response = self._rule_based_response(
                     analysis_message, context, personality, allow_reflection, db, reply_features

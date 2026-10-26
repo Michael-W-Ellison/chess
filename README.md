@@ -2,8 +2,6 @@
 
 A safe, private desktop chatbot companion for preteens (ages 9-13) with an evolving personality and local AI processing.
 
-**Built with Llama.** The packaged app includes Meta's Llama 3.2, licensed under the Llama 3.2 Community License.
-
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10+-green)
 ![Node](https://img.shields.io/badge/node-18+-green)
@@ -15,7 +13,7 @@ A safe, private desktop chatbot companion for preteens (ages 9-13) with an evolv
 - **🤖 Evolving Personality**: Bot personality that changes based on interactions
 - **📈 Friendship Levels**: 10-level progression system (1-151+ conversations)
 - **🧠 Memory System**: Remembers user preferences, goals, and important facts
-- **💬 Natural Conversations**: Powered by local LLM (Llama 3.2 3B or Phi-3 Mini)
+- **💬 Conversations**: Rule-based replies by default; a local LLM (Llama 3.2 3B or Phi-3 Mini) can be turned on by a parent, with a safety warning (see [Building for Production](#building-for-production))
 - **🛡️ Multi-Layer Safety**: Crisis detection, profanity filtering, content monitoring
 - **🔒 100% Local & Private**: All data stored on device, no cloud services
 
@@ -78,8 +76,8 @@ A safe, private desktop chatbot companion for preteens (ages 9-13) with an evolv
 
 - **Python 3.10 or higher**
 - **Node.js 18 or higher**
-- **8GB+ RAM** (for LLM model)
-- **4GB+ disk space** (for model files)
+- **8GB+ RAM** (only with the optional LLM)
+- **4GB+ disk space** (only with the optional LLM's model file)
 - **Git**
 
 ### 1. Clone Repository
@@ -107,7 +105,7 @@ venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Download LLM model (optional but recommended)
+# Download LLM model (optional; the app runs without one, and a parent must turn it on)
 # Linux/Mac:
 ./scripts/setup_llm.sh
 # Windows:
@@ -303,25 +301,36 @@ Distributables will be in the `release/` folder.
 `npm run package` builds the app, then the backend as a standalone program
 (`npm run build:backend`: PyInstaller with `backend/venv`, so install
 `backend/requirements.txt` and the spaCy model there first), and puts both in the
-package together with the language model, Llama 3.2 3B Instruct (about 2 GB). The model
-is taken from `backend/models/llama-3.2-3b-instruct.gguf` (`download_model.sh`, option 1)
-or downloaded. The Llama 3.2 license must be shipped with it: put it at
+package. The package has no language model: the chatbot replies with the rule-based
+engine. PyInstaller builds for the system it runs on, so build the Windows app on
+Windows, the macOS one on macOS and the Linux one on Linux.
+
+`BUNDLE_MODEL=1 npm run package` also puts a language model, Llama 3.2 3B Instruct
+(about 2 GB), in the package. The model is taken from
+`backend/models/llama-3.2-3b-instruct.gguf` (`download_model.sh`, option 1) or
+downloaded. The Llama 3.2 license must be shipped with it: put it at
 `backend/models/LLAMA_3.2_LICENSE.txt`, or set `HF_TOKEN` for a Hugging Face account
-with access to Llama 3.2 to download it. `BUNDLE_MODEL=0 npm run package` builds without
-the model. PyInstaller builds for the system it runs on, so build the Windows app on
-Windows, the macOS one on macOS and the Linux one on Linux. The Windows app is a zip
-folder rather than an installer, because the Windows installer format can't hold more
-than 2 GB.
+with access to Llama 3.2 to download it. A package with the model must say "Built with
+Llama" (the parent dashboard's Language Model tab shows it when the bundled model is
+present). For Windows, build a zip folder instead of an installer
+(`BUNDLE_MODEL=1 npm run package -- --win zip`): the Windows installer format can't hold
+more than 2 GB.
+
+Even with a model present, the model writes no replies until a parent turns it on in the
+parent dashboard (Language Model tab). Turning it on shows a warning, which the parent must
+confirm, that the model's replies might exceed the app's safety mechanisms: model replies
+are checked for some kinds of unsafe advice by word and phrase patterns, and these checks
+do not catch every unsafe, inaccurate or inappropriate reply. `USE_LLM=true` in the
+backend's `.env` turns the model on for every launch without showing the warning; it is
+meant for development.
 
 The installed app keeps the backend's `.env`, database (`data/`), logs and LLM model
 (`models/`) in a `backend` folder in its user data folder:
 `%APPDATA%\tamagotchi-chatbot-friend\backend` on Windows,
 `~/Library/Application Support/tamagotchi-chatbot-friend/backend` on macOS and
 `~/.config/tamagotchi-chatbot-friend/backend` on Linux. A model put in that `models/`
-folder (named `llama-3.2-3b-instruct.gguf`) is used instead of the bundled one.
-
-Built with Llama: the app includes Meta's Llama 3.2, licensed under the Llama 3.2
-Community License (shipped with the app as `LLAMA_3.2_LICENSE.txt`).
+folder (named `llama-3.2-3b-instruct.gguf`) is used when a parent turns the language
+model on, in place of a bundled one.
 
 ### Code Style
 

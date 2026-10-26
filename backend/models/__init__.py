@@ -12,6 +12,7 @@ from models.parent_preferences import ParentNotificationPreferences
 from models.level_up_event import LevelUpEvent
 from models.personality_drift import PersonalityDrift
 from models.engagement import EngagementStat, ReplyDelay
+from models.app_setting import AppSetting
 
 __all__ = [
     "User",
@@ -26,4 +27,5 @@ __all__ = [
     "PersonalityDrift",
     "EngagementStat",
     "ReplyDelay",
+    "AppSetting",
 ]

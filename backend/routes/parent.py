@@ -30,6 +30,8 @@ from services.conversation_summary_service import conversation_summary_service
 from services.weekly_report_service import weekly_report_service
 from services.report_scheduler import report_scheduler
 from services.auth_service import auth_service
+from services.llm_service import llm_service
+from services.llm_setting import llm_setting
 from utils.auth_dependencies import require_parent_auth, RequireAuth
 from utils.config import settings
 from utils.rate_limiter import auth_rate_limiter
@@ -2163,3 +2165,41 @@ async def trigger_scheduled_check():
     except Exception as e:
         logger.error(f"Error triggering scheduled check: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# ============================================================================
+# Language Model Setting
+# ============================================================================
+
+
+class LanguageModelUpdateRequest(BaseModel):
+    """Turn the language model on or off; turning it on requires accepting the warning"""
+    enabled: bool
+    warning_accepted: bool = False
+
+
+@router.get("/language-model")
+async def get_language_model_setting(db: Session = Depends(get_db)):
+    """
+    Whether replies may come from the language model (off by default), the warning shown
+    before turning it on, and whether a model file is present
+    """
+    return llm_setting.status(db)
+
+
+@router.put("/language-model")
+async def update_language_model_setting(request: LanguageModelUpdateRequest, db: Session = Depends(get_db)):
+    """
+    Turn the language model on or off. Turning it on is refused unless warning_accepted is
+    true: the parent confirmed they read the warning.
+    """
+    if request.enabled and not request.warning_accepted:
+        raise HTTPException(status_code=400, detail="Read and accept the warning to turn on the language model")
+    llm_setting.set_enabled(db, request.enabled, warning_accepted=request.warning_accepted)
+    if request.enabled:
+        if settings.get_model_path().exists():
+            # Loaded in the background so the first reply does not wait for it
+            llm_service.load_model(blocking=False, use_mmap=settings.MODEL_USE_MMAP)
+    elif not settings.USE_LLM:
+        llm_service.unload_model()
+    return llm_setting.status(db)

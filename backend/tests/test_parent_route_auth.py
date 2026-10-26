@@ -20,6 +20,8 @@ PROTECTED_REQUESTS = [
     ("get", "/api/parent/conversations?user_id=1"),
     ("get", "/api/parent/reports/preview?user_id=1"),
     ("get", "/api/parent/engagement?user_id=1"),
+    ("get", "/api/parent/language-model"),
+    ("put", "/api/parent/language-model"),
 ]
 
 

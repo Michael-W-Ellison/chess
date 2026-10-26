@@ -1,11 +1,13 @@
 /**
- * Build the bundled backend (backend/dist/chatbot-backend/) with PyInstaller, and put the
- * language model next to it (backend/dist/models/, see bundleModel below). PyInstaller uses the
+ * Build the bundled backend (backend/dist/chatbot-backend/) with PyInstaller, and, with
+ * BUNDLE_MODEL=1, put the language model next to it (backend/dist/models/, see bundleModel
+ * below). The app runs without a language model by default. PyInstaller uses the
  * backend's virtual environment (backend/venv), or the Python in the PYTHON environment
  * variable. PyInstaller builds for the system it runs on: build on Windows for the Windows
  * app, on macOS for the macOS one.
  *
- * Usage: npm run build:backend
+ * Usage: npm run build:backend                  (no language model)
+ *        BUNDLE_MODEL=1 npm run build:backend   (with the language model)
  */
 const { spawnSync } = require('child_process');
 const fs = require('fs');
@@ -38,23 +40,27 @@ bundleModel().catch((error) => {
 });
 
 /**
- * The language model and its license, in backend/dist/models/ (package.json "extraResources"
- * copies it into the app). The model comes from, in order: the file in LLM_MODEL_FILE, the one
+ * With BUNDLE_MODEL=1, the language model and its license, in backend/dist/models/
+ * (package.json "extraResources" copies it into the app). Even then the model writes no
+ * replies until a parent turns it on in the parent dashboard. The model comes from, in order: the file in LLM_MODEL_FILE, the one
  * download_model.sh saves (backend/models/llama-3.2-3b-instruct.gguf), or a download from
  * LLM_MODEL_URL (default: Llama 3.2 3B Instruct, Q4_K_M). The Llama 3.2 license must go with
  * the model: LLM_MODEL_LICENSE_FILE, backend/models/LLAMA_3.2_LICENSE.txt, or a download from
  * LLM_MODEL_LICENSE_URL (default: Meta's model page, which needs a Hugging Face token with
- * access to it in HF_TOKEN). BUNDLE_MODEL=0 leaves the model out.
+ * access to it in HF_TOKEN). Without BUNDLE_MODEL=1 the folder is left empty.
  */
 async function bundleModel() {
   const MODEL_NAME = 'llama-3.2-3b-instruct.gguf';
   const LICENSE_NAME = 'LLAMA_3.2_LICENSE.txt';
   const modelsOut = path.join(backendDir, 'dist', 'models');
-  fs.mkdirSync(modelsOut, { recursive: true });
-  if (process.env.BUNDLE_MODEL === '0') {
-    console.log('BUNDLE_MODEL=0: building without the language model');
+  if (process.env.BUNDLE_MODEL !== '1') {
+    // Emptied, so a model from an earlier BUNDLE_MODEL=1 build is not packaged
+    fs.rmSync(modelsOut, { recursive: true, force: true });
+    fs.mkdirSync(modelsOut, { recursive: true });
+    console.log('Building without the language model (set BUNDLE_MODEL=1 to include it)');
     return;
   }
+  fs.mkdirSync(modelsOut, { recursive: true });
   const modelTarget = path.join(modelsOut, MODEL_NAME);
   await provide(modelTarget, [process.env.LLM_MODEL_FILE, path.join(backendDir, 'models', MODEL_NAME)],
     process.env.LLM_MODEL_URL

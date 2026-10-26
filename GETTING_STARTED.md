@@ -161,15 +161,18 @@ MODEL_N_GPU_LAYERS=0  # Set to -1 if you have NVIDIA GPU
 
 You have two options: use the chatbot with or without a local LLM model.
 
-### Option 1: Without LLM Model (Quick Start)
+### Option 1: Without LLM Model (Default)
 
-The application will work with fallback responses if no model is present. This is useful for testing the interface.
+The application replies with the rule-based engine. This is the default, with or without a
+model file present.
 
 **Skip to [Frontend Setup](#frontend-setup)**
 
-### Option 2: With LLM Model (Recommended)
+### Option 2: With LLM Model (Optional)
 
-Download a language model for full chatbot functionality.
+Download a language model if a parent wants the model to write replies. The model writes
+no replies until a parent turns it on in the parent dashboard (Language Model tab), after a
+warning that its replies might exceed the app's safety mechanisms.
 
 #### Automatic Installation (Recommended)
 
@@ -559,25 +562,36 @@ npm run package
 `npm run package` builds the app, then the backend as a standalone program
 (`npm run build:backend`: PyInstaller with `backend/venv`, so install
 `backend/requirements.txt` and the spaCy model there first), and puts both in the
-package together with the language model, Llama 3.2 3B Instruct (about 2 GB). The model
-is taken from `backend/models/llama-3.2-3b-instruct.gguf` (`download_model.sh`, option 1)
-or downloaded. The Llama 3.2 license must be shipped with it: put it at
+package. The package has no language model: the chatbot replies with the rule-based
+engine. PyInstaller builds for the system it runs on, so build the Windows app on
+Windows, the macOS one on macOS and the Linux one on Linux.
+
+`BUNDLE_MODEL=1 npm run package` also puts a language model, Llama 3.2 3B Instruct
+(about 2 GB), in the package. The model is taken from
+`backend/models/llama-3.2-3b-instruct.gguf` (`download_model.sh`, option 1) or
+downloaded. The Llama 3.2 license must be shipped with it: put it at
 `backend/models/LLAMA_3.2_LICENSE.txt`, or set `HF_TOKEN` for a Hugging Face account
-with access to Llama 3.2 to download it. `BUNDLE_MODEL=0 npm run package` builds without
-the model. PyInstaller builds for the system it runs on, so build the Windows app on
-Windows, the macOS one on macOS and the Linux one on Linux. The Windows app is a zip
-folder rather than an installer, because the Windows installer format can't hold more
-than 2 GB.
+with access to Llama 3.2 to download it. A package with the model must say "Built with
+Llama" (the parent dashboard's Language Model tab shows it when the bundled model is
+present). For Windows, build a zip folder instead of an installer
+(`BUNDLE_MODEL=1 npm run package -- --win zip`): the Windows installer format can't hold
+more than 2 GB.
+
+Even with a model present, the model writes no replies until a parent turns it on in the
+parent dashboard (Language Model tab). Turning it on shows a warning, which the parent must
+confirm, that the model's replies might exceed the app's safety mechanisms: model replies
+are checked for some kinds of unsafe advice by word and phrase patterns, and these checks
+do not catch every unsafe, inaccurate or inappropriate reply. `USE_LLM=true` in the
+backend's `.env` turns the model on for every launch without showing the warning; it is
+meant for development.
 
 The installed app keeps the backend's `.env`, database (`data/`), logs and LLM model
 (`models/`) in a `backend` folder in its user data folder:
 `%APPDATA%\tamagotchi-chatbot-friend\backend` on Windows,
 `~/Library/Application Support/tamagotchi-chatbot-friend/backend` on macOS and
 `~/.config/tamagotchi-chatbot-friend/backend` on Linux. A model put in that `models/`
-folder (named `llama-3.2-3b-instruct.gguf`) is used instead of the bundled one.
-
-Built with Llama: the app includes Meta's Llama 3.2, licensed under the Llama 3.2
-Community License (shipped with the app as `LLAMA_3.2_LICENSE.txt`).
+folder (named `llama-3.2-3b-instruct.gguf`) is used when a parent turns the language
+model on, in place of a bundled one.
 
 ---
 

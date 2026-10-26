@@ -37,9 +37,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./data/chatbot.db"
 
     # LLM Configuration
-    # False: never load the model; replies, memory extraction and mood detection use the
-    # rule-based engine (services/response_engine.py)
-    USE_LLM: bool = True
+    # False (the default): replies, memory extraction and mood detection use the rule-based
+    # engine (services/response_engine.py) unless a parent turns the model on in the parent
+    # dashboard (services/llm_setting.py). True: the model is on for every launch.
+    USE_LLM: bool = False
     MODEL_PATH: str = "./models/llama-3.2-3b-instruct.gguf"
     # The model that comes with the packaged app (set by src/main/backend-manager.ts), used
     # when there is no model at MODEL_PATH
