@@ -521,6 +521,8 @@ export const SettingsPanel: React.FC = () => {
                 Chatbot Friend is a safe, private companion for preteens.
                 <br />
                 Designed with safety and privacy in mind.
+                <br />
+                Built with Llama.
               </p>
             </div>
           </div>

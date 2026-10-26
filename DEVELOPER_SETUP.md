@@ -216,7 +216,7 @@ powershell -ExecutionPolicy Bypass -File scripts\setup_llm.ps1
 
 2. Download a GGUF model from HuggingFace:
    - **Llama 3.2 3B Instruct** (Recommended):
-     - [TheBloke/Llama-3.2-3B-Instruct-GGUF](https://huggingface.co/TheBloke/Llama-3.2-3B-Instruct-GGUF)
+     - [bartowski/Llama-3.2-3B-Instruct-GGUF](https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF)
      - Download `llama-3.2-3b-instruct.Q4_K_M.gguf` (2.1GB)
 
    - **Phi-3 Mini** (Alternative):
@@ -460,14 +460,25 @@ npm run package
 `npm run package` builds the app, then the backend as a standalone program
 (`npm run build:backend`: PyInstaller with `backend/venv`, so install
 `backend/requirements.txt` and the spaCy model there first), and puts both in the
-installer. PyInstaller builds for the system it runs on, so build the Windows
-installer on Windows, the macOS one on macOS and the Linux one on Linux.
+package together with the language model, Llama 3.2 3B Instruct (about 2 GB). The model
+is taken from `backend/models/llama-3.2-3b-instruct.gguf` (`download_model.sh`, option 1)
+or downloaded. The Llama 3.2 license must be shipped with it: put it at
+`backend/models/LLAMA_3.2_LICENSE.txt`, or set `HF_TOKEN` for a Hugging Face account
+with access to Llama 3.2 to download it. `BUNDLE_MODEL=0 npm run package` builds without
+the model. PyInstaller builds for the system it runs on, so build the Windows app on
+Windows, the macOS one on macOS and the Linux one on Linux. The Windows app is a zip
+folder rather than an installer, because the Windows installer format can't hold more
+than 2 GB.
 
 The installed app keeps the backend's `.env`, database (`data/`), logs and LLM model
 (`models/`) in a `backend` folder in its user data folder:
 `%APPDATA%\tamagotchi-chatbot-friend\backend` on Windows,
 `~/Library/Application Support/tamagotchi-chatbot-friend/backend` on macOS and
-`~/.config/tamagotchi-chatbot-friend/backend` on Linux.
+`~/.config/tamagotchi-chatbot-friend/backend` on Linux. A model put in that `models/`
+folder (named `llama-3.2-3b-instruct.gguf`) is used instead of the bundled one.
+
+Built with Llama: the app includes Meta's Llama 3.2, licensed under the Llama 3.2
+Community License (shipped with the app as `LLAMA_3.2_LICENSE.txt`).
 
 ### Running Tests
 

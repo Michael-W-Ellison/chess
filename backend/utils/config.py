@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # rule-based engine (services/response_engine.py)
     USE_LLM: bool = True
     MODEL_PATH: str = "./models/llama-3.2-3b-instruct.gguf"
+    # The model that comes with the packaged app (set by src/main/backend-manager.ts), used
+    # when there is no model at MODEL_PATH
+    BUNDLED_MODEL_PATH: Optional[str] = None
     MODEL_CONTEXT_LENGTH: int = 2048
     MODEL_MAX_TOKENS: int = 512
     MODEL_TEMPERATURE: float = 0.7
@@ -98,8 +101,14 @@ class Settings(BaseSettings):
     )
 
     def get_model_path(self) -> Path:
-        """Get absolute path to model file"""
-        return Path(self.MODEL_PATH).resolve()
+        """
+        Absolute path to the model file: MODEL_PATH if a model is there, else the packaged
+        app's own model, if any
+        """
+        own = Path(self.MODEL_PATH).resolve()
+        if not own.exists() and self.BUNDLED_MODEL_PATH and Path(self.BUNDLED_MODEL_PATH).exists():
+            return Path(self.BUNDLED_MODEL_PATH).resolve()
+        return own
 
     def get_database_path(self) -> Path:
         """Get absolute path to database file"""

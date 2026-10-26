@@ -8,7 +8,8 @@ sqlalchemy==2.0.25
 alembic==1.13.1
 
 # LLM Integration
-llama-cpp-python==0.2.32
+# 0.3 or later: 0.2.x can't read Llama 3 models (their tokenizer is newer)
+llama-cpp-python==0.3.36
 
 # Rule-based response engine (used when no LLM is loaded, or USE_LLM=false)
 spacy>=3.8,<3.9

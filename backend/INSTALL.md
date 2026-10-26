@@ -100,7 +100,7 @@ The script offers several options:
 ### Manual Download
 
 1. Visit HuggingFace and find a GGUF format model:
-   - [Llama 3.2 3B Instruct](https://huggingface.co/TheBloke/Llama-3.2-3B-Instruct-GGUF)
+   - [Llama 3.2 3B Instruct](https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF)
    - [Phi-3 Mini](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf)
 
 2. Download the `.gguf` file

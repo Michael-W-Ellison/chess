@@ -25,6 +25,12 @@ for package in ("spacy", "en_core_web_sm", "thinc", "srsly", "catalogue", "confe
     binaries += package_binaries
     hiddenimports += package_hidden
 
+# llama-cpp-python: the Python package and llama.cpp's shared libraries (lib/), to run the model
+llama_datas, llama_binaries, llama_hidden = collect_all("llama_cpp")
+datas += llama_datas
+binaries += llama_binaries
+hiddenimports += llama_hidden
+
 # Modules imported only by name at run time
 hiddenimports += collect_submodules("uvicorn")
 hiddenimports += collect_submodules("apscheduler")

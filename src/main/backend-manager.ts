@@ -100,6 +100,17 @@ export class BackendManager {
   }
 
   /**
+   * The language model that comes with the packaged app (npm run build:backend puts it in the
+   * app's resources); the backend uses it unless the user put a model in its models/ folder
+   */
+  private bundledModelEnv(): Record<string, string> {
+    if (!app.isPackaged) {
+      return {};
+    }
+    return { BUNDLED_MODEL_PATH: path.join(process.resourcesPath, 'models', 'llama-3.2-3b-instruct.gguf') };
+  }
+
+  /**
    * Start the Python backend process
    */
   async start(): Promise<void> {
@@ -134,6 +145,7 @@ export class BackendManager {
       PYTHONUNBUFFERED: '1', // Disable Python output buffering
       API_TOKEN: this.apiToken,
       CHILD_USER_ID: '1', // The app's one child profile: the child API serves no other user
+      ...this.bundledModelEnv(),
     };
 
     // Spawn Python process

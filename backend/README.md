@@ -54,7 +54,7 @@ Download one of these models:
 ```bash
 mkdir -p models
 # Download from HuggingFace
-# Example: https://huggingface.co/TheBloke/Llama-3.2-3B-Instruct-GGUF
+# Example: https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF
 # Place the .gguf file in models/ directory
 ```
 

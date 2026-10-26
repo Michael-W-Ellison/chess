@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
     logger.info("Database initialized")
 
     # Load LLM model with optimizations from settings
-    logger.info(f"Loading LLM model from {settings.MODEL_PATH}")
+    logger.info(f"Loading LLM model from {settings.get_model_path()}")
 
     # Log cache configuration
     if settings.ENABLE_RESPONSE_CACHE:
