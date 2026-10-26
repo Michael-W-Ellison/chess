@@ -60,7 +60,7 @@ export const ColorSelector: React.FC<ColorSelectorProps> = ({ compact = false })
   return (
     <div className="space-y-4">
       {/* Current selection preview */}
-      <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+      <div className="flex items-center gap-4 p-4 bg-linear-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
         <div
           className="w-16 h-16 rounded-full flex items-center justify-center text-2xl transition-all shadow-lg"
           style={{ backgroundColor: colorTheme.primary }}

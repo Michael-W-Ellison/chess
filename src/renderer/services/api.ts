@@ -11,6 +11,7 @@ import type {
   ConversationSummary,
   ProfileItem,
 } from '../../shared/types';
+import { apiTokenHeaders, cachedApiTokenHeaders } from './apiToken';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -59,6 +60,7 @@ async function fetchWithErrorHandling<T>(
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
+        ...(await apiTokenHeaders()),
         ...options?.headers,
       },
     });
@@ -140,14 +142,12 @@ export const conversationApi = {
 
   /**
    * End a conversation while the window is closing.
-   * Uses sendBeacon (or fetch with keepalive), which browsers deliver during page unload.
+   * Uses fetch with keepalive, which browsers deliver during page unload (not sendBeacon,
+   * which can't send the API token header).
    */
   endOnUnload(conversationId: number): void {
     const url = `${defaultConfig.baseURL}/api/conversation/end/${conversationId}`;
-    if (typeof navigator !== 'undefined' && navigator.sendBeacon && navigator.sendBeacon(url)) {
-      return;
-    }
-    fetch(url, { method: 'POST', keepalive: true }).catch(() => undefined);
+    fetch(url, { method: 'POST', keepalive: true, headers: cachedApiTokenHeaders() }).catch(() => undefined);
   },
 
   /**

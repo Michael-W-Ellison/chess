@@ -16,7 +16,7 @@ export const LoginStats: React.FC<LoginStatsProps> = ({ compact = false }) => {
   if (compact) {
     return (
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+        <div className="bg-linear-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
             {stats.currentStreak}
           </div>
@@ -25,7 +25,7 @@ export const LoginStats: React.FC<LoginStatsProps> = ({ compact = false }) => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg p-3 border border-purple-200 dark:border-purple-800">
+        <div className="bg-linear-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg p-3 border border-purple-200 dark:border-purple-800">
           <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
             {stats.totalLogins}
           </div>
@@ -41,7 +41,7 @@ export const LoginStats: React.FC<LoginStatsProps> = ({ compact = false }) => {
     <div className="space-y-4">
       {/* Main Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800 shadow-sm">
+        <div className="bg-linear-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800 shadow-xs">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">🔥</span>
             <span className="text-xs font-semibold text-orange-700 dark:text-orange-300">
@@ -56,7 +56,7 @@ export const LoginStats: React.FC<LoginStatsProps> = ({ compact = false }) => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-4 border border-green-200 dark:border-green-800 shadow-sm">
+        <div className="bg-linear-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-4 border border-green-200 dark:border-green-800 shadow-xs">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">🏆</span>
             <span className="text-xs font-semibold text-green-700 dark:text-green-300">
@@ -71,7 +71,7 @@ export const LoginStats: React.FC<LoginStatsProps> = ({ compact = false }) => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 shadow-sm">
+        <div className="bg-linear-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 shadow-xs">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">📅</span>
             <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
@@ -86,7 +86,7 @@ export const LoginStats: React.FC<LoginStatsProps> = ({ compact = false }) => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800 shadow-sm">
+        <div className="bg-linear-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800 shadow-xs">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">📊</span>
             <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">
@@ -104,7 +104,7 @@ export const LoginStats: React.FC<LoginStatsProps> = ({ compact = false }) => {
 
       {/* Additional Info */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               This Month
@@ -115,7 +115,7 @@ export const LoginStats: React.FC<LoginStatsProps> = ({ compact = false }) => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Last Login
@@ -134,7 +134,7 @@ export const LoginStats: React.FC<LoginStatsProps> = ({ compact = false }) => {
 
       {/* Motivational Message */}
       {stats.currentStreak > 0 && (
-        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
+        <div className="bg-linear-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
           <div className="flex items-start gap-3">
             <span className="text-2xl">🎉</span>
             <div>

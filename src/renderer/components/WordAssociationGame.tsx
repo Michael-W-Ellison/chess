@@ -205,7 +205,7 @@ export const WordAssociationGame: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
             onClick={() => startGame('easy')}
-            className="bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl p-6 transition-all shadow-lg hover:shadow-xl"
+            className="bg-linear-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl p-6 transition-all shadow-lg hover:shadow-xl"
           >
             <div className="text-4xl mb-2">🌱</div>
             <div className="text-xl font-bold mb-1">Easy</div>
@@ -214,7 +214,7 @@ export const WordAssociationGame: React.FC = () => {
           </button>
           <button
             onClick={() => startGame('medium')}
-            className="bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl p-6 transition-all shadow-lg hover:shadow-xl"
+            className="bg-linear-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl p-6 transition-all shadow-lg hover:shadow-xl"
           >
             <div className="text-4xl mb-2">⚡</div>
             <div className="text-xl font-bold mb-1">Medium</div>
@@ -223,7 +223,7 @@ export const WordAssociationGame: React.FC = () => {
           </button>
           <button
             onClick={() => startGame('hard')}
-            className="bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-xl p-6 transition-all shadow-lg hover:shadow-xl"
+            className="bg-linear-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-xl p-6 transition-all shadow-lg hover:shadow-xl"
           >
             <div className="text-4xl mb-2">🔥</div>
             <div className="text-xl font-bold mb-1">Hard</div>
@@ -265,7 +265,7 @@ export const WordAssociationGame: React.FC = () => {
           </div>
 
           {/* Prompt Word */}
-          <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl p-8 border border-purple-200 dark:border-purple-800 text-center">
+          <div className="bg-linear-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl p-8 border border-purple-200 dark:border-purple-800 text-center">
             <div className="text-sm text-purple-700 dark:text-purple-300 mb-2">
               Find words related to...
             </div>
@@ -296,7 +296,7 @@ export const WordAssociationGame: React.FC = () => {
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
               placeholder="Type a related word..."
-              className="w-full px-6 py-4 text-lg rounded-xl border-2 border-blue-300 dark:border-blue-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:border-blue-500 dark:focus:border-blue-500 focus:outline-none shadow-lg"
+              className="w-full px-6 py-4 text-lg rounded-xl border-2 border-blue-300 dark:border-blue-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:border-blue-500 dark:focus:border-blue-500 focus:outline-hidden shadow-lg"
               autoComplete="off"
             />
             <button
@@ -353,7 +353,7 @@ export const WordAssociationGame: React.FC = () => {
       {/* Game Finished */}
       {gameState === 'finished' && (
         <div className="text-center space-y-6">
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-12 border border-green-200 dark:border-green-800">
+          <div className="bg-linear-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-12 border border-green-200 dark:border-green-800">
             <div className="text-6xl mb-4">
               {getFinalScore().totalScore >= 100 ? '🏆' : getFinalScore().totalScore >= 50 ? '🎉' : '👏'}
             </div>

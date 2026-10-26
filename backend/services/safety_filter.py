@@ -138,6 +138,7 @@ class SafetyFilter:
     def check_message(
         self, message: str, user_id: Optional[int] = None, resolved_message: Optional[str] = None,
         recent_messages: Iterable[str] = (), known_people: Iterable[str] = (), force_crisis: bool = False,
+        _ignore_crisis_phrases: bool = False,
     ) -> Dict:
         """
         Comprehensive safety check integrating all services
@@ -155,6 +156,8 @@ class SafetyFilter:
             known_people: Names of people the child mentioned recently
             force_crisis: Skip the context check of crisis phrases (the child confirmed
                 that "beats me" means hitting)
+            _ignore_crisis_phrases: Check only the other detectors (used to check the rest of
+                a message whose crisis phrase got a gentler reply)
 
         Returns:
             Dictionary with comprehensive safety check results:
@@ -200,7 +203,7 @@ class SafetyFilter:
         # Check for crisis keywords using specialized detector
         # Phrases with everyday meanings are read in context (see services/crisis_context.py):
         # "she beats me" at Mario Kart, "it makes me scared", "kids at school push me"
-        crisis_found = self.crisis_detector.contains_crisis_keywords(message)
+        crisis_found = not _ignore_crisis_phrases and self.crisis_detector.contains_crisis_keywords(message)
         context_decision = "crisis"
         if crisis_found and not force_crisis:
             found = self.crisis_detector.find_crisis_keywords(message)
@@ -339,6 +342,15 @@ class SafetyFilter:
                     "all_categories": all_bullying_categories,
                     "keywords_found": bullying_keywords_found,
                 }
+
+        # A crisis phrase read as games, fear or teasing gets a gentler reply, but the rest of
+        # the message is still checked: "the storm makes me scared. a stranger asked me to get
+        # in his car" gets the stranger danger response
+        if crisis_found and context_decision in ("clarify", "indirect_fear", "peer_bullying"):
+            rest = self.check_message(message, None, resolved_message, recent_messages, known_people,
+                                      _ignore_crisis_phrases=True)
+            if rest["severity"] in ("high", "critical"):
+                return rest
 
         # Determine if message is safe (allow through) using SeverityScorer
         safe = self.severity_scorer.is_safe_message(severity)

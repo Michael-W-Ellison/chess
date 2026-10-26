@@ -164,7 +164,7 @@ export const ProfilePanel: React.FC = () => {
 
         {/* Catchphrase */}
         {personality.catchphrase && (
-          <div className="bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg p-4 border border-purple-200">
+          <div className="bg-linear-to-r from-purple-100 to-blue-100 rounded-lg p-4 border border-purple-200">
             <div className="text-xs text-gray-600 mb-1">Catchphrase</div>
             <div className="text-lg italic text-gray-800">"{personality.catchphrase}"</div>
           </div>
@@ -246,7 +246,7 @@ export const ProfilePanel: React.FC = () => {
                 {section.rows.map(({ label, value }, index) => (
                   <div
                     key={`${label}-${index}`}
-                    className="flex items-start justify-between p-2 bg-gray-50 rounded"
+                    className="flex items-start justify-between p-2 bg-gray-50 rounded-sm"
                   >
                     <div>
                       {label && (

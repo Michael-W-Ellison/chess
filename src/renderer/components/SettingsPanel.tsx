@@ -180,7 +180,7 @@ export const SettingsPanel: React.FC = () => {
               </div>
               <button
                 onClick={handleSoundToggle}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-hidden focus:ring-2 focus:ring-offset-2 ${
                   soundEnabled
                     ? 'bg-blue-600 dark:bg-blue-500'
                     : 'bg-gray-200 dark:bg-gray-700'
@@ -232,7 +232,7 @@ export const SettingsPanel: React.FC = () => {
                   value={formData.name}
                   onChange={(e) => handleChange('name', e.target.value)}
                   placeholder="Enter your name"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 transition-shadow"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-hidden focus:ring-2 transition-shadow"
                   style={{
                     ['--tw-ring-color' as any]: 'var(--color-focus)',
                   }}
@@ -250,7 +250,7 @@ export const SettingsPanel: React.FC = () => {
                   placeholder="Enter your age"
                   min={1}
                   max={120}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 transition-shadow"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-hidden focus:ring-2 transition-shadow"
                   style={{
                     ['--tw-ring-color' as any]: 'var(--color-focus)',
                   }}
@@ -265,7 +265,7 @@ export const SettingsPanel: React.FC = () => {
                 <select
                   value={formData.grade}
                   onChange={(e) => handleChange('grade', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 transition-shadow"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-hidden focus:ring-2 transition-shadow"
                   style={{
                     ['--tw-ring-color' as any]: 'var(--color-focus)',
                   }}
@@ -336,7 +336,7 @@ export const SettingsPanel: React.FC = () => {
             <div className="space-y-4">
               {/* Stats grid */}
               <div className="grid grid-cols-3 gap-3">
-                <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="text-center p-3 bg-linear-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                   <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
                     {unlockedAchievements.length}
                   </div>
@@ -344,7 +344,7 @@ export const SettingsPanel: React.FC = () => {
                     Unlocked
                   </div>
                 </div>
-                <div className="text-center p-3 bg-gradient-to-br from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                <div className="text-center p-3 bg-linear-to-br from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 rounded-lg border border-green-200 dark:border-green-800">
                   <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
                     {calculateTotalPoints(unlockedAchievements)}
                   </div>
@@ -352,7 +352,7 @@ export const SettingsPanel: React.FC = () => {
                     Points
                   </div>
                 </div>
-                <div className="text-center p-3 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                <div className="text-center p-3 bg-linear-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
                   <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
                     {getAchievementProgress(unlockedAchievements)}%
                   </div>
@@ -521,6 +521,8 @@ export const SettingsPanel: React.FC = () => {
                 Chatbot Friend is a safe, private companion for preteens.
                 <br />
                 Designed with safety and privacy in mind.
+                <br />
+                Built with Llama.
               </p>
             </div>
           </div>

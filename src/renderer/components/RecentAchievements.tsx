@@ -42,7 +42,7 @@ export const RecentAchievements: React.FC<RecentAchievementsProps> = ({
               className="flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
             >
               <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shadow-sm"
+                className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shadow-xs"
                 style={{ backgroundColor: tierColors.bg }}
               >
                 {recent.achievement.emoji}
@@ -54,7 +54,7 @@ export const RecentAchievements: React.FC<RecentAchievementsProps> = ({
                 <div className="text-xs text-gray-500 dark:text-gray-400">{timeAgo}</div>
               </div>
               <div
-                className="text-xs font-bold px-2 py-1 rounded"
+                className="text-xs font-bold px-2 py-1 rounded-sm"
                 style={{
                   backgroundColor: tierColors.border,
                   color: tierColors.text,
@@ -78,14 +78,14 @@ export const RecentAchievements: React.FC<RecentAchievementsProps> = ({
         return (
           <div
             key={`${recent.achievement.id}-${index}`}
-            className="flex items-start gap-4 p-4 rounded-lg bg-gradient-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-750 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all"
+            className="flex items-start gap-4 p-4 rounded-lg bg-linear-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-750 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all"
             style={{
               borderLeftWidth: '4px',
               borderLeftColor: tierColors.border,
             }}
           >
             <div
-              className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl shadow-md flex-shrink-0"
+              className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl shadow-md shrink-0"
               style={{
                 backgroundColor: tierColors.bg,
                 boxShadow: `0 4px 12px ${tierColors.glow}`,
@@ -99,7 +99,7 @@ export const RecentAchievements: React.FC<RecentAchievementsProps> = ({
                   {recent.achievement.name}
                 </h4>
                 <div
-                  className="text-sm font-bold px-2 py-1 rounded whitespace-nowrap"
+                  className="text-sm font-bold px-2 py-1 rounded-sm whitespace-nowrap"
                   style={{
                     backgroundColor: tierColors.border,
                     color: tierColors.text,

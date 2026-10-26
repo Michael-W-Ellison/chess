@@ -79,7 +79,7 @@ export const MemoryBook: React.FC<MemoryBookProps> = ({ memories, onMemoryClick 
             (category) => (
               <div
                 key={category}
-                className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-3 text-center border border-blue-200 dark:border-blue-800"
+                className="bg-linear-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-3 text-center border border-blue-200 dark:border-blue-800"
               >
                 <div className="text-2xl mb-1">{getCategoryEmoji(category)}</div>
                 <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
@@ -101,7 +101,7 @@ export const MemoryBook: React.FC<MemoryBookProps> = ({ memories, onMemoryClick 
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search memories..."
-          className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
@@ -217,7 +217,7 @@ export const MemoryBook: React.FC<MemoryBookProps> = ({ memories, onMemoryClick 
             {summary.mostMentioned.map((memory, index) => (
               <div
                 key={index}
-                className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-lg p-3 border border-yellow-200 dark:border-yellow-800"
+                className="bg-linear-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-lg p-3 border border-yellow-200 dark:border-yellow-800"
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-lg">{getCategoryEmoji(memory.category)}</span>

@@ -3,8 +3,10 @@ Email Service
 Handles sending email notifications for critical safety events
 """
 
-import smtplib
 import logging
+import smtplib
+import ssl
+from html import escape as html_escape
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional, Dict, List
@@ -87,7 +89,7 @@ class EmailService:
         # Check if email notifications are enabled
         if not self.enabled:
             logger.info(
-                f"Email notifications disabled - Would send to {to_email}: {subject}"
+                f"Email notifications disabled - would send: {subject}"
             )
             return {
                 "success": False,
@@ -107,7 +109,8 @@ class EmailService:
         try:
             # Create message
             message = MIMEMultipart("alternative")
-            message["Subject"] = subject
+            # A line break in a header (from a child's name) would start a new header
+            message["Subject"] = " ".join(subject.split())
             message["From"] = self.smtp_from_email
             message["To"] = to_email
             message["Date"] = datetime.now().strftime("%a, %d %b %Y %H:%M:%S %z")
@@ -124,10 +127,15 @@ class EmailService:
             # Connect to SMTP server and send
             logger.info(f"Connecting to SMTP server {self.smtp_host}:{self.smtp_port}")
 
+            if not self.smtp_use_tls:
+                # The password would be sent unencrypted
+                logger.error("Not sending email: SMTP_USE_TLS is off, so the SMTP password would be sent unencrypted")
+                return {"success": False, "error": "SMTP_USE_TLS must be on to send email"}
+
             with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                if self.smtp_use_tls:
-                    server.starttls()
-                    logger.debug("TLS started")
+                # Check the server's certificate (starttls() without a context does not)
+                server.starttls(context=ssl.create_default_context())
+                logger.debug("TLS started")
 
                 # Login
                 server.login(self.smtp_username, self.smtp_password)
@@ -135,7 +143,7 @@ class EmailService:
 
                 # Send email
                 server.send_message(message)
-                logger.info(f"Email sent successfully to {to_email}")
+                logger.info("Email sent successfully")
 
             return {
                 "success": True,
@@ -327,6 +335,9 @@ To disable these notifications, adjust your settings in the parent dashboard.
         content_snippet: Optional[str] = None
     ) -> str:
         """Generate HTML email body for safety alert"""
+        # The child's name is set from the app, so it is text, not HTML
+        user_name = html_escape(user_name)
+        severity = html_escape(severity)
         severity_colors = {
             "critical": "#dc2626",
             "high": "#ea580c",
@@ -485,6 +496,8 @@ To adjust notification preferences, visit the parent dashboard.
         summary_period: str
     ) -> str:
         """Generate HTML summary email"""
+        user_name = html_escape(user_name)
+        summary_period = html_escape(summary_period)
         total = len(flags)
         by_severity = {}
         by_type = {}
@@ -496,12 +509,12 @@ To adjust notification preferences, visit the parent dashboard.
             by_type[flag_type] = by_type.get(flag_type, 0) + 1
 
         severity_rows = "".join([
-            f"<tr><td style='padding: 8px; border-bottom: 1px solid #e5e7eb;'>{s.title()}</td><td style='padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;'>{count}</td></tr>"
+            f"<tr><td style='padding: 8px; border-bottom: 1px solid #e5e7eb;'>{html_escape(str(s).title())}</td><td style='padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;'>{count}</td></tr>"
             for s, count in by_severity.items()
         ])
 
         type_rows = "".join([
-            f"<tr><td style='padding: 8px; border-bottom: 1px solid #e5e7eb;'>{t.replace('_', ' ').title()}</td><td style='padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;'>{count}</td></tr>"
+            f"<tr><td style='padding: 8px; border-bottom: 1px solid #e5e7eb;'>{html_escape(str(t).replace('_', ' ').title())}</td><td style='padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;'>{count}</td></tr>"
             for t, count in by_type.items()
         ])
 

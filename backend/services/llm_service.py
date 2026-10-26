@@ -255,7 +255,9 @@ class LLMService:
 
         # Default stop sequences
         if stop is None:
-            stop = ["\n\nUser:", "\n\nHuman:", "<|endoftext|>"]
+            # One line break: the conversation in the prompt has one per turn, so the model
+            # can't write the child's next turn
+            stop = ["\nUser:", "\nHuman:", "<|endoftext|>"]
 
         # Check cache if enabled
         if self._cache_enabled and use_cache:

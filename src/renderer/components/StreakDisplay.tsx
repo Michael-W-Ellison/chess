@@ -103,7 +103,7 @@ export const StreakDisplay: React.FC<StreakDisplayProps> = ({
 
       {/* Main Streak Display */}
       <div
-        className={`relative bg-gradient-to-br ${getTypeColor(type)} rounded-lg p-6 text-white mb-4 overflow-hidden`}
+        className={`relative bg-linear-to-br ${getTypeColor(type)} rounded-lg p-6 text-white mb-4 overflow-hidden`}
       >
         {/* Animated background effect */}
         {stats.currentStreak > 0 && (
@@ -165,7 +165,7 @@ export const StreakDisplay: React.FC<StreakDisplayProps> = ({
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
             <div
-              className={`h-full bg-gradient-to-r ${getTypeColor(type)} transition-all duration-500 rounded-full`}
+              className={`h-full bg-linear-to-r ${getTypeColor(type)} transition-all duration-500 rounded-full`}
               style={{ width: `${milestoneInfo.progress}%` }}
             />
           </div>

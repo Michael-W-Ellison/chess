@@ -1,13 +1,12 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import * as path from 'path';
 import { setupIpcHandlers, cleanupIpcHandlers } from './ipc-handlers';
 import { backendManager } from './backend-manager';
 import { trackAppLaunch, getStorePath } from './store';
+import { DEV_SERVER_URL, isAppUrl, isDev } from './security';
 
 // Global reference to the main window
 let mainWindow: BrowserWindow | null = null;
-
-const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 /**
  * Create the main application window
@@ -26,13 +25,14 @@ function createMainWindow(): void {
       contextIsolation: true,  // Security: enable context isolation
       sandbox: true,           // Security: enable sandbox
       preload: path.join(__dirname, 'preload.js'),
+      devTools: isDev,         // Security: no DevTools for the child outside development
     },
   });
 
   // Load the app
   if (isDev) {
     // Development: load from Vite dev server
-    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.loadURL(DEV_SERVER_URL);
     // Open DevTools in development
     mainWindow.webContents.openDevTools();
   } else {
@@ -51,13 +51,14 @@ function createMainWindow(): void {
     mainWindow = null;
   });
 
-  // Prevent navigation away from the app
-  mainWindow.webContents.on('will-navigate', (event, url) => {
-    // Only allow navigation within the app
-    if (!url.startsWith('http://localhost') && !url.startsWith('file://')) {
+  // Prevent navigation away from the app, by a link or a redirect
+  const keepInApp = (event: Electron.Event, url: string) => {
+    if (!isAppUrl(url)) {
       event.preventDefault();
     }
-  });
+  };
+  mainWindow.webContents.on('will-navigate', keepInApp);
+  mainWindow.webContents.on('will-redirect', keepInApp);
 
   // Prevent new window creation (security)
   mainWindow.webContents.setWindowOpenHandler(() => {
@@ -69,6 +70,15 @@ function createMainWindow(): void {
  * App lifecycle: Ready
  */
 app.whenReady().then(async () => {
+  // Outside development, a menu without View > Toggle Developer Tools (and its shortcut)
+  if (!isDev) {
+    Menu.setApplicationMenu(Menu.buildFromTemplate([
+      ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
+      { role: 'editMenu' },
+      { role: 'windowMenu' },
+    ]));
+  }
+
   // Initialize electron-store and track app launch
   console.log('Initializing electron-store...');
   trackAppLaunch();

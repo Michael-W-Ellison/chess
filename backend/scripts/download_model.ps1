@@ -38,7 +38,7 @@ $choice = Read-Host "Select model (1-4)"
 switch ($choice) {
     "1" {
         Write-Host "Downloading Llama 3.2 3B Instruct..." -ForegroundColor Yellow
-        $modelUrl = "https://huggingface.co/TheBloke/Llama-3.2-3B-Instruct-GGUF/resolve/main/llama-3.2-3b-instruct.Q4_K_M.gguf"
+        $modelUrl = "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf"
         $modelFile = "models\llama-3.2-3b-instruct.gguf"
     }
     "2" {

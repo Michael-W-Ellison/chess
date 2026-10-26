@@ -321,7 +321,9 @@ This notification was generated automatically by the safety monitoring system. Y
                 f"User ID: {user_id}\n"
                 f"Category: {category}\n"
                 f"Severity: {severity}\n"
-                f"Message:\n{message}"
+                # Not the message: it has the child's name and words, and the log is a plain file.
+                # The safety flag with the details is in the parent dashboard.
+                "Details: see the safety flags in the parent dashboard"
             )
             return {
                 "sent": False,
@@ -338,7 +340,9 @@ This notification was generated automatically by the safety monitoring system. Y
                 f"User ID: {user_id}\n"
                 f"Category: {category}\n"
                 f"Severity: {severity}\n"
-                f"Message:\n{message}"
+                # Not the message: it has the child's name and words, and the log is a plain file.
+                # The safety flag with the details is in the parent dashboard.
+                "Details: see the safety flags in the parent dashboard"
             )
             return {
                 "sent": False,
@@ -360,9 +364,7 @@ This notification was generated automatically by the safety monitoring system. Y
             )
 
             if email_result.get("sent"):
-                logger.info(
-                    f"Email notification sent to {user.parent_email} for user {user_id}"
-                )
+                logger.info(f"Email notification sent to the parent of user {user_id}")
                 return {
                     "sent": True,
                     "notification_id": f"notif_{user_id}_{datetime.now().timestamp()}",
@@ -379,7 +381,9 @@ This notification was generated automatically by the safety monitoring system. Y
                     f"User ID: {user_id}\n"
                     f"Category: {category}\n"
                     f"Severity: {severity}\n"
-                    f"Message:\n{message}"
+                    # Not the message: it has the child's name and words, and the log is a plain file.
+                    # The safety flag with the details is in the parent dashboard.
+                    "Details: see the safety flags in the parent dashboard"
                 )
                 return {
                     "sent": False,
@@ -396,7 +400,9 @@ This notification was generated automatically by the safety monitoring system. Y
                 f"User ID: {user_id}\n"
                 f"Category: {category}\n"
                 f"Severity: {severity}\n"
-                f"Message:\n{message}"
+                # Not the message: it has the child's name and words, and the log is a plain file.
+                # The safety flag with the details is in the parent dashboard.
+                "Details: see the safety flags in the parent dashboard"
             )
             return {
                 "sent": False,
@@ -501,7 +507,7 @@ This notification was generated automatically by the safety monitoring system. Y
         Raises:
             Exception if sending fails
         """
-        logger.info(f"Sending test notification to {parent_email}")
+        logger.info("Sending test notification")
 
         # Create test notification content
         subject = f"[Test] Safety Monitor - Test Notification"
@@ -534,10 +540,10 @@ This is an automated test message.
                 subject=subject,
                 body=body
             )
-            logger.info(f"Test notification sent successfully to {parent_email}")
+            logger.info("Test notification sent successfully")
             return True
         except Exception as e:
-            logger.error(f"Failed to send test notification to {parent_email}: {e}")
+            logger.error(f"Failed to send test notification: {e}")
             raise
 
 

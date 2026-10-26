@@ -70,6 +70,7 @@ const electronAPI = {
       'get-parent-dashboard',
       'update-settings',
       'export-memory-book',
+      'get-api-token',
       'store-get',
       'store-set',
       'store-delete',

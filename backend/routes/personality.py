@@ -116,7 +116,7 @@ async def get_personality(user_id: int = 1, db: Session = Depends(get_db)):
 
     except Exception as e:
         logger.error(f"Error getting personality: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/personality/description")
@@ -153,7 +153,7 @@ async def get_personality_description(user_id: int = 1, db: Session = Depends(ge
         raise
     except Exception as e:
         logger.error(f"Error getting personality description: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 def _get_friendship_label(level: int) -> str:
@@ -202,7 +202,7 @@ async def get_friendship_progress(user_id: int = 1, db: Session = Depends(get_db
         raise
     except Exception as e:
         logger.error(f"Error getting friendship progress: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/friendship/levels")
@@ -221,7 +221,7 @@ async def get_all_friendship_levels():
 
     except Exception as e:
         logger.error(f"Error getting friendship levels: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/friendship/level/{level}")
@@ -250,7 +250,7 @@ async def get_friendship_level_info(level: int):
         raise
     except Exception as e:
         logger.error(f"Error getting level info: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 class AddPointsRequest(BaseModel):
@@ -302,7 +302,7 @@ async def add_friendship_points_endpoint(
         raise
     except Exception as e:
         logger.error(f"Error adding friendship points: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/friendship/activities")
@@ -323,7 +323,7 @@ async def get_available_activities():
 
     except Exception as e:
         logger.error(f"Error getting activities: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/friendship/history")
@@ -357,7 +357,7 @@ async def get_friendship_history(user_id: int = 1, db: Session = Depends(get_db)
         raise
     except Exception as e:
         logger.error(f"Error getting friendship history: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/friendship/simulate/{target_level}")
@@ -386,7 +386,7 @@ async def simulate_level_progression(target_level: int):
         raise
     except Exception as e:
         logger.error(f"Error simulating progression: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # Level-up event endpoints
@@ -418,7 +418,7 @@ async def get_level_up_events(
 
     except Exception as e:
         logger.error(f"Error getting level-up events: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/friendship/unacknowledged-events")
@@ -444,7 +444,7 @@ async def get_unacknowledged_events(user_id: int = 1, db: Session = Depends(get_
 
     except Exception as e:
         logger.error(f"Error getting unacknowledged events: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/friendship/should-celebrate")
@@ -470,7 +470,7 @@ async def should_celebrate(user_id: int = 1, db: Session = Depends(get_db)):
 
     except Exception as e:
         logger.error(f"Error checking celebration: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/friendship/acknowledge-event/{event_id}")
@@ -500,7 +500,7 @@ async def acknowledge_level_up_event(event_id: int, db: Session = Depends(get_db
         raise
     except Exception as e:
         logger.error(f"Error acknowledging event: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/friendship/acknowledge-all-events")
@@ -525,7 +525,7 @@ async def acknowledge_all_level_up_events(user_id: int = 1, db: Session = Depend
 
     except Exception as e:
         logger.error(f"Error acknowledging all events: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/friendship/event-summary")
@@ -550,7 +550,7 @@ async def get_event_summary(user_id: int = 1, db: Session = Depends(get_db)):
 
     except Exception as e:
         logger.error(f"Error getting event summary: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/friendship/level-rewards")
@@ -571,7 +571,7 @@ async def get_level_rewards():
 
     except Exception as e:
         logger.error(f"Error getting level rewards: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/friendship/level-rewards/{level}")
@@ -601,7 +601,7 @@ async def get_specific_level_rewards(level: int):
         raise
     except Exception as e:
         logger.error(f"Error getting level rewards: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # Feature unlock endpoints
@@ -636,7 +636,7 @@ async def get_feature_summary(user_id: int = 1, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Error getting feature summary: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/features/unlocked")
@@ -673,7 +673,7 @@ async def get_unlocked_features(user_id: int = 1, db: Session = Depends(get_db))
         raise
     except Exception as e:
         logger.error(f"Error getting unlocked features: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/features/locked")
@@ -710,7 +710,7 @@ async def get_locked_features(user_id: int = 1, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Error getting locked features: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/features/check/{feature_id}")
@@ -757,7 +757,7 @@ async def check_feature(feature_id: str, user_id: int = 1, db: Session = Depends
         raise
     except Exception as e:
         logger.error(f"Error checking feature: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 class FeatureCheckRequest(BaseModel):
@@ -804,7 +804,7 @@ async def check_multiple_features(
         raise
     except Exception as e:
         logger.error(f"Error checking multiple features: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/features/by-level/{level}")
@@ -835,7 +835,7 @@ async def get_features_by_level(level: int):
         raise
     except Exception as e:
         logger.error(f"Error getting features by level: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/features/by-category/{category}")
@@ -876,7 +876,7 @@ async def get_features_by_category(category: str, user_id: Optional[int] = None,
 
     except Exception as e:
         logger.error(f"Error getting features by category: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/features/categories")
@@ -897,7 +897,7 @@ async def get_feature_categories():
 
     except Exception as e:
         logger.error(f"Error getting categories: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ============================================================================
@@ -939,7 +939,7 @@ async def get_drift_history(
 
     except Exception as e:
         logger.error(f"Error getting drift history: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/drift/summary")
@@ -965,7 +965,7 @@ async def get_drift_summary(user_id: int = 1, db: Session = Depends(get_db)):
 
     except Exception as e:
         logger.error(f"Error getting drift summary: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/drift/timeline/{trait_name}")
@@ -1021,7 +1021,7 @@ async def get_trait_timeline(
         raise
     except Exception as e:
         logger.error(f"Error getting trait timeline: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 class ManualTraitAdjustmentRequest(BaseModel):
@@ -1073,7 +1073,7 @@ async def manual_adjust_trait(
         raise
     except Exception as e:
         logger.error(f"Error adjusting trait: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/drift/stats")
@@ -1119,7 +1119,7 @@ async def get_drift_stats(user_id: int = 1, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Error getting drift stats: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/drift/recent")
@@ -1153,7 +1153,7 @@ async def get_recent_drifts(
 
     except Exception as e:
         logger.error(f"Error getting recent drifts: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ============================================================================
@@ -1228,7 +1228,7 @@ async def adjust_trait(
         raise
     except Exception as e:
         logger.error(f"Error adjusting trait: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/traits/adjust-delta")
@@ -1278,7 +1278,7 @@ async def adjust_trait_by_delta(
         raise
     except Exception as e:
         logger.error(f"Error adjusting trait by delta: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/traits/adjust-multiple")
@@ -1332,7 +1332,7 @@ async def adjust_multiple_traits(
         raise
     except Exception as e:
         logger.error(f"Error adjusting multiple traits: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/traits/reset/{trait_name}")
@@ -1382,7 +1382,7 @@ async def reset_trait(
         raise
     except Exception as e:
         logger.error(f"Error resetting trait: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/traits/reset-all")
@@ -1432,7 +1432,7 @@ async def reset_all_traits(
         raise
     except Exception as e:
         logger.error(f"Error resetting all traits: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/traits/info/{trait_name}")
@@ -1459,7 +1459,7 @@ async def get_trait_info(trait_name: str):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error getting trait info: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/traits/info")
@@ -1480,7 +1480,7 @@ async def get_all_trait_info():
 
     except Exception as e:
         logger.error(f"Error getting all trait info: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/traits/validate")
@@ -1527,7 +1527,7 @@ async def validate_traits(user_id: int = 1, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Error validating traits: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ============================================================================
@@ -1587,7 +1587,7 @@ async def get_drift_allowance(
         raise
     except Exception as e:
         logger.error(f"Error getting drift allowance: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/drift/rate-limits/all-allowances/{trait_name}")
@@ -1639,7 +1639,7 @@ async def get_all_allowances(
         raise
     except Exception as e:
         logger.error(f"Error getting all allowances: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/drift/rate-limits/stats")
@@ -1678,7 +1678,7 @@ async def get_drift_rate_stats(
         raise
     except Exception as e:
         logger.error(f"Error getting drift rate stats: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/drift/rate-limits/cooldown/{trait_name}")
@@ -1735,7 +1735,7 @@ async def check_cooldown(
         raise
     except Exception as e:
         logger.error(f"Error checking cooldown: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/drift/rate-limits/config")
@@ -1763,4 +1763,4 @@ async def get_rate_limit_config():
 
     except Exception as e:
         logger.error(f"Error getting rate limit config: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")

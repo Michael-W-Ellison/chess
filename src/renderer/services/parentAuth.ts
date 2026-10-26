@@ -9,6 +9,7 @@
  */
 
 import { BACKEND_URL } from '../../shared/constants';
+import { apiTokenHeaders } from './apiToken';
 
 export const PARENT_API_URL = `${BACKEND_URL}/api/parent`;
 
@@ -67,7 +68,7 @@ async function errorDetail(response: Response): Promise<string> {
 
 /** Whether the backend requires a parent password, and whether one is set up */
 export async function getParentAuthStatus(): Promise<ParentAuthStatus> {
-  const response = await fetch(`${PARENT_API_URL}/auth/status`);
+  const response = await fetch(`${PARENT_API_URL}/auth/status`, { headers: await apiTokenHeaders() });
   if (!response.ok) {
     throw new ParentAuthError(await errorDetail(response), response.status);
   }
@@ -84,7 +85,7 @@ export async function getParentAuthStatus(): Promise<ParentAuthStatus> {
 export async function loginParent(password: string): Promise<void> {
   const response = await fetch(`${PARENT_API_URL}/auth/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await apiTokenHeaders()) },
     body: JSON.stringify({ password }),
   });
   if (!response.ok) {
@@ -103,7 +104,7 @@ export async function verifyParentToken(): Promise<boolean> {
   const token = getParentToken();
   if (!token) return false;
   const response = await fetch(`${PARENT_API_URL}/auth/verify`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${token}`, ...(await apiTokenHeaders()) },
   });
   if (!response.ok) {
     setParentToken(null);
@@ -120,6 +121,9 @@ export async function verifyParentToken(): Promise<boolean> {
  */
 export async function parentFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
+  for (const [name, value] of Object.entries(await apiTokenHeaders())) {
+    headers.set(name, value);
+  }
   const token = getParentToken();
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);

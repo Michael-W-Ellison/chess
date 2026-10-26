@@ -96,11 +96,10 @@ async def login(request: LoginRequest):
         identifier = "parent_login"
 
         if not auth_rate_limiter.is_allowed(identifier):
-            lockout_info = auth_rate_limiter.get_lockout_info(identifier)
-            logger.warning(f"Rate limit exceeded for login attempt")
+            logger.warning("Rate limit exceeded for login attempt")
             raise HTTPException(
                 status_code=429,
-                detail=f"Too many login attempts. Please try again in {lockout_info['remaining_time']}."
+                detail=f"Too many login attempts. Please try again in {auth_rate_limiter.wait_time(identifier)}."
             )
 
         # Check if password protection is enabled
@@ -138,10 +137,10 @@ async def login(request: LoginRequest):
                     detail=f"Invalid password. {remaining} attempt{'s' if remaining != 1 else ''} remaining."
                 )
             else:
-                lockout_info = auth_rate_limiter.get_lockout_info(identifier)
                 raise HTTPException(
                     status_code=429,
-                    detail=f"Too many failed attempts. Account locked for {lockout_info['remaining_time']}."
+                    detail=f"Too many failed attempts. Please wait {auth_rate_limiter.wait_time(identifier)} "
+                           f"before trying again."
                 )
 
         # Clear attempts on successful login
@@ -164,7 +163,7 @@ async def login(request: LoginRequest):
         raise
     except Exception as e:
         logger.error(f"Error during login: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/auth/status", response_model=AuthStatusResponse)
@@ -301,11 +300,8 @@ async def change_password(
         # Hash new password
         new_hash = auth_service.hash_password(request.new_password)
 
-        logger.info("Password changed successfully")
-        logger.warning(
-            "IMPORTANT: Update PARENT_DASHBOARD_PASSWORD in .env file with new hash:\n"
-            f"PARENT_DASHBOARD_PASSWORD={new_hash}"
-        )
+        # The hash goes only to the parent in the response, not to the log file
+        logger.info("Password changed successfully; the new hash must be put in .env")
 
         return {
             "success": True,
@@ -318,7 +314,7 @@ async def change_password(
         raise
     except Exception as e:
         logger.error(f"Error changing password: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/auth/setup-password")
@@ -371,14 +367,23 @@ async def setup_password(request: SetupPasswordRequest):
         # Hash password
         password_hash = auth_service.hash_password(request.password)
 
-        # Generate JWT secret if not set
-        jwt_secret = settings.JWT_SECRET_KEY
-        if not jwt_secret:
-            import secrets
-            jwt_secret = secrets.token_urlsafe(32)
-
         logger.info("Initial password setup completed")
 
+        # A JWT secret that is already set is never sent back: this endpoint needs no login,
+        # and the secret would let anyone make parent tokens
+        if settings.JWT_SECRET_KEY:
+            return {
+                "success": True,
+                "message": "Password setup complete",
+                "password_hash": password_hash,
+                "instructions": (
+                    "Add this to your .env file (JWT_SECRET_KEY is already set):\n"
+                    f"PARENT_DASHBOARD_PASSWORD={password_hash}\n"
+                    "Then restart the server."
+                )
+            }
+        import secrets
+        jwt_secret = secrets.token_urlsafe(32)
         return {
             "success": True,
             "message": "Password setup complete",
@@ -396,7 +401,7 @@ async def setup_password(request: SetupPasswordRequest):
         raise
     except Exception as e:
         logger.error(f"Error setting up password: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/auth/validate-password", response_model=PasswordValidationResponse)
@@ -425,7 +430,7 @@ async def validate_password_endpoint(request: SetupPasswordRequest):
 
     except Exception as e:
         logger.error(f"Error validating password: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/auth/requirements")
@@ -650,7 +655,7 @@ async def get_parent_dashboard(
         raise
     except Exception as e:
         logger.error(f"Error getting parent dashboard: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/dashboard/overview", response_model=UserSafetySummaryResponse)
@@ -704,7 +709,7 @@ async def get_parent_dashboard_overview(
         raise
     except Exception as e:
         logger.error(f"Error getting parent dashboard overview: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/safety-flags/all", response_model=List[SafetyFlagResponse])
@@ -746,7 +751,7 @@ async def get_all_safety_flags(
 
     except Exception as e:
         logger.error(f"Error getting all safety flags: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/safety-flags/critical", response_model=List[SafetyFlagResponse])
@@ -799,7 +804,7 @@ async def get_critical_safety_flags(
 
     except Exception as e:
         logger.error(f"Error getting critical safety flags: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/safety-flags/unnotified", response_model=List[SafetyFlagResponse])
@@ -851,7 +856,7 @@ async def get_unnotified_safety_flags(
         raise
     except Exception as e:
         logger.error(f"Error getting unnotified safety flags: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/safety-flags/by-severity/{severity}", response_model=List[SafetyFlagResponse])
@@ -910,7 +915,7 @@ async def get_safety_flags_by_severity(
         raise
     except Exception as e:
         logger.error(f"Error getting safety flags by severity: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/safety-flags/by-type/{flag_type}", response_model=List[SafetyFlagResponse])
@@ -959,7 +964,7 @@ async def get_safety_flags_by_type(
         raise
     except Exception as e:
         logger.error(f"Error getting safety flags by type: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/safety-flags/recent", response_model=List[SafetyFlagResponse])
@@ -999,7 +1004,7 @@ async def get_recent_safety_flags(
 
     except Exception as e:
         logger.error(f"Error getting recent safety flags: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/safety-flags/stats", response_model=SafetyStatsResponse)
@@ -1092,7 +1097,7 @@ async def get_safety_flags_statistics(
 
     except Exception as e:
         logger.error(f"Error getting safety flags statistics: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/safety-flags/{flag_id}", response_model=SafetyFlagResponse)
@@ -1141,7 +1146,7 @@ async def get_safety_flag_detail(
         raise
     except Exception as e:
         logger.error(f"Error getting safety flag detail: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/engagement")
@@ -1201,7 +1206,7 @@ async def get_safety_statistics(
 
     except Exception as e:
         logger.error(f"Error getting safety statistics: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/notifications/history", response_model=List[NotificationHistoryResponse])
@@ -1241,7 +1246,7 @@ async def get_notification_history(
 
     except Exception as e:
         logger.error(f"Error getting notification history: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/safety-flags/{flag_id}/acknowledge")
@@ -1292,7 +1297,7 @@ async def acknowledge_safety_flag(
         raise
     except Exception as e:
         logger.error(f"Error acknowledging safety flag: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/safety-flags/acknowledge-multiple")
@@ -1346,7 +1351,7 @@ async def acknowledge_multiple_flags(
         raise
     except Exception as e:
         logger.error(f"Error acknowledging multiple safety flags: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ============================================================================
@@ -1451,7 +1456,7 @@ async def get_notification_preferences(
 
     except Exception as e:
         logger.error(f"Error getting notification preferences: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.put("/preferences", response_model=PreferencesResponse)
@@ -1518,7 +1523,7 @@ async def update_notification_preferences(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error updating notification preferences: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/preferences/enable-all")
@@ -1549,7 +1554,7 @@ async def enable_all_notification_preferences(
 
     except Exception as e:
         logger.error(f"Error enabling all notifications: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/preferences/disable-all")
@@ -1580,7 +1585,7 @@ async def disable_all_notification_preferences(
 
     except Exception as e:
         logger.error(f"Error disabling all notifications: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/preferences/reset")
@@ -1611,7 +1616,7 @@ async def reset_notification_preferences(
 
     except Exception as e:
         logger.error(f"Error resetting preferences: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ===========================
@@ -1694,7 +1699,7 @@ async def get_user_conversations(
         raise
     except Exception as e:
         logger.error(f"Error retrieving conversations: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/conversations/{conversation_id}/summary", response_model=ConversationSummaryResponse)
@@ -1742,7 +1747,7 @@ async def get_conversation_summary(
         raise
     except Exception as e:
         logger.error(f"Error retrieving conversation summary: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/conversations/{conversation_id}/generate-summary", response_model=ConversationSummaryResponse)
@@ -1805,7 +1810,7 @@ async def generate_conversation_summary(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Error generating conversation summary: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/conversations/generate-summaries-batch")
@@ -1859,7 +1864,7 @@ async def generate_summaries_batch(
         raise
     except Exception as e:
         logger.error(f"Error generating batch summaries: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/test-notification")
@@ -1932,7 +1937,7 @@ async def send_test_notification(
         raise
     except Exception as e:
         logger.error(f"Error sending test notification: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ============================================================================
@@ -2002,7 +2007,7 @@ async def preview_report(
         raise
     except Exception as e:
         logger.error(f"Error generating report preview: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/reports/send", response_model=ReportSendResponse)
@@ -2065,7 +2070,7 @@ async def send_report(
         raise
     except Exception as e:
         logger.error(f"Error sending report: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/reports/generate")
@@ -2129,7 +2134,7 @@ async def generate_report(
         raise
     except Exception as e:
         logger.error(f"Error generating report: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/reports/trigger-scheduled-check")
@@ -2157,4 +2162,4 @@ async def trigger_scheduled_check():
 
     except Exception as e:
         logger.error(f"Error triggering scheduled check: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")

@@ -14,7 +14,24 @@ class Settings(BaseSettings):
     # Server Configuration
     HOST: str = "127.0.0.1"
     PORT: int = 8000
-    DEBUG: bool = True
+    # True: API docs at /docs and error details in responses. Off unless set, since the
+    # details can include paths and database errors
+    DEBUG: bool = False
+    # Host names the server answers to; a request for any other name (a web page that pointed
+    # its own domain at 127.0.0.1) is refused
+    ALLOWED_HOSTS: list = ["127.0.0.1", "localhost"]
+    # Set by the Electron app for each launch (src/main/backend-manager.ts): every /api request
+    # must then send it in the X-API-Token header, so web pages and other programs can't use
+    # the API. Unset (tests, a backend started by hand): no token needed
+    API_TOKEN: Optional[str] = None
+    # The child profile the app uses, set by the Electron app: the child API then serves
+    # only this user (another user_id is refused); the parent API is not limited. Unset:
+    # any user
+    CHILD_USER_ID: Optional[int] = None
+
+    def child_user_allowed(self, user_id) -> bool:
+        """Whether the child API may serve this user (see CHILD_USER_ID)"""
+        return self.CHILD_USER_ID is None or str(user_id) == str(self.CHILD_USER_ID)
 
     # Database Configuration
     DATABASE_URL: str = "sqlite:///./data/chatbot.db"
@@ -24,6 +41,9 @@ class Settings(BaseSettings):
     # rule-based engine (services/response_engine.py)
     USE_LLM: bool = True
     MODEL_PATH: str = "./models/llama-3.2-3b-instruct.gguf"
+    # The model that comes with the packaged app (set by src/main/backend-manager.ts), used
+    # when there is no model at MODEL_PATH
+    BUNDLED_MODEL_PATH: Optional[str] = None
     MODEL_CONTEXT_LENGTH: int = 2048
     MODEL_MAX_TOKENS: int = 512
     MODEL_TEMPERATURE: float = 0.7
@@ -81,8 +101,14 @@ class Settings(BaseSettings):
     )
 
     def get_model_path(self) -> Path:
-        """Get absolute path to model file"""
-        return Path(self.MODEL_PATH).resolve()
+        """
+        Absolute path to the model file: MODEL_PATH if a model is there, else the packaged
+        app's own model, if any
+        """
+        own = Path(self.MODEL_PATH).resolve()
+        if not own.exists() and self.BUNDLED_MODEL_PATH and Path(self.BUNDLED_MODEL_PATH).exists():
+            return Path(self.BUNDLED_MODEL_PATH).resolve()
+        return own
 
     def get_database_path(self) -> Path:
         """Get absolute path to database file"""

@@ -38,7 +38,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
         {/* Message bubble */}
         <div
           className={`
-            relative px-4 py-3 rounded-2xl shadow-sm
+            relative px-4 py-3 rounded-2xl shadow-xs
             ${
               isUser
                 ? 'bg-blue-500 text-white rounded-br-sm'
@@ -56,7 +56,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
           )}
 
           {/* Message content */}
-          <p className="text-sm whitespace-pre-wrap break-words">
+          <p className="text-sm whitespace-pre-wrap wrap-break-word">
             {message.content}
           </p>
 

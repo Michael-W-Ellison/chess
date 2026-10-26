@@ -43,7 +43,7 @@ export const ParentLogin: React.FC<ParentLoginProps> = ({ onLogin, onNotConfigur
     <div className="h-full flex items-center justify-center bg-gray-50 p-6">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm bg-white border border-gray-200 rounded-lg shadow-sm p-6"
+        className="w-full max-w-sm bg-white border border-gray-200 rounded-lg shadow-xs p-6"
       >
         <h1 className="text-2xl font-bold text-gray-800">Parent Dashboard</h1>
         <p className="text-sm text-gray-600 mt-1 mb-4">Enter the parent password to continue.</p>
@@ -64,7 +64,7 @@ export const ParentLogin: React.FC<ParentLoginProps> = ({ onLogin, onNotConfigur
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
         />
 
         {error && (

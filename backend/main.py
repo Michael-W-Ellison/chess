@@ -4,9 +4,12 @@ Tamagotchi Chatbot Backend - Main Application
 FastAPI application for local chatbot with personality and memory.
 """
 
+import hmac
+
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 
@@ -44,7 +47,7 @@ async def lifespan(app: FastAPI):
     logger.info("Database initialized")
 
     # Load LLM model with optimizations from settings
-    logger.info(f"Loading LLM model from {settings.MODEL_PATH}")
+    logger.info(f"Loading LLM model from {settings.get_model_path()}")
 
     # Log cache configuration
     if settings.ENABLE_RESPONSE_CACHE:
@@ -130,6 +133,23 @@ app = FastAPI(
     redoc_url="/redoc" if settings.DEBUG else None,
     lifespan=lifespan,
 )
+
+# The API token from the Electron app (settings.API_TOKEN), checked on every /api request.
+# Added before CORS, so CORS stays the outer middleware and answers preflight requests.
+@app.middleware("http")
+async def require_api_token(request: Request, call_next):
+    if (settings.API_TOKEN and request.url.path.startswith("/api") and request.method != "OPTIONS"
+            and not hmac.compare_digest(request.headers.get("X-API-Token", ""), settings.API_TOKEN)):
+        return JSONResponse(status_code=401, content={"success": False, "error": "Missing or wrong API token"})
+    # Only the app's child profile (settings.CHILD_USER_ID) on the child API
+    if (request.url.path.startswith("/api") and not request.url.path.startswith("/api/parent")
+            and "user_id" in request.query_params and not settings.child_user_allowed(request.query_params["user_id"])):
+        return JSONResponse(status_code=403, content={"success": False, "error": "Unknown user"})
+    return await call_next(request)
+
+
+# Only requests for this machine's own host names (not a web page's domain pointed at 127.0.0.1)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.ALLOWED_HOSTS)
 
 # CORS Middleware - allow Electron frontend to communicate
 app.add_middleware(

@@ -46,7 +46,7 @@ read -p "Select model (1-4): " choice
 case $choice in
     1)
         echo -e "${YELLOW}Downloading Llama 3.2 3B Instruct...${NC}"
-        MODEL_URL="https://huggingface.co/TheBloke/Llama-3.2-3B-Instruct-GGUF/resolve/main/llama-3.2-3b-instruct.Q4_K_M.gguf"
+        MODEL_URL="https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf"
         MODEL_FILE="models/llama-3.2-3b-instruct.gguf"
         ;;
     2)

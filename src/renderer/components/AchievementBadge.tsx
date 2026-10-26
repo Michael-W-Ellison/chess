@@ -63,7 +63,7 @@ export const AchievementBadge: React.FC<AchievementBadgeProps> = ({
 
           {/* Tier indicator */}
           <div
-            className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-xs font-bold uppercase"
+            className="absolute top-1 right-1 px-1.5 py-0.5 rounded-sm text-xs font-bold uppercase"
             style={{
               backgroundColor: tierColors.border,
               color: tierColors.text,

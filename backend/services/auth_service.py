@@ -3,6 +3,8 @@ Authentication Service
 Handles password verification and JWT token generation for parent dashboard
 """
 
+import hashlib
+import hmac
 import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict
@@ -154,7 +156,7 @@ class AuthService:
                 minutes=self.access_token_expire_minutes
             )
 
-        to_encode.update({"exp": expire})
+        to_encode.update({"exp": expire, "pwd": self._password_fingerprint()})
 
         # Encode JWT
         encoded_jwt = jwt.encode(
@@ -186,6 +188,10 @@ class AuthService:
                 self.secret_key,
                 algorithms=[self.algorithm]
             )
+            # A token from before the password changed is no longer valid
+            if not hmac.compare_digest(str(payload.get("pwd", "")), self._password_fingerprint()):
+                logger.debug("Token verification failed: issued for an earlier password")
+                return None
             return payload
 
         except JWTError as e:
@@ -195,6 +201,11 @@ class AuthService:
         except Exception as e:
             logger.error(f"Unexpected error verifying token: {e}", exc_info=True)
             return None
+
+    @staticmethod
+    def _password_fingerprint() -> str:
+        """Short hash of the stored password hash, put in tokens so a password change ends them"""
+        return hashlib.sha256((settings.PARENT_DASHBOARD_PASSWORD or "").encode("utf-8")).hexdigest()[:16]
 
     def is_token_valid(self, token: str) -> bool:
         """

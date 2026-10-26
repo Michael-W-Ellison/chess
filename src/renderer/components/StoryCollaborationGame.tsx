@@ -219,7 +219,7 @@ export const StoryCollaborationGame: React.FC = () => {
               {/* Easy */}
               <button
                 onClick={() => startStory('easy')}
-                className={`bg-gradient-to-br ${getDifficultyColor('easy')} hover:from-green-600 hover:to-green-700 text-white rounded-xl p-6 transition-all shadow-lg hover:shadow-xl text-left`}
+                className={`bg-linear-to-br ${getDifficultyColor('easy')} hover:from-green-600 hover:to-green-700 text-white rounded-xl p-6 transition-all shadow-lg hover:shadow-xl text-left`}
               >
                 <div className="text-4xl mb-2">🌱</div>
                 <div className="text-xl font-bold mb-1">Easy Stories</div>
@@ -232,7 +232,7 @@ export const StoryCollaborationGame: React.FC = () => {
               {/* Medium */}
               <button
                 onClick={() => startStory('medium')}
-                className={`bg-gradient-to-br ${getDifficultyColor('medium')} hover:from-blue-600 hover:to-blue-700 text-white rounded-xl p-6 transition-all shadow-lg hover:shadow-xl text-left`}
+                className={`bg-linear-to-br ${getDifficultyColor('medium')} hover:from-blue-600 hover:to-blue-700 text-white rounded-xl p-6 transition-all shadow-lg hover:shadow-xl text-left`}
               >
                 <div className="text-4xl mb-2">⚡</div>
                 <div className="text-xl font-bold mb-1">Medium Stories</div>
@@ -245,7 +245,7 @@ export const StoryCollaborationGame: React.FC = () => {
               {/* Hard */}
               <button
                 onClick={() => startStory('hard')}
-                className={`bg-gradient-to-br ${getDifficultyColor('hard')} hover:from-purple-600 hover:to-purple-700 text-white rounded-xl p-6 transition-all shadow-lg hover:shadow-xl text-left`}
+                className={`bg-linear-to-br ${getDifficultyColor('hard')} hover:from-purple-600 hover:to-purple-700 text-white rounded-xl p-6 transition-all shadow-lg hover:shadow-xl text-left`}
               >
                 <div className="text-4xl mb-2">🔥</div>
                 <div className="text-xl font-bold mb-1">Hard Stories</div>
@@ -292,7 +292,7 @@ export const StoryCollaborationGame: React.FC = () => {
       {gameState === 'playing' && selectedPrompt && (
         <div className="space-y-6">
           {/* Story Info */}
-          <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl p-6 border border-purple-200 dark:border-purple-800">
+          <div className="bg-linear-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl p-6 border border-purple-200 dark:border-purple-800">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-2xl">{getThemeEmoji(selectedPrompt.theme)}</span>
@@ -324,7 +324,7 @@ export const StoryCollaborationGame: React.FC = () => {
                 key={index}
                 className={`${
                   segment.author === 'starter'
-                    ? 'bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 border-l-4 border-purple-500'
+                    ? 'bg-linear-to-r from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 border-l-4 border-purple-500'
                     : segment.author === 'user'
                     ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500'
                     : 'bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500'
@@ -385,7 +385,7 @@ export const StoryCollaborationGame: React.FC = () => {
                   value={userInput}
                   onChange={(e) => setUserInput(e.target.value)}
                   placeholder="Continue the story... (10-500 characters)"
-                  className="w-full px-4 py-3 rounded-lg border-2 border-blue-300 dark:border-blue-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:border-blue-500 dark:focus:border-blue-500 focus:outline-none resize-none"
+                  className="w-full px-4 py-3 rounded-lg border-2 border-blue-300 dark:border-blue-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:border-blue-500 dark:focus:border-blue-500 focus:outline-hidden resize-none"
                   rows={4}
                   maxLength={500}
                 />
@@ -417,7 +417,7 @@ export const StoryCollaborationGame: React.FC = () => {
       {/* Story Finished */}
       {gameState === 'finished' && (
         <div className="text-center space-y-6">
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-12 border border-green-200 dark:border-green-800">
+          <div className="bg-linear-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-12 border border-green-200 dark:border-green-800">
             <div className="text-6xl mb-4">📚</div>
             <h2 className="text-3xl font-bold text-green-900 dark:text-green-200 mb-4">
               Story Complete!

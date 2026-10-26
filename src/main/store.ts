@@ -49,7 +49,6 @@ export interface StoreSchema {
   // Privacy & Safety
   privacy: {
     dataCollectionEnabled: boolean;
-    parentPassword?: string;
     safetyLevel: 'low' | 'medium' | 'high';
   };
 
@@ -91,7 +90,6 @@ export const defaults: StoreSchema = {
 
   privacy: {
     dataCollectionEnabled: true,
-    parentPassword: undefined,
     safetyLevel: 'medium',
   },
 

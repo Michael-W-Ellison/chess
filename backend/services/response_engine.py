@@ -19,7 +19,7 @@ import logging
 import random
 import re
 import zlib
-from collections import defaultdict, deque
+from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -30,6 +30,7 @@ from services.emoji_quirk_service import emoji_quirk_service
 from services.fact_base import FACT_OPENERS_RE, FactBase, fact_text
 from services.reference_tracker import ReferenceTracker, gerund
 from services.utterance_parser import _NAMED_KINDS, utterance_parser
+from utils.bounded import BoundedDict
 
 logger = logging.getLogger("chatbot.response_engine")
 
@@ -313,28 +314,28 @@ class ResponseEngine:
         self.rules: Dict[str, Dict[str, Any]] = {}
         self._matcher = None
         self._pattern_nodes: Dict[str, List[str]] = {}
-        self._recent: Dict[int, deque] = defaultdict(lambda: deque(maxlen=8))
-        self._last_request: Dict[int, str] = {}
-        self._last_told: Dict[int, str] = {}  # "joke"/"fun fact" if the last reply told one
-        self._last_mentions: Dict[int, List[str]] = {}  # the bot's own answers in the last reply
-        self._last_category: Dict[int, str] = {}
+        self._recent: Dict[int, deque] = BoundedDict(default_factory=lambda: deque(maxlen=8))
+        self._last_request: Dict[int, str] = BoundedDict()
+        self._last_told: Dict[int, str] = BoundedDict()  # "joke"/"fun fact" if the last reply told one
+        self._last_mentions: Dict[int, List[str]] = BoundedDict()  # the bot's own answers in the last reply
+        self._last_category: Dict[int, str] = BoundedDict()
         # 1 after "I have a joke for you" (waiting for the setup), 2 after the bot's guess
-        self._child_joke: Dict[int, int] = {}
+        self._child_joke: Dict[int, int] = BoundedDict()
         # Turns of a story the child and the bot are making up together
-        self._story_mode: Dict[int, int] = {}  # the favorite category last talked about
+        self._story_mode: Dict[int, int] = BoundedDict()  # the favorite category last talked about
         # Turns left of a game of pretend
-        self._pretend: Dict[int, int] = {}
+        self._pretend: Dict[int, int] = BoundedDict()
         # The answer to a riddle the bot asked, while the child guesses
-        self._riddle: Dict[int, Tuple[str, str]] = {}
+        self._riddle: Dict[int, Tuple[str, str]] = BoundedDict()
         # What the bot's last reply asked for, so a short next message can be read as its answer
-        self._expect: Dict[int, Expectation] = {}
+        self._expect: Dict[int, Expectation] = BoundedDict()
         # The child's previous message (resolved), for fragments that continue it ("next week")
-        self._previous_message: Dict[int, str] = {}
-        self._last_bot_reply: Dict[int, str] = {}  # for the tone of an answer to it (_reason_tone)
+        self._previous_message: Dict[int, str] = BoundedDict()
+        self._last_bot_reply: Dict[int, str] = BoundedDict()  # for the tone of an answer to it (_reason_tone)
         # The fact the bot just disputed or confirmed (None for a world answer it gave), so
         # "you're wrong" or "no there are 9" right after it is answered by sticking to it
-        self._last_fact: Dict[int, Optional[Dict]] = {}
-        self._current_message: Dict[int, str] = {}
+        self._last_fact: Dict[int, Optional[Dict]] = BoundedDict()
+        self._current_message: Dict[int, str] = BoundedDict()
         self._load_knowledge_base()
         self.references = ReferenceTracker(
             parser, self.kb["lexicons"]["relations"], self.kb["lexicons"]["common_capitalized"],

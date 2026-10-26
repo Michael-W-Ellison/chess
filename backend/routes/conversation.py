@@ -5,10 +5,12 @@ Endpoints for chat conversation management
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Optional
 import logging
 
 from database.database import get_db
+from utils.config import settings
 from services.conversation_manager import conversation_manager
 from services.conversation_tracker import conversation_tracker
 
@@ -26,10 +28,15 @@ class StartConversationResponse(BaseModel):
     personality: dict
 
 
+# Longest message accepted (the chat input allows 500 characters): longer text would take
+# the parser, the database and the model a long time
+MAX_MESSAGE_LENGTH = 1000
+
+
 class SendMessageRequest(BaseModel):
     """Request to send a message"""
 
-    content: str
+    content: str = Field(..., max_length=MAX_MESSAGE_LENGTH)
     conversation_id: int
     user_id: int = 1  # Default user ID (single-user desktop app)
 
@@ -76,7 +83,7 @@ async def start_conversation(user_id: int = 1, db: Session = Depends(get_db)):
 
     except Exception as e:
         logger.error(f"Error starting conversation: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/message", response_model=SendMessageResponse)
@@ -92,6 +99,14 @@ async def send_message(request: SendMessageRequest, db: Session = Depends(get_db
         Bot's response message
     """
     try:
+        # The message goes into a conversation of the same child
+        from models.conversation import Conversation
+
+        conversation = db.query(Conversation).filter(Conversation.id == request.conversation_id).first()
+        if (conversation is None or conversation.user_id != request.user_id
+                or not settings.child_user_allowed(request.user_id)):
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
         result = conversation_manager.process_message(
             user_message=request.content,
             conversation_id=request.conversation_id,
@@ -130,7 +145,7 @@ async def send_message(request: SendMessageRequest, db: Session = Depends(get_db
         raise
     except Exception as e:
         logger.error(f"Error processing message: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/conversation/end")
@@ -145,7 +160,7 @@ async def end_conversation(request: EndConversationRequest, db: Session = Depend
     Returns:
         Success confirmation
     """
-    return _end_conversation(request.conversation_id, db)
+    return _end_conversation(request.conversation_id, db, request.user_id)
 
 
 @router.post("/conversation/end/{conversation_id}")
@@ -165,8 +180,9 @@ async def end_conversation_by_id(conversation_id: int, db: Session = Depends(get
     return _end_conversation(conversation_id, db)
 
 
-def _end_conversation(conversation_id: int, db: Session) -> dict:
+def _end_conversation(conversation_id: int, db: Session, user_id: Optional[int] = None) -> dict:
     """End a conversation and run end-of-conversation updates (traits, drift, summary)"""
+    _require_child_conversation(conversation_id, db, user_id)
     try:
         conversation_manager.end_conversation(conversation_id, db)
 
@@ -176,7 +192,21 @@ def _end_conversation(conversation_id: int, db: Session) -> dict:
 
     except Exception as e:
         logger.error(f"Error ending conversation: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+def _require_child_conversation(conversation_id: int, db: Session, user_id: Optional[int] = None):
+    """
+    The conversation, if it exists and belongs to the child the API serves (and to user_id,
+    if given); else 404
+    """
+    from models.conversation import Conversation
+
+    conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    if (conversation is None or not settings.child_user_allowed(conversation.user_id)
+            or (user_id is not None and conversation.user_id != user_id)):
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return conversation
 
 
 # Conversation tracking endpoints
@@ -204,7 +234,7 @@ async def get_conversation_stats(user_id: int = 1, db: Session = Depends(get_db)
 
     except Exception as e:
         logger.error(f"Error getting conversation stats: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/conversation/recent")
@@ -240,7 +270,7 @@ async def get_recent_conversations(
 
     except Exception as e:
         logger.error(f"Error getting recent conversations: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/conversation/streak")
@@ -267,7 +297,7 @@ async def get_conversation_streak(user_id: int = 1, db: Session = Depends(get_db
 
     except Exception as e:
         logger.error(f"Error getting streak info: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/conversation/{conversation_id}")
@@ -283,19 +313,11 @@ async def get_conversation(conversation_id: int, db: Session = Depends(get_db)):
         Conversation details with messages
     """
     try:
-        from models.conversation import Conversation
-
-        conversation = (
-            db.query(Conversation).filter(Conversation.id == conversation_id).first()
-        )
-
-        if not conversation:
-            raise HTTPException(status_code=404, detail="Conversation not found")
-
+        conversation = _require_child_conversation(conversation_id, db)
         return conversation.to_dict(include_messages=True)
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error retrieving conversation: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
