@@ -582,8 +582,10 @@ parent dashboard (Language Model tab). Turning it on shows a warning, which the 
 confirm, that the model's replies might exceed the app's safety mechanisms: model replies
 are checked for some kinds of unsafe advice by word and phrase patterns, and these checks
 do not catch every unsafe, inaccurate or inappropriate reply. `USE_LLM=true` in the
-backend's `.env` turns the model on for every launch without showing the warning; it is
-meant for development.
+backend's `.env` turns the model on for every launch, but it also takes effect only once
+a parent has accepted the warning in the dashboard; until then the model stays off.
+Turning the model off in the dashboard withdraws the acceptance, so it then stays off
+even with `USE_LLM=true` until the warning is accepted again.
 
 The installed app keeps the backend's `.env`, database (`data/`), logs and LLM model
 (`models/`) in a `backend` folder in its user data folder:

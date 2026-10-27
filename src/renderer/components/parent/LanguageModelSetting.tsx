@@ -52,16 +52,17 @@ export const LanguageModelSetting: React.FC = () => {
         <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg mt-4">
           <div>
             <div className="font-medium text-gray-800">
-              Language model: {status.enabled || status.enabled_by_config ? 'On' : 'Off'}
+              Language model: {status.enabled ? 'On' : 'Off'}
             </div>
             {status.enabled && status.warning_accepted_at && (
               <p className="text-sm text-gray-600 mt-1">
                 Turned on after the warning was accepted on {new Date(status.warning_accepted_at).toLocaleString()}
               </p>
             )}
-            {status.enabled_by_config && (
+            {status.enabled_by_config && !status.enabled && (
               <p className="text-sm text-gray-600 mt-1">
-                Turned on by USE_LLM=true in the backend configuration; this switch cannot turn it off.
+                USE_LLM=true is set in the backend configuration. The model stays off until you accept the
+                warning.
               </p>
             )}
           </div>
@@ -86,7 +87,7 @@ export const LanguageModelSetting: React.FC = () => {
           )}
         </div>
 
-        {(status.enabled || status.enabled_by_config) && !status.model_available && (
+        {status.enabled && !status.model_available && (
           <p className="text-sm text-gray-700 mt-4">
             No model file was found ({status.model_file}), so replies still come from the rules. See the
             documentation for where to put a model file.

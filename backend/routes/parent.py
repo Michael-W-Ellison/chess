@@ -2191,7 +2191,8 @@ async def get_language_model_setting(db: Session = Depends(get_db)):
 async def update_language_model_setting(request: LanguageModelUpdateRequest, db: Session = Depends(get_db)):
     """
     Turn the language model on or off. Turning it on is refused unless warning_accepted is
-    true: the parent confirmed they read the warning.
+    true: the parent confirmed they read the warning. Turning it off also turns off a model
+    turned on by USE_LLM=true, until the warning is accepted again.
     """
     if request.enabled and not request.warning_accepted:
         raise HTTPException(status_code=400, detail="Read and accept the warning to turn on the language model")
@@ -2200,6 +2201,7 @@ async def update_language_model_setting(request: LanguageModelUpdateRequest, db:
         if settings.get_model_path().exists():
             # Loaded in the background so the first reply does not wait for it
             llm_service.load_model(blocking=False, use_mmap=settings.MODEL_USE_MMAP)
-    elif not settings.USE_LLM:
+    else:
+        # Off even with USE_LLM=true: turning off withdrew the warning's acceptance
         llm_service.unload_model()
     return llm_setting.status(db)

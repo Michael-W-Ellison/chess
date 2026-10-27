@@ -204,8 +204,9 @@ See `.env.example` for all configuration options:
 
 By default the backend uses a rule-based response engine and loads no model. The LLM is
 used only when a parent turns it on in the parent dashboard (Language Model tab, after a
-warning that its replies might exceed the app's safety mechanisms) or `USE_LLM=true` is
-set in `.env` (development; no warning is shown), and a model file is present. The
+warning that its replies might exceed the app's safety mechanisms), or `USE_LLM=true` is
+set in `.env` and a parent has accepted the same warning there, and a model file is
+present. The
 rule-based engine:
 
 - `services/utterance_parser.py` parses each message into a dependency tree with spaCy

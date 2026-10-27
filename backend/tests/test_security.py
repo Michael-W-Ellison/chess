@@ -203,6 +203,7 @@ def test_unsafe_model_reply_is_replaced(client):
     cm = importlib.import_module("services.conversation_manager")
     start = client.post("/api/conversation/start?user_id=7405").json()
     with patch.object(cm.settings, "USE_LLM", True), \
+            patch.object(cm.llm_setting, "warning_accepted", return_value=True), \
             patch.object(cm.llm_service, "ensure_loaded", return_value=True), \
             patch.object(cm.llm_service, "generate", return_value="You should punch them in the face!"):
         reply = client.post("/api/message", json={

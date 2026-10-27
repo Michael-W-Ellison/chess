@@ -47,8 +47,12 @@ async def lifespan(app: FastAPI):
     init_db()
     logger.info("Database initialized")
 
-    # The language model is off unless a parent turned it on (or USE_LLM=true): replies then
-    # come from the rule-based engine and no model is loaded
+    # The language model is off unless a parent turned it on or USE_LLM=true, and in both
+    # cases a parent accepted the warning: otherwise replies come from the rule-based engine
+    # and no model is loaded
+    if settings.USE_LLM and not llm_setting.warning_accepted():
+        logger.warning("USE_LLM=true is set, but the language model stays off until a parent accepts the "
+                       "warning in the parent dashboard (Language Model tab)")
     if llm_setting.enabled():
         logger.warning("Language model on: replies may be written by the model")
         logger.info(f"Loading LLM model from {settings.get_model_path()}")

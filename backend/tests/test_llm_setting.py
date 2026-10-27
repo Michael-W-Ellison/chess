@@ -27,6 +27,7 @@ def fresh_setting():
         db.commit()
         db.close()
         llm_setting._enabled = None
+        llm_setting._accepted = None
 
     clear()
     yield
@@ -57,8 +58,38 @@ def test_choice_is_stored():
         llm_setting.set_enabled(db, True, warning_accepted=True)
     finally:
         db.close()
-    llm_setting._enabled = None  # as after a restart
+    llm_setting._enabled = llm_setting._accepted = None  # as after a restart
     assert llm_setting.enabled() is True
+
+
+def test_use_llm_requires_the_warning():
+    db = SessionLocal()
+    try:
+        with patch("utils.config.settings.USE_LLM", True):
+            assert llm_setting.enabled() is False
+            assert llm_setting.status(db)["enabled"] is False
+            llm_setting.set_enabled(db, True, warning_accepted=True)
+            assert llm_setting.enabled() is True
+            # Turning off withdraws the acceptance: off even with USE_LLM=true
+            llm_setting.set_enabled(db, False)
+            assert llm_setting.enabled() is False
+            assert llm_setting.status(db)["warning_accepted_at"] is None
+            llm_setting._enabled = llm_setting._accepted = None  # as after a restart
+            assert llm_setting.enabled() is False
+    finally:
+        db.close()
+
+
+def test_replies_do_not_use_the_model_with_use_llm_before_the_warning(client):
+    cm = importlib.import_module("services.conversation_manager")
+    start = client.post("/api/conversation/start?user_id=7408").json()
+    with patch("utils.config.settings.USE_LLM", True), \
+            patch.object(cm.llm_service, "ensure_loaded", return_value=True) as ensure, \
+            patch.object(cm.llm_service, "generate", return_value="MODEL REPLY") as generate:
+        client.post("/api/message", json={
+            "content": "I like dogs", "conversation_id": start["conversation_id"], "user_id": 7408})
+    ensure.assert_not_called()
+    generate.assert_not_called()
 
 
 def test_warning_says_replies_might_exceed_the_safety_mechanisms():
